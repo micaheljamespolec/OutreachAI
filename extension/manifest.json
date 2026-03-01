@@ -1,0 +1,35 @@
+{
+  "manifest_version": 3,
+  "name": "OutreachAI",
+  "version": "1.0.0",
+  "description": "AI-powered outreach for recruiters and talent sourcers.",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://*.supabase.co/*",
+    "https://mail.google.com/*",
+    "https://outlook.live.com/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_popup": "ui/popup.html",
+    "default_title": "OutreachAI"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "128": "icons/icon128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

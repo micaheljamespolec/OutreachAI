@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OutreachAI</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; background: #f5f7fa; color: #1a1a2e; width: 360px; min-height: 200px; }
+
+  .header { background: #0a66c2; color: white; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
+  .header h1 { font-size: 15px; font-weight: 700; flex: 1; }
+  .header-badge { background: rgba(255,255,255,0.2); border-radius: 10px; padding: 2px 8px; font-size: 11px; }
+  .header-mode { font-size: 11px; opacity: 0.85; }
+
+  .tabs { display: flex; background: white; border-bottom: 1px solid #e8ecf0; }
+  .tab { flex: 1; text-align: center; padding: 9px 4px; font-size: 12px; cursor: pointer; color: #666; transition: all 0.15s; }
+  .tab:hover { background: #f5f7fa; color: #0a66c2; }
+  .tab.active { color: #0a66c2; border-bottom: 2px solid #0a66c2; font-weight: 600; }
+
+  .tab-content { display: none; padding: 12px; }
+  .tab-content.active { display: block; }
+
+  .card { background: white; border-radius: 8px; border: 1px solid #e8ecf0; padding: 12px; margin-bottom: 10px; }
+  .card-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 8px; }
+  .field { display: flex; flex-direction: column; margin-bottom: 8px; }
+  .field:last-child { margin-bottom: 0; }
+  .field-label { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .field-value { font-size: 13px; color: #1a1a2e; font-weight: 500; word-break: break-word; }
+
+  .btn { width: 100%; padding: 9px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: #0a66c2; color: white; }
+  .btn-primary:hover { background: #0855a5; }
+  .btn-secondary { background: #f0f4f8; color: #333; border: 1px solid #dde1e7; }
+  .btn-secondary:hover { background: #e4e9ef; }
+  .btn-danger { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+  .btn-danger:hover { background: #ffe0e0; }
+  .btn + .btn { margin-top: 8px; }
+
+  input[type="email"], input[type="text"], textarea, select {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #dde1e7; border-radius: 6px;
+    font-size: 13px; color: #1a1a2e; background: white; outline: none; transition: border-color 0.15s;
+  }
+  input:focus, textarea:focus { border-color: #0a66c2; }
+  textarea { resize: vertical; min-height: 80px; line-height: 1.5; }
+  label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; font-weight: 500; }
+  .form-group { margin-bottom: 10px; }
+
+  .status { padding: 8px 10px; border-radius: 6px; font-size: 12px; margin-bottom: 8px; display: none; }
+  .status.show { display: block; }
+  .status.info    { background: #e8f0fe; color: #1a56db; border: 1px solid #c3d9ff; }
+  .status.success { background: #e6f9f0; color: #0d6b3c; border: 1px solid #b3e6cc; }
+  .status.error   { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+
+  /* Login */
+  #login-screen { padding: 24px 20px; display: none; }
+  .login-logo { text-align: center; margin-bottom: 20px; }
+  .login-logo .logo-icon { font-size: 36px; }
+  .login-logo h2 { font-size: 20px; font-weight: 700; color: #0a66c2; margin-top: 8px; }
+  .login-logo p { font-size: 12px; color: #888; margin-top: 4px; }
+  .login-hint { font-size: 11px; color: #aaa; text-align: center; margin-top: 8px; }
+
+  /* Settings */
+  .settings-section { margin-bottom: 14px; }
+  .settings-section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #888; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .plan-badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; background: #e8f0fe; color: #0a66c2; margin-left: 6px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 24px 16px; color: #888; }
+  .empty-state .icon { font-size: 32px; margin-bottom: 10px; }
+  .empty-state p { font-size: 13px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<!-- ── Login Screen ── -->
+<div id="login-screen" style="display:none;">
+  <div class="login-logo">
+    <div class="logo-icon">💼</div>
+    <h2>OutreachAI</h2>
+    <p>AI-powered recruiter outreach</p>
+  </div>
+
+  <div class="form-group">
+    <label for="login-email">Work Email</label>
+    <input type="email" id="login-email" placeholder="you@company.com" />
+  </div>
+  <button class="btn btn-primary" id="btn-send-magic-link">✉️ Send Magic Link</button>
+  <p class="login-hint">We'll email you a one-click login link.<br>No password needed. Free — 10 lookups/month included.</p>
+  <div id="login-status" class="status" style="margin-top:10px;"></div>
+</div>
+
+<!-- ── Main App ── -->
+<div id="main-app" style="display:none;">
+
+  <div class="header">
+    <span>💼</span>
+    <h1>OutreachAI</h1>
+    <span class="header-mode">🎯 Recruiter</span>
+    <span class="header-badge" id="header-credits">— / — lookups</span>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="email">✉️ Email</div>
+    <div class="tab" data-tab="job">📋 Job</div>
+    <div class="tab" data-tab="settings">⚙️ Settings</div>
+  </div>
+
+  <!-- Email Tab -->
+  <div class="tab-content active" id="tab-email">
+    <div id="state-not-linkedin" class="empty-state" style="display:none;">
+      <div class="icon">🔗</div>
+      <p>Open a <strong>LinkedIn profile page</strong><br>and click this extension to get started.</p>
+    </div>
+    <div id="state-email">
+      <div class="card">
+        <div class="card-title">👤 LinkedIn Profile</div>
+        <div id="profile-loading" class="status info show">Scanning profile…</div>
+        <div id="profile-data" style="display:none;">
+          <div class="field"><div class="field-label">Name</div><div class="field-value" id="p-name">—</div></div>
+          <div class="field"><div class="field-label">Title</div><div class="field-value" id="p-title">—</div></div>
+          <div class="field"><div class="field-label">Company</div><div class="field-value" id="p-company">—</div></div>
+        </div>
+        <div id="profile-error" class="status error" style="display:none;">Could not read profile. Make sure you're on a LinkedIn profile page.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📧 Email Lookup</div>
+        <div id="email-found" style="display:none;">
+          <div class="field"><div class="field-label">Email</div><div class="field-value" id="found-email">—</div></div>
+          <div class="field"><div class="field-label">Confidence</div><div class="field-value" id="found-email-confidence">—</div></div>
+        </div>
+        <div id="email-not-found" class="status error" style="display:none;">No email found for this profile.</div>
+        <button class="btn btn-primary" id="btn-find-email" style="margin-top:8px;">🔍 Find Email (uses 1 lookup)</button>
+        <div id="email-status" class="status" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="card" id="card-draft" style="display:none;">
+        <div class="card-title">✍️ AI Email Draft</div>
+        <textarea id="email-draft" rows="6" placeholder="Your personalized outreach email will appear here…"></textarea>
+        <button class="btn btn-secondary" id="btn-regenerate" style="margin-top:8px;">🔄 Regenerate</button>
+        <button class="btn btn-primary" id="btn-open-gmail" style="margin-top:8px;">📨 Open in Gmail</button>
+        <div id="draft-status" class="status" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job Tab -->
+  <div class="tab-content" id="tab-job">
+    <div class="card">
+      <div class="card-title">📋 Active Job Opening</div>
+      <div class="form-group">
+        <label for="job-title">Job Title</label>
+        <input type="text" id="job-title" placeholder="e.g. Senior Software Engineer" />
+      </div>
+      <div class="form-group">
+        <label for="job-company">Hiring Company</label>
+        <input type="text" id="job-company" placeholder="e.g. Acme Corp" />
+      </div>
+      <div class="form-group">
+        <label for="job-description">Key Details / Selling Points</label>
+        <textarea id="job-description" rows="4" placeholder="e.g. Remote-first, $180k–$220k, Series B startup…"></textarea>
+      </div>
+      <button class="btn btn-primary" id="btn-save-job">💾 Save Job</button>
+      <div id="job-status" class="status" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <!-- Settings Tab -->
+  <div class="tab-content" id="tab-settings">
+    <div class="settings-section">
+      <div class="settings-section-title">Account</div>
+      <div class="card">
+        <div class="field"><div class="field-label">Email</div><div class="field-value" id="settings-email">—</div></div>
+        <div class="field"><div class="field-label">Plan</div><div class="field-value"><span id="settings-plan">Free</span><span class="plan-badge" id="settings-plan-badge">Free</span></div></div>
+        <div class="field"><div class="field-label">Lookups Used</div><div class="field-value" id="settings-lookups">—</div></div>
+        <button class="btn btn-secondary" id="btn-upgrade" style="margin-top:8px;">⬆️ Upgrade Plan</button>
+        <button class="btn btn-danger" id="btn-sign-out" style="margin-top:8px;">Sign Out</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">Your Details</div>
+      <div class="card">
+        <div class="form-group">
+          <label for="pref-your-name">Your Name</label>
+          <input type="text" id="pref-your-name" placeholder="e.g. Sarah Johnson" />
+        </div>
+        <div class="form-group">
+          <label for="pref-your-title">Your Title</label>
+          <input type="text" id="pref-your-title" placeholder="e.g. Technical Recruiter at Acme" />
+        </div>
+        <button class="btn btn-primary" id="btn-save-prefs">Save</button>
+        <div id="prefs-status" class="status" style="margin-top:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="../popup.js" type="module"></script>
+</body>
+</html>
