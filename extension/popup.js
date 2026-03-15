@@ -84,6 +84,14 @@ async function setupEmailTab() {
   document.getElementById('state-not-linkedin').style.display = 'none'
   document.getElementById('state-email').style.display = 'block'
 
+  if (!await isLoggedIn()) {
+    document.getElementById('profile-loading').classList.remove('show')
+    const errEl = document.getElementById('profile-error')
+    errEl.textContent = 'Sign in to look up emails'
+    errEl.style.display = 'block'
+    return
+  }
+
   const profileLoading = document.getElementById('profile-loading')
   const profileData = document.getElementById('profile-data')
   const profileError = document.getElementById('profile-error')
@@ -132,7 +140,10 @@ async function setupEmailTab() {
         showStatus(statusEl, 'Not found — enter manually above.', 'info')
       }
     } catch(e) {
-      showStatus(statusEl, 'Lookup failed. Try again.', 'error')
+      const msg = e.message === 'Not signed in'
+        ? 'Please sign in first'
+        : 'Lookup failed. Try again.'
+      showStatus(statusEl, msg, 'error')
     }
 
     btn.disabled = false

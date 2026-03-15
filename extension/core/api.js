@@ -41,6 +41,7 @@ export async function dbPatch(table, query, body) {
 
 export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
   const token = await getAccessToken()
+  if (!token) throw new Error('Not signed in')
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
     method: 'POST',
     headers: {
