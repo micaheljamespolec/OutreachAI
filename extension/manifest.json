@@ -16,6 +16,13 @@
     "https://outlook.live.com/*",
     "https://*/*"
   ],
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/in/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "ui/popup.html",
     "default_title": "OutreachAI"
