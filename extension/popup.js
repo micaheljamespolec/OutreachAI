@@ -1,8 +1,8 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, getUser, signOut } from './core/auth.js'
-import { getCredits, deductCredit } from './core/credits.js'
-import { createCheckout } from './core/api.js'
+import { getCredits } from './core/credits.js'
+import { createCheckout, lookupEmail } from './core/api.js'
 
 function showStatus(el, msg, type = 'info') {
   el.textContent = msg
@@ -112,13 +112,29 @@ async function setupEmailTab() {
     const statusEl = document.getElementById('email-status')
     btn.disabled = true
     showStatus(statusEl, 'Looking up email...', 'info')
-    const ok = await deductCredit()
-    if (!ok) {
-      showStatus(statusEl, 'No lookups remaining. Please upgrade.', 'error')
-      btn.disabled = false
-      return
+
+    try {
+      const result = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company)
+
+      if (result.found && result.email) {
+        document.getElementById('email-found').style.display = 'block'
+        document.getElementById('found-email').textContent = result.email
+        document.getElementById('found-email-confidence').textContent = '✅ via FullEnrich'
+        hideStatus(statusEl)
+      } else {
+        document.getElementById('email-not-found').style.display = 'block'
+        const manualInput = document.createElement('input')
+        manualInput.type = 'email'
+        manualInput.id = 'manual-email'
+        manualInput.placeholder = 'Enter email manually'
+        manualInput.style.marginTop = '8px'
+        document.getElementById('email-not-found').after(manualInput)
+        showStatus(statusEl, 'Not found — enter manually above.', 'info')
+      }
+    } catch(e) {
+      showStatus(statusEl, 'Lookup failed. Try again.', 'error')
     }
-    showStatus(statusEl, 'Email API not yet configured.', 'error')
+
     btn.disabled = false
     await loadCreditsUI()
   })
@@ -128,7 +144,8 @@ async function setupEmailTab() {
   document.getElementById('btn-open-gmail')?.addEventListener('click', () => {
     const draft = document.getElementById('email-draft').value.trim()
     const toEmail = document.getElementById('found-email')?.textContent?.trim()
-    const to = (toEmail && toEmail !== '-') ? toEmail : ''
+    const manualEmail = document.getElementById('manual-email')?.value?.trim()
+    const to = (toEmail && toEmail !== '-') ? toEmail : (manualEmail || '')
     const subject = encodeURIComponent(`Exciting opportunity for ${profile?.firstName || 'you'}`)
     const body = encodeURIComponent(draft)
     chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}` })

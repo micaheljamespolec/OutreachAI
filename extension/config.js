@@ -3,6 +3,8 @@ export const CONFIG = {
   supabaseUrl: 'https://szxjcitbjcpkhxtjztay.supabase.co',
   supabaseKey: 'sb_publishable__-mlJj13otvAZ-FI4pne6w_KdMdX3Ep',
 
+  fullenrichUrl: 'https://app.fullenrich.com/api/v1',
+
   appName:    'OutreachAI',
   version:    '1.0.0',
   pricingUrl: 'https://placeholder.com/pricing',

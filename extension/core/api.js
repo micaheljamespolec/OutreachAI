@@ -39,6 +39,20 @@ export async function dbPatch(table, query, body) {
   return res.json()
 }
 
+export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
+  const token = await getAccessToken()
+  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
+  })
+  if (!res.ok) throw new Error(`lookup-email failed: ${res.status}`)
+  return res.json()
+}
+
 // Opens pricing page — Stripe checkout handled via website, not extension
 export function createCheckout() {
   chrome.tabs.create({ url: CONFIG.pricingUrl })
