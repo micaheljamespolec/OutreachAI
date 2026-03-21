@@ -12,6 +12,7 @@ Deno.serve(async (req) => {
     // ── Parse body ────────────────────────────────────────────────────────────
     const { firstName, lastName, linkedinUrl, company } = await req.json()
     if (!firstName && !lastName) return error('Missing name fields', 400)
+    console.log('Received:', { firstName, lastName, company, linkedinUrl })
 
     // ── FullEnrich bulk enrich ────────────────────────────────────────────────
     const enrichRes = await fetch(`${FULLENRICH_URL}/contact/enrich/bulk`, {
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
       }),
     })
 
+    console.log('FullEnrich status:', enrichRes.status)
     if (!enrichRes.ok) {
       const text = await enrichRes.text()
       return error(`FullEnrich enrich failed: ${enrichRes.status} ${text}`, 502)
@@ -39,6 +41,7 @@ Deno.serve(async (req) => {
 
     const enrichData = await enrichRes.json()
     const enrichmentId = enrichData?.id ?? enrichData?.enrichment_id
+    console.log('Enrichment ID:', enrichmentId)
 
     if (!enrichmentId) return error('No enrichment ID returned', 502)
 
@@ -54,6 +57,7 @@ Deno.serve(async (req) => {
       if (!pollRes.ok) continue
 
       const pollData = await pollRes.json()
+      console.log('Poll attempt', i, 'status:', pollData?.status)
       if (pollData?.status !== 'finished') continue
 
       const contact = pollData?.results?.[0]
@@ -64,6 +68,7 @@ Deno.serve(async (req) => {
       break
     }
 
+    console.log('Email found:', email)
     const found = !!email
 
     return new Response(
