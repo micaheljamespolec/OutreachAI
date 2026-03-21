@@ -41,12 +41,11 @@ export async function dbPatch(table, query, body) {
 
 export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
   const token = await getAccessToken()
-  if (!token) throw new Error('Not signed in')
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
     method: 'POST',
     headers: {
       'Content-Type':  'application/json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token || ''}`,
     },
     body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
   })
@@ -54,6 +53,25 @@ export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
     const errText = await res.text()
     console.error('lookup-email error:', res.status, errText)
     throw new Error(errText || `lookup-email failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function generateDraft(profile, job, recruiter) {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Not signed in')
+  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/generate-draft`, {
+    method: 'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({ profile, job, recruiter }),
+  })
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('generate-draft error:', res.status, errText)
+    throw new Error(errText || `generate-draft failed: ${res.status}`)
   }
   return res.json()
 }
