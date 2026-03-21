@@ -46,7 +46,7 @@ export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
     headers: {
       'Content-Type':  'application/json',
       'apikey':        CONFIG.supabaseKey,
-      'Authorization': `Bearer ${token || ''}`,
+      'Authorization': `Bearer ${token || CONFIG.supabaseKey}`,
     },
     body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
   })
