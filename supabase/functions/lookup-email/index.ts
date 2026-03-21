@@ -1,10 +1,5 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
 const FULLENRICH_URL = 'https://app.fullenrich.com/api/v1'
 const FULLENRICH_KEY = Deno.env.get('FULLENRICH_API_KEY') ?? ''
-const SUPABASE_URL   = Deno.env.get('SUPABASE_URL') ?? ''
-const SUPABASE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -12,34 +7,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // ── Auth ──────────────────────────────────────────────────────────────────
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return error('Missing auth token', 401)
-
-    const token = authHeader.replace('Bearer ', '')
-    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_ANON_KEY,
-      }
-    })
-    if (!userRes.ok) return error('Unauthorized', 401)
-    const user = await userRes.json()
-    if (!user?.id) return error('Unauthorized', 401)
-
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-
-    // ── Credits check ─────────────────────────────────────────────────────────
-    const { data: credits } = await supabase
-      .from('credits')
-      .select('lookups_used, tier')
-      .eq('user_id', user.id)
-      .single()
-
-    const tier = credits?.tier ?? 'free'
-    const used = credits?.lookups_used ?? 0
-    const max  = tier === 'pro' ? 200 : tier === 'sourcer' ? 50 : 10
-    if (used >= max) return error('No lookups remaining', 402)
+    // Auth temporarily disabled for testing - re-enable before launch
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const { firstName, lastName, linkedinUrl, company } = await req.json()
@@ -97,14 +65,6 @@ Deno.serve(async (req) => {
     }
 
     const found = !!email
-
-    // ── Deduct credit only if found ───────────────────────────────────────────
-    if (found) {
-      await supabase
-        .from('credits')
-        .update({ lookups_used: used + 1 })
-        .eq('user_id', user.id)
-    }
 
     return new Response(
       JSON.stringify({ email, source: 'FullEnrich', found }),
