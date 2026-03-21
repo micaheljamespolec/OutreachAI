@@ -50,7 +50,11 @@ export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
     },
     body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
   })
-  if (!res.ok) throw new Error(`lookup-email failed: ${res.status}`)
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('lookup-email error:', res.status, errText)
+    throw new Error(errText || `lookup-email failed: ${res.status}`)
+  }
   return res.json()
 }
 
