@@ -63,7 +63,7 @@ export async function sendMagicLink(email) {
       method: 'POST', headers: HEADERS,
       body: JSON.stringify({
         email,
-        options: {         emailRedirectTo: 'https://micaheljamespolec.github.io/outreachai-auth' }
+        options: { emailRedirectTo: 'https://micaheljamespolec.github.io/outreachai-auth' }
       }),
     })
     if (!res.ok) {
