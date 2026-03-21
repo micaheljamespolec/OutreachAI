@@ -15,11 +15,18 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return error('Missing auth token', 401)
 
+    const token = authHeader.replace('Bearer ', '')
+    const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'apikey': SUPABASE_KEY,
+      }
+    })
+    if (!userRes.ok) return error('Unauthorized', 401)
+    const user = await userRes.json()
+    if (!user?.id) return error('Unauthorized', 401)
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
-    if (authErr || !user) return error('Unauthorized', 401)
 
     // ── Credits check ─────────────────────────────────────────────────────────
     const { data: credits } = await supabase
