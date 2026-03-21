@@ -4,6 +4,7 @@ const FULLENRICH_URL = 'https://app.fullenrich.com/api/v1'
 const FULLENRICH_KEY = Deno.env.get('FULLENRICH_API_KEY') ?? ''
 const SUPABASE_URL   = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -19,7 +20,7 @@ Deno.serve(async (req) => {
     const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_KEY,
+        'apikey': SUPABASE_ANON_KEY,
       }
     })
     if (!userRes.ok) return error('Unauthorized', 401)
