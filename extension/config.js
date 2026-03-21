@@ -1,7 +1,7 @@
 // ─── config.js ────────────────────────────────────────────────────────────────
 export const CONFIG = {
   supabaseUrl: 'https://szxjcitbjcpkhxtjztay.supabase.co',
-  supabaseKey: 'sb_publishable__-mlJj13otvAZ-FI4pne6w_KdMdX3Ep',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6eGpjaXRiamNwa2h4dGp6dGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODc2MDgsImV4cCI6MjA4NzM2MzYwOH0.9sgQhrNY8GGeMWIHPTnNehrM8eGD0tMHM6FCKDf-k08',
 
   fullenrichUrl: 'https://app.fullenrich.com/api/v1',
 
