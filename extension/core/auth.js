@@ -33,6 +33,8 @@ export async function getUser() {
 }
 
 export async function getAccessToken() {
+  const loggedIn = await isLoggedIn()
+  if (!loggedIn) return null
   const session = await loadSession()
   return session?.access_token ?? null
 }
