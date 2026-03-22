@@ -1,4 +1,3 @@
-const FULLENRICH_URL = 'https://app.fullenrich.com/api/v1'
 const FULLENRICH_KEY = Deno.env.get('FULLENRICH_API_KEY') ?? ''
 
 Deno.serve(async (req) => {
@@ -15,7 +14,7 @@ Deno.serve(async (req) => {
     console.log('Received:', { firstName, lastName, company, linkedinUrl })
 
     // ── FullEnrich bulk enrich ────────────────────────────────────────────────
-    const enrichRes = await fetch(`${FULLENRICH_URL}/contact/enrich/bulk`, {
+    const enrichRes = await fetch('https://app.fullenrich.com/api/v2/contact/enrich/bulk', {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -50,7 +49,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < 8; i++) {
       await new Promise(r => setTimeout(r, 2000))
 
-      const pollRes = await fetch(`${FULLENRICH_URL}/bulk/${enrichmentId}`, {
+      const pollRes = await fetch(`https://app.fullenrich.com/api/v2/contact/enrich/bulk/${enrichmentId}`, {
         headers: { 'Authorization': `Bearer ${FULLENRICH_KEY}` },
       })
 
@@ -58,12 +57,10 @@ Deno.serve(async (req) => {
 
       const pollData = await pollRes.json()
       console.log('Full poll response:', JSON.stringify(pollData))
-      if (pollData?.status !== 'finished') continue
+      if (pollData?.status !== 'FINISHED') continue
 
-      const datas = pollData?.datas ?? []
-      const firstContact = Array.isArray(datas) ? datas[0] : null
-      const emails = firstContact?.contact?.emails ?? firstContact?.emails ?? []
-      email = emails[0]?.email ?? ''
+      const firstResult = pollData?.data?.[0]
+      email = firstResult?.contact_info?.most_probable_work_email?.email ?? firstResult?.contact_info?.work_emails?.[0]?.email ?? ''
       console.log('Extracted email:', email)
       break
     }
