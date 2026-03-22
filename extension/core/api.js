@@ -62,13 +62,15 @@ export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
 
 export async function generateDraft(profile, job, recruiter) {
   const token = await getAccessToken()
-  if (!token) throw new Error('Not signed in')
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey':       CONFIG.supabaseKey,
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/generate-draft`, {
     method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
+    headers,
     body: JSON.stringify({ profile, job, recruiter }),
   })
   if (!res.ok) {
