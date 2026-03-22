@@ -23,8 +23,8 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         name: `${firstName} ${lastName}`.trim(),
         datas: [{
-          firstname:      firstName,
-          lastname:       lastName,
+          first_name:     firstName,
+          last_name:      lastName,
           linkedin_url:   linkedinUrl,
           company_name:   company,
           enrich_fields:  ['contact.emails'],
