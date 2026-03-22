@@ -57,19 +57,15 @@ Deno.serve(async (req) => {
       if (!pollRes.ok) continue
 
       const pollData = await pollRes.json()
-      console.log('Poll attempt', i, 'status:', pollData?.status)
+      console.log('Full poll response:', JSON.stringify(pollData))
       if (pollData?.status !== 'finished') continue
 
-      const contact = pollData?.results?.[0]
-      console.log('Full contact:', JSON.stringify(contact))
-      email =
-        contact?.contact?.emails?.[0]?.email ??
-        contact?.contact?.emails?.[0] ??
-        contact?.emails?.[0]?.email ??
-        contact?.emails?.[0] ??
-        contact?.data?.emails?.[0]?.email ??
-        contact?.result?.emails?.[0]?.email ??
-        ''
+      const results = pollData?.datas || pollData?.results || pollData?.data || []
+      const firstResult = Array.isArray(results) ? results[0] : results
+      console.log('First result:', JSON.stringify(firstResult))
+      const emailObj = firstResult?.emails?.[0] || firstResult?.contact?.emails?.[0] || firstResult?.email
+      email = emailObj?.email || emailObj || ''
+      console.log('Extracted email:', email)
       break
     }
 
