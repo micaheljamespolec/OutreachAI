@@ -41,13 +41,15 @@ export async function dbPatch(table, query, body) {
 
 export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
   const token = await getAccessToken()
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey':       CONFIG.supabaseKey,
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
     method: 'POST',
-    headers: {
-      'Content-Type':  'application/json',
-      'apikey':        CONFIG.supabaseKey,
-      'Authorization': `Bearer ${token || CONFIG.supabaseKey}`,
-    },
+    headers,
     body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
   })
   if (!res.ok) {
