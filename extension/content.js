@@ -37,10 +37,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   }
 
-  // ── Fallback: document title (e.g. "Data Scientist at Acme | LinkedIn") ───
+  // ── Fallback: parse from document title ──────────────────────────────────────
+  // LinkedIn title format: "Firstname Lastname - Title at Company | LinkedIn"
   if (!headline) {
-    const titleParts = document.title.split(' | ')
-    if (titleParts.length > 1) headline = titleParts[1].split(' - ')[0].trim()
+    const beforePipe = document.title.split(' | ')[0] ?? ''
+    const dashIdx = beforePipe.indexOf(' - ')
+    if (dashIdx !== -1) headline = beforePipe.slice(dashIdx + 3).trim()
   }
 
   // ── Split "Title at Company" ───────────────────────────────────────────────
