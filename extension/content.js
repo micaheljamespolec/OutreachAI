@@ -6,27 +6,24 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   // LinkedIn uses h1 or h2 for the profile name — find the right one
   let h1 = document.querySelector('h1')
   if (!h1) {
-    // No h1 — find the h2 that contains the person's name (not section headers)
+    // No h1 — find the h2 that matches the name from the page title
     const titleName = document.title.split(' | ')[0].split(' - ')[0].trim()
     const h2s = document.querySelectorAll('h2')
+    // First pass: exact match with page title name
     for (const el of h2s) {
       const text = el.innerText?.trim()
-      // Match if the h2 text looks like a person name (2-4 words, no common section headers)
       if (text && text === titleName) { h1 = el; break }
-      if (text && text.length > 3 && text.length < 50 &&
-          !['About', 'Featured', 'Activity', 'Experience', 'Education', 'Skills',
-           'Highlights', 'Interests', 'Volunteering', 'Recommendations', 'Publications',
-           'Honors & awards', 'Languages', 'Causes', 'Ad Options', 'People you may know',
-           'People also viewed', 'More profiles for you', 'Explore premium profiles',
-           'You might like', "Don't want to see this", 'Summary', 'Recruiting',
-           'Similar Profiles', 'From public profile', 'Most recent activity',
-           'Profile', 'Projects', 'Messages', 'Feedback', 'Attachments',
-           'Recruiting activity', 'More profiles for you'].includes(text) &&
-          !text.includes('notification') && !text.match(/^\d/)
-      ) { h1 = el; break }
+    }
+    // Second pass: look for an h2 that contains the title name (for Recruiter pages with badges)
+    if (!h1 && titleName) {
+      for (const el of h2s) {
+        const text = el.innerText?.trim()
+        if (text && text.includes(titleName)) { h1 = el; break }
+      }
     }
   }
-  const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].trim()
+  // Final fallback: use the name from the page title directly
+  const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].split(' - ')[0].trim()
   const nameParts = (fullName || '').trim().split(/\s+/)
 
   // ── Headline: find the text just below the name ────────────────────────
