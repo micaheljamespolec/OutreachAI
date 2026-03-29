@@ -4,17 +4,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // ── Name ──────────────────────────────────────────────────────────────────
   // LinkedIn uses h1 or h2 for the profile name — find the right one
+  const isRecruiter = window.location.href.includes('/talent/') || window.location.href.includes('/recruiter/')
   let h1 = document.querySelector('h1')
-  if (!h1) {
-    // No h1 — find the h2 that matches the name from the page title
+
+  // On Recruiter pages, the page title IS the person's name — use it directly
+  if (isRecruiter) {
+    h1 = null // don't trust h1/h2 on Recruiter pages
+  } else if (!h1) {
+    // Regular LinkedIn: find the h2 that matches the name from the page title
     const titleName = document.title.split(' | ')[0].split(' - ')[0].trim()
     const h2s = document.querySelectorAll('h2')
-    // First pass: exact match with page title name
     for (const el of h2s) {
       const text = el.innerText?.trim()
       if (text && text === titleName) { h1 = el; break }
     }
-    // Second pass: look for an h2 that contains the title name (for Recruiter pages with badges)
     if (!h1 && titleName) {
       for (const el of h2s) {
         const text = el.innerText?.trim()
@@ -22,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       }
     }
   }
-  // Final fallback: use the name from the page title directly
+
   const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].split(' - ')[0].trim()
   const nameParts = (fullName || '').trim().split(/\s+/)
 
