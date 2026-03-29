@@ -7,11 +7,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].trim()
   const nameParts = (fullName || '').trim().split(/\s+/)
 
-  // ── Headline: search only near the h1, not all of <main> ──────────────────
+  // ── Headline: search near the h1 using TreeWalker ─────────────────────────
   let headline = ''
 
   if (h1) {
-    // Walk up from h1 up to 6 levels to find a container that holds the headline
     let container = h1.parentElement
     for (let depth = 0; depth < 6; depth++) {
       if (!container) break
@@ -21,12 +20,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         const text = node.textContent?.trim()
         if (
           text &&
-          text.includes(' at ') &&
           text.length > 5 &&
-          text.length < 120 &&
+          text.length < 200 &&
           !text.includes('·') &&
           !text.includes('\n') &&
-          text !== fullName  // skip if it somehow matches the name
+          text !== fullName &&
+          // Match headline patterns: "X at Y", or any professional-looking text
+          (text.includes(' at ') || text.includes(' | ') || text.includes(' - '))
         ) {
           headline = text
           break
@@ -37,21 +37,30 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   }
 
-  // ── Fallback: parse from document title ──────────────────────────────────────
+  // ── Fallback: parse from document title ────────────────────────────────────
   // LinkedIn title format: "Firstname Lastname - Title at Company | LinkedIn"
   if (!headline) {
-    const beforePipe = document.title.split(' | ')[0] ?? ''
-    const dashIdx = beforePipe.indexOf(' - ')
-    if (dashIdx !== -1) headline = beforePipe.slice(dashIdx + 3).trim()
+    const beforeLinkedIn = document.title.split(' | LinkedIn')[0] ?? document.title.split(' | ')[0] ?? ''
+    const dashIdx = beforeLinkedIn.indexOf(' - ')
+    if (dashIdx !== -1) headline = beforeLinkedIn.slice(dashIdx + 3).trim()
   }
 
-  // ── Split "Title at Company" ───────────────────────────────────────────────
-  const title = headline.includes(' at ')
-    ? headline.split(' at ').slice(0, -1).join(' at ').trim()
-    : headline
+  // ── Extract title and company from headline ────────────────────────────────
+  // Clean up: if headline has pipes, take the first segment that contains " at "
+  let cleanHeadline = headline
+  if (headline.includes(' | ')) {
+    const segments = headline.split(' | ')
+    const atSegment = segments.find(s => s.includes(' at '))
+    if (atSegment) cleanHeadline = atSegment.trim()
+    else cleanHeadline = segments[0].trim()
+  }
 
-  const company = headline.includes(' at ')
-    ? headline.split(' at ').slice(-1)[0].trim()
+  const title = cleanHeadline.includes(' at ')
+    ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
+    : cleanHeadline
+
+  const company = cleanHeadline.includes(' at ')
+    ? cleanHeadline.split(' at ').slice(-1)[0].trim()
     : ''
 
   sendResponse({
