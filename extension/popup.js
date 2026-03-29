@@ -130,7 +130,8 @@ async function setupEmailTab() {
       if (result.found && result.email) {
         document.getElementById('email-found').style.display = 'block'
         document.getElementById('found-email').textContent = result.email
-        document.getElementById('found-email-confidence').textContent = '✅ via FullEnrich'
+        const sourceLabel = result.source === 'cache' ? '✅ Cached (no credit used)' : '✅ via FullEnrich'
+        document.getElementById('found-email-confidence').textContent = sourceLabel
         hideStatus(statusEl)
         // Auto-generate a draft after successful email lookup
         await generateDraft(profile)
@@ -145,9 +146,10 @@ async function setupEmailTab() {
         showStatus(statusEl, 'Not found — enter manually above.', 'info')
       }
     } catch(e) {
-      const msg = e.message === 'Not signed in'
-        ? 'Please sign in first'
-        : 'Lookup failed. Try again.'
+      let msg = 'Lookup failed. Try again.'
+      if (e.message === 'Not signed in') msg = 'Please sign in first'
+      else if (e.message?.includes('Credit limit')) msg = 'Credit limit reached. Upgrade your plan for more lookups.'
+      else if (e.message?.includes('402')) msg = 'Credit limit reached. Upgrade your plan for more lookups.'
       showStatus(statusEl, msg, 'error')
     }
 
@@ -200,7 +202,10 @@ async function generateDraft(profile) {
     }
   } catch (e) {
     console.error('generate-draft error:', e)
-    showStatus(statusEl, 'Failed to generate draft. Try again.', 'error')
+    const errMsg = e.message?.includes('503') || e.message?.includes('not configured')
+      ? 'AI service not configured. Set GEMINI_API_KEY in Supabase secrets.'
+      : 'Failed to generate draft. Try again.'
+    showStatus(statusEl, errMsg, 'error')
   }
 }
 
