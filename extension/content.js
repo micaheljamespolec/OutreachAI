@@ -71,6 +71,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
   }
 
+  // ── Recruiter fallback: scan the whole page for headline-like text ────────
+  if (!headline && isRecruiter) {
+    // On Recruiter pages, look for any text containing " at " near the top
+    const allText = document.querySelectorAll('span, div, p')
+    for (const el of allText) {
+      const text = el.textContent?.trim()
+      if (
+        text &&
+        text.includes(' at ') &&
+        text.length > 15 &&
+        text.length < 200 &&
+        text !== fullName &&
+        !text.includes('\n')
+      ) {
+        headline = text
+        break
+      }
+    }
+  }
+
   // ── Fallback: parse from document title ────────────────────────────────────
   if (!headline) {
     const beforeLinkedIn = document.title.split(' | LinkedIn')[0] ?? document.title.split(' | ')[0] ?? ''
