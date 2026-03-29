@@ -10,10 +10,16 @@ Deno.serve(async (req) => {
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const { firstName, lastName, linkedinUrl, company } = await req.json()
-    if (!firstName && !lastName) return error('Missing name fields', 400)
+    if (!firstName && !lastName && !linkedinUrl) return error('Missing name or LinkedIn URL', 400)
     console.log('Received:', { firstName, lastName, company, linkedinUrl })
 
-    // ── FullEnrich bulk enrich ────────────────────────────────────────────────
+    // ── Build FullEnrich request — only include non-empty fields ───────────────
+    const contactData: Record<string, any> = { enrich_fields: ['contact.emails'] }
+    if (firstName) contactData.first_name = firstName
+    if (lastName) contactData.last_name = lastName
+    if (linkedinUrl) contactData.linkedin_url = linkedinUrl
+    if (company) contactData.company_name = company
+
     const enrichRes = await fetch('https://app.fullenrich.com/api/v2/contact/enrich/bulk', {
       method: 'POST',
       headers: {
@@ -21,14 +27,8 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${FULLENRICH_KEY}`,
       },
       body: JSON.stringify({
-        name: `${firstName} ${lastName}`.trim(),
-        datas: [{
-          first_name:     firstName,
-          last_name:      lastName,
-          linkedin_url:   linkedinUrl,
-          company_name:   company,
-          enrich_fields:  ['contact.emails'],
-        }],
+        name: `${firstName || ''} ${lastName || ''}`.trim() || 'lookup',
+        datas: [contactData],
       }),
     })
 
