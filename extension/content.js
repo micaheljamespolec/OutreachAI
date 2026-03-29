@@ -18,7 +18,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
            'Highlights', 'Interests', 'Volunteering', 'Recommendations', 'Publications',
            'Honors & awards', 'Languages', 'Causes', 'Ad Options', 'People you may know',
            'People also viewed', 'More profiles for you', 'Explore premium profiles',
-           'You might like', "Don't want to see this"].includes(text) &&
+           'You might like', "Don't want to see this", 'Summary', 'Recruiting',
+           'Similar Profiles', 'From public profile'].includes(text) &&
           !text.includes('notification') && !text.match(/^\d/)
       ) { h1 = el; break }
     }
@@ -93,13 +94,28 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     ? cleanHeadline.split(' at ').slice(-1)[0].trim()
     : ''
 
+  // ── LinkedIn URL: prefer the public profile URL ─────────────────────────
+  let linkedinUrl = window.location.href.split('?')[0]
+  // On Recruiter/Talent pages, try to find the public profile link
+  if (linkedinUrl.includes('/talent/') || linkedinUrl.includes('/recruiter/')) {
+    const publicLink = document.querySelector('a[href*="linkedin.com/in/"]')
+      ?? document.querySelector('a[href*="/pub/"]')
+    if (publicLink) {
+      linkedinUrl = publicLink.href.split('?')[0]
+    } else {
+      // Build a best-guess public URL from the name
+      const slug = fullName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      linkedinUrl = `https://www.linkedin.com/in/${slug}`
+    }
+  }
+
   sendResponse({
     fullName,
     firstName: nameParts[0] || '',
     lastName:  nameParts.slice(1).join(' ') || '',
     title,
     company,
-    linkedinUrl: window.location.href.split('?')[0],
+    linkedinUrl,
   })
 
   return true
