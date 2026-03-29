@@ -1,6 +1,6 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
-import { isLoggedIn, sendMagicLink, getUser, signOut } from './core/auth.js'
+import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
 import { getCredits } from './core/credits.js'
 import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft } from './core/api.js'
 
@@ -41,6 +41,9 @@ function showLoginScreen() {
     const { error } = await sendMagicLink(email)
     if (error) { showStatus(statusEl, `Error: ${error.message}`, 'error'); return }
     showStatus(statusEl, 'Check your email for the magic link!', 'success')
+  })
+  document.getElementById('btn-google-signin').addEventListener('click', () => {
+    signInWithGoogle()
   })
 }
 
