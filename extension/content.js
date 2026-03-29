@@ -3,7 +3,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== 'scrape') return false
 
   // ── Name ──────────────────────────────────────────────────────────────────
-  const h1 = document.querySelector('h1')
+  // LinkedIn uses h1 or h2 for the profile name — find the right one
+  let h1 = document.querySelector('h1')
+  if (!h1) {
+    // No h1 — find the h2 that contains the person's name (not section headers)
+    const titleName = document.title.split(' | ')[0].split(' - ')[0].trim()
+    const h2s = document.querySelectorAll('h2')
+    for (const el of h2s) {
+      const text = el.innerText?.trim()
+      // Match if the h2 text looks like a person name (2-4 words, no common section headers)
+      if (text && text === titleName) { h1 = el; break }
+      if (text && text.length > 3 && text.length < 50 &&
+          !['About', 'Featured', 'Activity', 'Experience', 'Education', 'Skills',
+           'Highlights', 'Interests', 'Volunteering', 'Recommendations', 'Publications',
+           'Honors & awards', 'Languages', 'Causes', 'Ad Options', 'People you may know',
+           'People also viewed', 'More profiles for you', 'Explore premium profiles',
+           'You might like', "Don't want to see this"].includes(text) &&
+          !text.includes('notification') && !text.match(/^\d/)
+      ) { h1 = el; break }
+    }
+  }
   const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].trim()
   const nameParts = (fullName || '').trim().split(/\s+/)
 
