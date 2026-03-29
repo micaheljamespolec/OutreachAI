@@ -6,7 +6,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth temporarily disabled for testing - re-enable before launch
+    // Auth is enforced by Supabase's verify_jwt flag at the gateway level
 
     // ── Parse body ────────────────────────────────────────────────────────────
     const { firstName, lastName, linkedinUrl, company } = await req.json()

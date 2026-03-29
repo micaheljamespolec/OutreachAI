@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, getUser, signOut } from './core/auth.js'
 import { getCredits } from './core/credits.js'
-import { createCheckout, lookupEmail } from './core/api.js'
+import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft } from './core/api.js'
 
 function showStatus(el, msg, type = 'info') {
   el.textContent = msg
@@ -129,6 +129,8 @@ async function setupEmailTab() {
         document.getElementById('found-email').textContent = result.email
         document.getElementById('found-email-confidence').textContent = '✅ via FullEnrich'
         hideStatus(statusEl)
+        // Auto-generate a draft after successful email lookup
+        await generateDraft(profile)
       } else {
         document.getElementById('email-not-found').style.display = 'block'
         const manualInput = document.createElement('input')
@@ -157,7 +159,8 @@ async function setupEmailTab() {
     const toEmail = document.getElementById('found-email')?.textContent?.trim()
     const manualEmail = document.getElementById('manual-email')?.value?.trim()
     const to = (toEmail && toEmail !== '-') ? toEmail : (manualEmail || '')
-    const subject = encodeURIComponent(`Exciting opportunity for ${profile?.firstName || 'you'}`)
+    const aiSubject = document.getElementById('email-draft')?.dataset?.subject
+    const subject = encodeURIComponent(aiSubject || `Exciting opportunity for ${profile?.firstName || 'you'}`)
     const body = encodeURIComponent(draft)
     chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}` })
   })
@@ -166,7 +169,36 @@ async function setupEmailTab() {
 async function generateDraft(profile) {
   const statusEl = document.getElementById('draft-status')
   document.getElementById('card-draft').style.display = 'block'
-  showStatus(statusEl, 'AI not yet configured - add your API key in Settings.', 'error')
+  showStatus(statusEl, 'Generating personalized email...', 'info')
+
+  try {
+    const storage = await getStorage(['job_title', 'job_company', 'job_description', 'pref_your_name', 'pref_your_title'])
+    const job = {
+      title: storage.job_title || '',
+      company: storage.job_company || '',
+      description: storage.job_description || '',
+    }
+    const recruiter = {
+      name: storage.pref_your_name || '',
+      title: storage.pref_your_title || '',
+    }
+
+    const result = await apiGenerateDraft(profile, job, recruiter)
+
+    if (result.draft) {
+      document.getElementById('email-draft').value = result.draft
+      if (result.subject) {
+        document.getElementById('email-draft').dataset.subject = result.subject
+      }
+      showStatus(statusEl, 'Draft generated!', 'success')
+      setTimeout(() => hideStatus(statusEl), 3000)
+    } else {
+      showStatus(statusEl, 'No draft returned. Try again.', 'error')
+    }
+  } catch (e) {
+    console.error('generate-draft error:', e)
+    showStatus(statusEl, 'Failed to generate draft. Try again.', 'error')
+  }
 }
 
 function setupJobTab() {

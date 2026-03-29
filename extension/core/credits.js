@@ -19,6 +19,13 @@ export async function getCredits() {
     const user = await getUser()
     if (!user) return null
     const headers = await getHeaders()
+
+    // Check and reset credits if the billing period has expired
+    await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/check_and_reset_credits`, {
+      method: 'POST', headers,
+      body: JSON.stringify({ p_user_id: user.id }),
+    }).catch(() => {}) // non-blocking — if it fails, credits just won't reset yet
+
     const res = await fetch(`${DB}/credits?user_id=eq.${user.id}&limit=1`, { headers })
     if (!res.ok) return null
     const rows = await res.json()

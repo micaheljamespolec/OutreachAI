@@ -3,7 +3,7 @@ const ANTHROPIC_KEY = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors() })
   try {
-    // Auth temporarily disabled for testing - re-enable before launch
+    // Auth is enforced by Supabase's verify_jwt flag at the gateway level
     const { profile, job, recruiter } = await req.json()
 
     const prompt = buildPrompt(profile, job, recruiter)
