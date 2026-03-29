@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         name: `${firstName || ''} ${lastName || ''}`.trim() || 'lookup',
-        datas: [contactData],
+        data: [contactData],
       }),
     })
 

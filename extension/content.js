@@ -7,30 +7,42 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   const fullName = h1?.innerText?.trim() || document.title.split(' | ')[0].trim()
   const nameParts = (fullName || '').trim().split(/\s+/)
 
-  // ── Headline: search near the h1 using TreeWalker ─────────────────────────
+  // ── Headline: find the text just below the name ────────────────────────
   let headline = ''
 
   if (h1) {
+    // Strategy 1: Look for the headline div right after the h1's container
+    // LinkedIn puts the headline in a div.text-body-medium near the h1
     let container = h1.parentElement
-    for (let depth = 0; depth < 6; depth++) {
+    for (let depth = 0; depth < 8; depth++) {
       if (!container) break
+      // Look for all text nodes in this container
       const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
       let node
+      const candidates = []
       while ((node = walker.nextNode())) {
         const text = node.textContent?.trim()
         if (
           text &&
-          text.length > 5 &&
+          text.length > 10 &&
           text.length < 200 &&
-          !text.includes('·') &&
           !text.includes('\n') &&
           text !== fullName &&
-          // Match headline patterns: "X at Y", or any professional-looking text
-          (text.includes(' at ') || text.includes(' | ') || text.includes(' - '))
+          !text.startsWith('http') &&
+          !text.includes('follower') &&
+          !text.includes('connection') &&
+          !text.includes('Contact info') &&
+          !text.includes('mutual')
         ) {
-          headline = text
-          break
+          candidates.push(text)
         }
+      }
+      // Prefer a candidate with " at " (most likely the headline)
+      const atCandidate = candidates.find(c => c.includes(' at '))
+      if (atCandidate) { headline = atCandidate; break }
+      // Otherwise take the first candidate that looks like a headline
+      if (candidates.length > 0 && !headline) {
+        headline = candidates[0]
       }
       if (headline) break
       container = container.parentElement
@@ -38,7 +50,6 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   // ── Fallback: parse from document title ────────────────────────────────────
-  // LinkedIn title format: "Firstname Lastname - Title at Company | LinkedIn"
   if (!headline) {
     const beforeLinkedIn = document.title.split(' | LinkedIn')[0] ?? document.title.split(' | ')[0] ?? ''
     const dashIdx = beforeLinkedIn.indexOf(' - ')
