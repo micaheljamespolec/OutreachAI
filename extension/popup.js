@@ -202,9 +202,12 @@ async function generateDraft(profile) {
     }
   } catch (e) {
     console.error('generate-draft error:', e)
-    const errMsg = e.message?.includes('503') || e.message?.includes('not configured')
-      ? 'AI service not configured. Set GEMINI_API_KEY in Supabase secrets.'
-      : 'Failed to generate draft. Try again.'
+    let errMsg = 'Failed to generate draft. Try again.'
+    if (e.message?.includes('503') || e.message?.includes('not configured')) {
+      errMsg = 'AI service not configured. Set GEMINI_API_KEY in Supabase secrets.'
+    } else if (e.message?.includes('429') || e.message?.includes('rate limit')) {
+      errMsg = 'AI rate limit reached. Wait a moment and click Regenerate.'
+    }
     showStatus(statusEl, errMsg, 'error')
   }
 }

@@ -1,5 +1,12 @@
 const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
 
+// Models to try in order — if one is rate-limited, fall back to the next
+const MODELS = [
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-2.0-flash-lite',
+]
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors() })
   try {
@@ -7,52 +14,72 @@ Deno.serve(async (req) => {
     const prompt = buildPrompt(profile, job, recruiter)
     console.log('Generating draft for:', profile?.firstName, profile?.lastName)
 
-    // Check if API key is configured
     if (!GEMINI_KEY) {
-      console.error('GEMINI_API_KEY is not set in Edge Function secrets')
-      return error('AI service not configured. Please set GEMINI_API_KEY in Supabase Edge Function secrets.', 503)
+      console.error('GEMINI_API_KEY is not set')
+      return error('AI service not configured. Set GEMINI_API_KEY in Supabase Edge Function secrets.', 503)
     }
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 512,
-          },
-        }),
+    // Try each model — if rate-limited, move to the next
+    for (const model of MODELS) {
+      console.log(`Trying model: ${model}`)
+
+      // Up to 2 attempts per model with backoff
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+          await new Promise(r => setTimeout(r, 4000))
+        }
+
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 512,
+              },
+            }),
+          }
+        )
+
+        if (res.status === 429) {
+          console.log(`${model} returned 429 (attempt ${attempt + 1})`)
+          continue  // retry this model or move to next
+        }
+
+        if (!res.ok) {
+          const text = await res.text()
+          console.error(`${model} error:`, res.status, text)
+          // If not a rate limit, it's a real error — try next model
+          break
+        }
+
+        // Success!
+        const data = await res.json()
+        const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+        console.log(`${model} responded, length:`, raw.length)
+
+        let subject = '', body = raw
+        try {
+          const jsonStr = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+          const parsed = JSON.parse(jsonStr)
+          subject = parsed.subject ?? ''
+          body    = parsed.body ?? raw
+        } catch {
+          console.log('Response was not JSON, using raw text')
+        }
+
+        return new Response(
+          JSON.stringify({ draft: body, subject }),
+          { headers: { ...cors(), 'Content-Type': 'application/json' } }
+        )
       }
-    )
-
-    if (!res.ok) {
-      const text = await res.text()
-      console.error('Gemini API error:', res.status, text)
-      return error(`AI generation failed (${res.status}). Check GEMINI_API_KEY.`, 502)
     }
 
-    const data = await res.json()
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    console.log('Raw Gemini response length:', raw.length)
-
-    let subject = '', body = raw
-    try {
-      const jsonStr = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-      const parsed = JSON.parse(jsonStr)
-      subject = parsed.subject ?? ''
-      body    = parsed.body ?? raw
-    } catch {
-      // Non-JSON response — use the raw text as the body
-      console.log('Response was not JSON, using raw text')
-    }
-
-    return new Response(
-      JSON.stringify({ draft: body, subject }),
-      { headers: { ...cors(), 'Content-Type': 'application/json' } }
-    )
+    // All models exhausted
+    return error('AI rate limit reached across all models. Please wait a minute and try again.', 429)
   } catch (e) {
     console.error('generate-draft error:', e.message)
     return error(e.message, 500)
