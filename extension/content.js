@@ -19,7 +19,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
            'Honors & awards', 'Languages', 'Causes', 'Ad Options', 'People you may know',
            'People also viewed', 'More profiles for you', 'Explore premium profiles',
            'You might like', "Don't want to see this", 'Summary', 'Recruiting',
-           'Similar Profiles', 'From public profile'].includes(text) &&
+           'Similar Profiles', 'From public profile', 'Most recent activity',
+           'Profile', 'Projects', 'Messages', 'Feedback', 'Attachments',
+           'Recruiting activity', 'More profiles for you'].includes(text) &&
           !text.includes('notification') && !text.match(/^\d/)
       ) { h1 = el; break }
     }
