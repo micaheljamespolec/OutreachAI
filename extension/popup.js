@@ -24,19 +24,13 @@ function displayEmailResult(email, source) {
   document.getElementById('found-email').textContent = email
   const btn = document.getElementById('btn-find-email')
   if (source === 'cached' || source === 'cache') {
-    document.getElementById('found-email-confidence').textContent = '✅ Previously found (no credit used)'
-    btn.textContent = '✅ Email Already Found'
-    btn.disabled = true
-    btn.style.background = '#e6f9f0'
-    btn.style.color = '#0d6b3c'
-    btn.style.border = '1px solid #b3e6cc'
+    document.getElementById('found-email-confidence').textContent = '✅ Previously found'
+    // Keep button clickable for re-check, but make it secondary
+    btn.textContent = '🔄 Re-check Email (uses 1 lookup)'
+    btn.classList.remove('btn-primary')
+    btn.classList.add('btn-secondary')
   } else {
-    document.getElementById('found-email-confidence').textContent = '✅ via FullEnrich'
-    btn.textContent = '✅ Email Found'
-    btn.disabled = true
-    btn.style.background = '#e6f9f0'
-    btn.style.color = '#0d6b3c'
-    btn.style.border = '1px solid #b3e6cc'
+    document.getElementById('found-email-confidence').textContent = '✅ Found via FullEnrich'
   }
 }
 
@@ -156,10 +150,12 @@ async function setupEmailTab() {
         document.getElementById('email-draft').dataset.subject = draftCached[draftKey].subject
       }
     }
-  } else {
+  } else if (profile.linkedinUrl) {
     // No local cache — check server cache only (no FullEnrich call, no credit used)
+    console.log('No local cache, checking server for:', profile.linkedinUrl)
     try {
       const serverResult = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true)
+      console.log('Server cache result:', serverResult)
       if (serverResult.found && serverResult.email) {
         displayEmailResult(serverResult.email, 'cached')
         await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
