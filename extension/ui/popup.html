@@ -158,7 +158,17 @@
   <!-- Job Tab -->
   <div class="tab-content" id="tab-job">
     <div class="card">
-      <div class="card-title">📋 Active Job Opening</div>
+      <div class="card-title">🔗 Import from Job Posting URL</div>
+      <div class="form-group">
+        <label for="job-url">Job Posting URL</label>
+        <input type="text" id="job-url" placeholder="Paste job posting link here..." />
+      </div>
+      <button class="btn btn-primary" id="btn-extract-job">🔍 Extract Job Details</button>
+      <div id="extract-status" class="status" style="margin-top:8px;"></div>
+    </div>
+
+    <div class="card" id="card-job-details">
+      <div class="card-title">📋 Job Details <span style="font-size:10px;font-weight:400;color:#888;text-transform:none;letter-spacing:0;">— edit if needed</span></div>
       <div class="form-group">
         <label for="job-title">Job Title</label>
         <input type="text" id="job-title" placeholder="e.g. Senior Software Engineer" />

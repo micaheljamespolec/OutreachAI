@@ -81,6 +81,27 @@ export async function generateDraft(profile, job, recruiter) {
   return res.json()
 }
 
+export async function extractJob(url) {
+  const token = await getAccessToken()
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey':       CONFIG.supabaseKey,
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/extract-job`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ url }),
+  })
+  if (!res.ok) {
+    const errText = await res.text()
+    console.error('extract-job error:', res.status, errText)
+    throw new Error(errText || `extract-job failed: ${res.status}`)
+  }
+  return res.json()
+}
+
 // Opens pricing page — Stripe checkout handled via website, not extension
 export function createCheckout() {
   chrome.tabs.create({ url: CONFIG.pricingUrl })

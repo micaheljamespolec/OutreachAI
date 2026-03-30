@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
 import { getCredits } from './core/credits.js'
-import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft } from './core/api.js'
+import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft, extractJob } from './core/api.js'
 
 function showStatus(el, msg, type = 'info') {
   el.textContent = msg
@@ -267,17 +267,59 @@ async function generateDraft(profile) {
 }
 
 function setupJobTab() {
-  getStorage(['job_title', 'job_company', 'job_description']).then(d => {
+  getStorage(['job_title', 'job_company', 'job_description', 'job_url']).then(d => {
     if (d.job_title) document.getElementById('job-title').value = d.job_title
     if (d.job_company) document.getElementById('job-company').value = d.job_company
     if (d.job_description) document.getElementById('job-description').value = d.job_description
+    if (d.job_url) document.getElementById('job-url').value = d.job_url
   })
+
+  // Extract job details from URL
+  document.getElementById('btn-extract-job').addEventListener('click', async () => {
+    const url = document.getElementById('job-url').value.trim()
+    const statusEl = document.getElementById('extract-status')
+    if (!url) { showStatus(statusEl, 'Paste a job posting URL first.', 'error'); return }
+    if (!url.startsWith('http')) { showStatus(statusEl, 'Please enter a valid URL starting with http.', 'error'); return }
+
+    const btn = document.getElementById('btn-extract-job')
+    btn.disabled = true
+    showStatus(statusEl, 'Extracting job details...', 'info')
+
+    try {
+      const result = await extractJob(url)
+      if (result.title) document.getElementById('job-title').value = result.title
+      if (result.company) document.getElementById('job-company').value = result.company
+      if (result.description) document.getElementById('job-description').value = result.description
+
+      // Auto-save
+      await setStorage({
+        job_title: result.title || '',
+        job_company: result.company || '',
+        job_description: result.description || '',
+        job_url: url,
+      })
+
+      showStatus(statusEl, 'Job details extracted and saved!', 'success')
+      setTimeout(() => hideStatus(statusEl), 3000)
+    } catch (e) {
+      let msg = 'Could not extract job details. Try entering manually.'
+      try {
+        const parsed = JSON.parse(e.message)
+        if (parsed.error) msg = parsed.error
+      } catch {}
+      showStatus(statusEl, msg, 'error')
+    }
+    btn.disabled = false
+  })
+
+  // Save job manually
   document.getElementById('btn-save-job').addEventListener('click', async () => {
     const statusEl = document.getElementById('job-status')
     await setStorage({
       job_title: document.getElementById('job-title').value.trim(),
       job_company: document.getElementById('job-company').value.trim(),
       job_description: document.getElementById('job-description').value.trim(),
+      job_url: document.getElementById('job-url').value.trim(),
     })
     showStatus(statusEl, 'Job saved!', 'success')
     setTimeout(() => hideStatus(statusEl), 2000)
