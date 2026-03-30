@@ -19,6 +19,27 @@ function setStorage(obj) {
   return new Promise(r => chrome.storage.local.set(obj, r))
 }
 
+function displayEmailResult(email, source) {
+  document.getElementById('email-found').style.display = 'block'
+  document.getElementById('found-email').textContent = email
+  const btn = document.getElementById('btn-find-email')
+  if (source === 'cached' || source === 'cache') {
+    document.getElementById('found-email-confidence').textContent = '✅ Previously found (no credit used)'
+    btn.textContent = '✅ Email Already Found'
+    btn.disabled = true
+    btn.style.background = '#e6f9f0'
+    btn.style.color = '#0d6b3c'
+    btn.style.border = '1px solid #b3e6cc'
+  } else {
+    document.getElementById('found-email-confidence').textContent = '✅ via FullEnrich'
+    btn.textContent = '✅ Email Found'
+    btn.disabled = true
+    btn.style.background = '#e6f9f0'
+    btn.style.color = '#0d6b3c'
+    btn.style.border = '1px solid #b3e6cc'
+  }
+}
+
 function setupTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -118,6 +139,26 @@ async function setupEmailTab() {
   document.getElementById('p-title').textContent = profile.title || '-'
   document.getElementById('p-company').textContent = profile.company || '-'
 
+  // ── Check local cache for previously looked-up email ──────────────────
+  const cacheKey = `email_cache_${profile.linkedinUrl}`
+  const cached = await getStorage([cacheKey])
+  const cachedResult = cached[cacheKey]
+
+  if (cachedResult?.email) {
+    // Show the cached email immediately — no credit used
+    displayEmailResult(cachedResult.email, 'cached')
+    // Also restore draft if we have one
+    const draftKey = `draft_cache_${profile.linkedinUrl}`
+    const draftCached = await getStorage([draftKey])
+    if (draftCached[draftKey]?.draft) {
+      document.getElementById('card-draft').style.display = 'block'
+      document.getElementById('email-draft').value = draftCached[draftKey].draft
+      if (draftCached[draftKey].subject) {
+        document.getElementById('email-draft').dataset.subject = draftCached[draftKey].subject
+      }
+    }
+  }
+
   document.getElementById('btn-find-email').addEventListener('click', async () => {
     const btn = document.getElementById('btn-find-email')
     const statusEl = document.getElementById('email-status')
@@ -128,10 +169,9 @@ async function setupEmailTab() {
       const result = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company)
 
       if (result.found && result.email) {
-        document.getElementById('email-found').style.display = 'block'
-        document.getElementById('found-email').textContent = result.email
-        const sourceLabel = result.source === 'cache' ? '✅ Cached (no credit used)' : '✅ via FullEnrich'
-        document.getElementById('found-email-confidence').textContent = sourceLabel
+        displayEmailResult(result.email, result.source)
+        // Save to local cache so popup remembers on reopen
+        await setStorage({ [cacheKey]: { email: result.email, source: result.source, timestamp: Date.now() } })
         hideStatus(statusEl)
         // Auto-generate a draft after successful email lookup
         await generateDraft(profile)
@@ -194,6 +234,11 @@ async function generateDraft(profile) {
       document.getElementById('email-draft').value = result.draft
       if (result.subject) {
         document.getElementById('email-draft').dataset.subject = result.subject
+      }
+      // Cache the draft locally so it survives popup close/reopen
+      if (profile.linkedinUrl) {
+        const draftKey = `draft_cache_${profile.linkedinUrl}`
+        await setStorage({ [draftKey]: { draft: result.draft, subject: result.subject || '', timestamp: Date.now() } })
       }
       showStatus(statusEl, 'Draft generated!', 'success')
       setTimeout(() => hideStatus(statusEl), 3000)
