@@ -139,16 +139,15 @@ async function setupEmailTab() {
   document.getElementById('p-title').textContent = profile.title || '-'
   document.getElementById('p-company').textContent = profile.company || '-'
 
-  // ── Check local cache for previously looked-up email ──────────────────
+  // ── Check for previously looked-up email ──────────────────────────────
   const cacheKey = `email_cache_${profile.linkedinUrl}`
+  const draftKey = `draft_cache_${profile.linkedinUrl}`
   const cached = await getStorage([cacheKey])
   const cachedResult = cached[cacheKey]
 
   if (cachedResult?.email) {
-    // Show the cached email immediately — no credit used
+    // Local cache hit — show instantly
     displayEmailResult(cachedResult.email, 'cached')
-    // Also restore draft if we have one
-    const draftKey = `draft_cache_${profile.linkedinUrl}`
     const draftCached = await getStorage([draftKey])
     if (draftCached[draftKey]?.draft) {
       document.getElementById('card-draft').style.display = 'block'
@@ -156,6 +155,18 @@ async function setupEmailTab() {
       if (draftCached[draftKey].subject) {
         document.getElementById('email-draft').dataset.subject = draftCached[draftKey].subject
       }
+    }
+  } else {
+    // No local cache — check server cache only (no FullEnrich call, no credit used)
+    try {
+      const serverResult = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true)
+      if (serverResult.found && serverResult.email) {
+        displayEmailResult(serverResult.email, 'cached')
+        await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
+      }
+    } catch (e) {
+      // Server check failed — no problem, user can still click Find Email
+      console.log('Server cache check failed:', e.message)
     }
   }
 

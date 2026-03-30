@@ -39,7 +39,7 @@ export async function dbPatch(table, query, body) {
   return res.json()
 }
 
-export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
+export async function lookupEmail(firstName, lastName, linkedinUrl, company, cacheOnly = false) {
   const token = await getAccessToken()
   const headers = {
     'Content-Type': 'application/json',
@@ -50,7 +50,7 @@ export async function lookupEmail(firstName, lastName, linkedinUrl, company) {
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ firstName, lastName, linkedinUrl, company }),
+    body: JSON.stringify({ firstName, lastName, linkedinUrl, company, cacheOnly }),
   })
   if (!res.ok) {
     const errText = await res.text()
