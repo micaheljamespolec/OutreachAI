@@ -118,48 +118,85 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // ── Company fallback: extract from profile page DOM if not in headline ────
   if (!company) {
-    // Strategy 1: Parse from the page title ("Name - Title - Company | LinkedIn")
-    // This is the most reliable since it doesn't depend on DOM structure
-    const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
-    if (titleParts.length >= 3) {
-      const candidate = titleParts[titleParts.length - 1].trim()
-      if (candidate && candidate !== fullName && candidate.length < 80) {
-        company = candidate
-      }
-    }
-
-    // Strategy 2: Find the first /company/ link in the top portion of the page
-    // On standard LinkedIn profiles, the current company appears as a linked logo/name
-    if (!company) {
-      const companyLinks = document.querySelectorAll('a[href*="/company/"]')
+    // Strategy 1: Find the company logo/link in the profile header card
+    // On standard LinkedIn profiles, the current company appears with a small logo
+    // right below the headline, linking to /company/. It's typically the ONLY
+    // company link inside the profile card (before the experience section).
+    const profileCard = h1?.closest('main') ?? h1?.closest('section') ?? document.querySelector('main')
+    if (profileCard) {
+      // Look for company links that appear BEFORE the experience section
+      const expAnchor = document.querySelector('#experience')
+      const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
       for (const link of companyLinks) {
-        const text = link.innerText?.trim()
-        // Skip empty, navigation, or follow-related links
-        if (!text || text.length < 2 || text.length > 100) continue
-        if (text.includes('Follow') || text.includes('follower') || text.includes('follow this')) continue
-        if (text.includes('\n') && text.length > 50) continue  // skip multi-line blocks
-        // Clean up: take first line if multi-line
-        const cleanText = text.split('\n')[0].trim()
-        if (cleanText && cleanText.length > 1 && cleanText.length < 80) {
-          company = cleanText
-          break
-        }
+        // If we found the experience section, only consider links above it
+        if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
+        const text = link.innerText?.trim()?.split('\n')[0]?.trim()
+        if (!text || text.length < 2 || text.length > 80) continue
+        if (text.includes('Follow') || text.includes('follower')) continue
+        // Skip university/education links — they usually contain 'University', 'College', 'School', 'Institute'
+        if (/\b(University|College|School|Institute|Academy)\b/i.test(text)) continue
+        company = text
+        break
       }
     }
 
-    // Strategy 3: Look inside the experience section
+    // Strategy 2: Parse from the page title ("Name - Title - Company | LinkedIn")
     if (!company) {
-      const expSection = document.querySelector('#experience')
-        ?? document.querySelector('[id="experience"]')
-        ?? document.querySelector('section.experience')
-      if (expSection) {
-        const companyLink = expSection.querySelector('a[href*="/company/"]')
-        if (companyLink) {
-          const text = companyLink.innerText?.trim()?.split('\n')[0]?.trim()
-          if (text && text.length > 1 && text.length < 100) company = text
+      const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
+      if (titleParts.length >= 3) {
+        const candidate = titleParts[titleParts.length - 1].trim()
+        if (candidate && candidate !== fullName && candidate.length < 80
+            && !/\b(University|College|School|Institute|Academy)\b/i.test(candidate)) {
+          company = candidate
+        }
+      }
+      // If we still don't have one, accept even education as company (better than nothing)
+      if (!company && titleParts.length >= 3) {
+        const candidate = titleParts[titleParts.length - 1].trim()
+        if (candidate && candidate !== fullName && candidate.length < 80) {
+          company = candidate
         }
       }
     }
+  }
+
+  // ── Experience: gather current roles for richer context ─────────────────────
+  const experience = []
+  try {
+    const expSection = document.querySelector('#experience')
+      ?? document.querySelector('[id="experience"]')
+    if (expSection) {
+      // Walk up to the containing <section>
+      const section = expSection.closest('section') ?? expSection.parentElement
+      if (section) {
+        // Each role is typically in a list item with a company link
+        const items = section.querySelectorAll('li')
+        for (const item of items) {
+          if (experience.length >= 5) break  // cap at 5 roles
+          const lines = item.innerText?.trim()?.split('\n').map(l => l.trim()).filter(Boolean) ?? []
+          if (lines.length >= 2) {
+            // Check if this entry mentions "Present" (current role)
+            const isCurrent = lines.some(l => l.includes('Present'))
+            const roleTitle = lines[0] || ''
+            // Find company name from a link
+            const compLink = item.querySelector('a[href*="/company/"]')
+            const roleCompany = compLink?.innerText?.trim()?.split('\n')[0]?.trim() || ''
+            // Find date range
+            const dateLine = lines.find(l => /\b(20\d{2}|Present)\b/.test(l)) || ''
+            if (roleTitle && roleTitle.length < 100) {
+              experience.push({
+                title: roleTitle,
+                company: roleCompany,
+                dates: dateLine,
+                current: isCurrent,
+              })
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Experience extraction is best-effort
   }
 
   // ── LinkedIn URL: prefer the public profile URL ─────────────────────────
@@ -184,6 +221,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     title,
     company,
     linkedinUrl,
+    experience,
   })
 
   return true
