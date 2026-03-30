@@ -112,9 +112,56 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
     : cleanHeadline
 
-  const company = cleanHeadline.includes(' at ')
+  let company = cleanHeadline.includes(' at ')
     ? cleanHeadline.split(' at ').slice(-1)[0].trim()
     : ''
+
+  // ── Company fallback: extract from profile page DOM if not in headline ────
+  if (!company) {
+    // Strategy 1: Look for the experience section's top company link
+    // LinkedIn shows the current company as a link in the experience section
+    const expSection = document.querySelector('#experience') 
+      ?? document.querySelector('section[id="experience"]')
+    if (expSection) {
+      // The first company link in the experience section is usually the current one
+      const companyLink = expSection.querySelector('a[href*="/company/"] span')
+        ?? expSection.querySelector('a[href*="/company/"]')
+      if (companyLink) {
+        const text = companyLink.innerText?.trim()
+        if (text && text.length < 100) company = text
+      }
+    }
+
+    // Strategy 2: Look for the company badge/link in the profile header area
+    // LinkedIn often shows the current company with a logo near the top
+    if (!company) {
+      const companyLinks = document.querySelectorAll('a[href*="/company/"]')
+      for (const link of companyLinks) {
+        // Skip nav/footer links — only want ones near the profile header
+        const rect = link.getBoundingClientRect()
+        if (rect.top > 0 && rect.top < 600) {
+          const text = link.innerText?.trim()
+          if (text && text.length > 1 && text.length < 100 
+              && !text.includes('Follow') && !text.includes('follower')) {
+            company = text
+            break
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Parse from the page title ("Name - Title - Company | LinkedIn")
+    if (!company) {
+      const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
+      if (titleParts.length >= 3) {
+        // Last segment before LinkedIn is often the company
+        const candidate = titleParts[titleParts.length - 1].trim()
+        if (candidate && candidate !== fullName && candidate.length < 80) {
+          company = candidate
+        }
+      }
+    }
+  }
 
   // ── LinkedIn URL: prefer the public profile URL ─────────────────────────
   let linkedinUrl = window.location.href.split('?')[0]
