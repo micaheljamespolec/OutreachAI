@@ -152,17 +152,19 @@ async function setupEmailTab() {
     }
   } else if (profile.linkedinUrl) {
     // No local cache — check server cache only (no FullEnrich call, no credit used)
-    console.log('No local cache, checking server for:', profile.linkedinUrl)
+    const statusEl = document.getElementById('email-status')
+    showStatus(statusEl, 'Checking for previous lookup...', 'info')
     try {
       const serverResult = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true)
-      console.log('Server cache result:', serverResult)
       if (serverResult.found && serverResult.email) {
         displayEmailResult(serverResult.email, 'cached')
         await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
+        hideStatus(statusEl)
+      } else {
+        hideStatus(statusEl)
       }
     } catch (e) {
-      // Server check failed — no problem, user can still click Find Email
-      console.log('Server cache check failed:', e.message)
+      hideStatus(statusEl)
     }
   }
 
