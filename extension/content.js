@@ -118,46 +118,45 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   // ── Company fallback: extract from profile page DOM if not in headline ────
   if (!company) {
-    // Strategy 1: Look for the experience section's top company link
-    // LinkedIn shows the current company as a link in the experience section
-    const expSection = document.querySelector('#experience') 
-      ?? document.querySelector('section[id="experience"]')
-    if (expSection) {
-      // The first company link in the experience section is usually the current one
-      const companyLink = expSection.querySelector('a[href*="/company/"] span')
-        ?? expSection.querySelector('a[href*="/company/"]')
-      if (companyLink) {
-        const text = companyLink.innerText?.trim()
-        if (text && text.length < 100) company = text
+    // Strategy 1: Parse from the page title ("Name - Title - Company | LinkedIn")
+    // This is the most reliable since it doesn't depend on DOM structure
+    const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
+    if (titleParts.length >= 3) {
+      const candidate = titleParts[titleParts.length - 1].trim()
+      if (candidate && candidate !== fullName && candidate.length < 80) {
+        company = candidate
       }
     }
 
-    // Strategy 2: Look for the company badge/link in the profile header area
-    // LinkedIn often shows the current company with a logo near the top
+    // Strategy 2: Find the first /company/ link in the top portion of the page
+    // On standard LinkedIn profiles, the current company appears as a linked logo/name
     if (!company) {
       const companyLinks = document.querySelectorAll('a[href*="/company/"]')
       for (const link of companyLinks) {
-        // Skip nav/footer links — only want ones near the profile header
-        const rect = link.getBoundingClientRect()
-        if (rect.top > 0 && rect.top < 600) {
-          const text = link.innerText?.trim()
-          if (text && text.length > 1 && text.length < 100 
-              && !text.includes('Follow') && !text.includes('follower')) {
-            company = text
-            break
-          }
+        const text = link.innerText?.trim()
+        // Skip empty, navigation, or follow-related links
+        if (!text || text.length < 2 || text.length > 100) continue
+        if (text.includes('Follow') || text.includes('follower') || text.includes('follow this')) continue
+        if (text.includes('\n') && text.length > 50) continue  // skip multi-line blocks
+        // Clean up: take first line if multi-line
+        const cleanText = text.split('\n')[0].trim()
+        if (cleanText && cleanText.length > 1 && cleanText.length < 80) {
+          company = cleanText
+          break
         }
       }
     }
 
-    // Strategy 3: Parse from the page title ("Name - Title - Company | LinkedIn")
+    // Strategy 3: Look inside the experience section
     if (!company) {
-      const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
-      if (titleParts.length >= 3) {
-        // Last segment before LinkedIn is often the company
-        const candidate = titleParts[titleParts.length - 1].trim()
-        if (candidate && candidate !== fullName && candidate.length < 80) {
-          company = candidate
+      const expSection = document.querySelector('#experience')
+        ?? document.querySelector('[id="experience"]')
+        ?? document.querySelector('section.experience')
+      if (expSection) {
+        const companyLink = expSection.querySelector('a[href*="/company/"]')
+        if (companyLink) {
+          const text = companyLink.innerText?.trim()?.split('\n')[0]?.trim()
+          if (text && text.length > 1 && text.length < 100) company = text
         }
       }
     }
