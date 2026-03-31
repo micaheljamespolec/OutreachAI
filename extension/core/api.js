@@ -81,7 +81,8 @@ export async function generateDraft(profile, job, recruiter) {
   return res.json()
 }
 
-export async function extractJob(url) {
+export async function extractJob(pageText) {
+  // Send already-extracted page text to the AI for parsing
   const token = await getAccessToken()
   const headers = {
     'Content-Type': 'application/json',
@@ -92,7 +93,7 @@ export async function extractJob(url) {
   const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/extract-job`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ pageText }),
   })
   if (!res.ok) {
     const errText = await res.text()

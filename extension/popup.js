@@ -102,6 +102,27 @@ async function setupEmailTab() {
   document.getElementById('state-not-linkedin').style.display = 'none'
   document.getElementById('state-email').style.display = 'block'
 
+  // ── Show active job context on Email tab ────────────────────────────────
+  const jobData = await getStorage(['job_title', 'job_company', 'job_description'])
+  if (jobData.job_title) {
+    document.getElementById('card-active-job').style.display = 'block'
+    document.getElementById('active-job-title').textContent = jobData.job_title
+    document.getElementById('active-job-company').textContent = jobData.job_company || ''
+    const desc = jobData.job_description || ''
+    document.getElementById('active-job-desc').textContent = desc.length > 120 ? desc.slice(0, 120) + '...' : desc
+  } else {
+    document.getElementById('card-no-job').style.display = 'block'
+  }
+  // "Change job" and "Go to Job tab" links switch to the Job tab
+  document.getElementById('link-change-job')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    document.querySelector('.tab[data-tab="job"]').click()
+  })
+  document.getElementById('link-add-job')?.addEventListener('click', (e) => {
+    e.preventDefault()
+    document.querySelector('.tab[data-tab="job"]').click()
+  })
+
   if (!await isLoggedIn()) {
     document.getElementById('profile-loading').classList.remove('show')
     const errEl = document.getElementById('profile-error')
@@ -283,10 +304,47 @@ function setupJobTab() {
 
     const btn = document.getElementById('btn-extract-job')
     btn.disabled = true
-    showStatus(statusEl, 'Extracting job details...', 'info')
+    showStatus(statusEl, 'Opening job page and extracting...', 'info')
 
     try {
-      const result = await extractJob(url)
+      // Open the URL in a background tab and extract the rendered text
+      const tab = await chrome.tabs.create({ url, active: false })
+      
+      // Wait for the page to load (JS-rendered pages need time)
+      await new Promise(resolve => {
+        const listener = (tabId, info) => {
+          if (tabId === tab.id && info.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(listener)
+            resolve()
+          }
+        }
+        chrome.tabs.onUpdated.addListener(listener)
+        // Timeout after 15s
+        setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve() }, 15000)
+      })
+
+      // Give JS-rendered pages a bit more time to populate content
+      await new Promise(r => setTimeout(r, 3000))
+
+      // Extract text from the tab
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => document.body.innerText?.slice(0, 8000) || '',
+      })
+      const pageText = results?.[0]?.result || ''
+
+      // Close the background tab
+      chrome.tabs.remove(tab.id).catch(() => {})
+
+      if (!pageText || pageText.length < 50) {
+        showStatus(statusEl, 'Could not read page content. Try entering manually.', 'error')
+        btn.disabled = false
+        return
+      }
+
+      showStatus(statusEl, 'Analyzing job posting with AI...', 'info')
+
+      const result = await extractJob(pageText)
       if (result.title) document.getElementById('job-title').value = result.title
       if (result.company) document.getElementById('job-company').value = result.company
       if (result.description) document.getElementById('job-description').value = result.description
