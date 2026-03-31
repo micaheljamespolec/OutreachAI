@@ -170,6 +170,9 @@ async function setupEmailTab() {
       if (draftCached[draftKey].subject) {
         document.getElementById('email-draft').dataset.subject = draftCached[draftKey].subject
       }
+    } else {
+      // Email cached but no draft yet — auto-generate
+      await generateDraft(profile)
     }
   } else if (profile.linkedinUrl) {
     // No local cache — check server cache only (no FullEnrich call, no credit used)
@@ -181,6 +184,8 @@ async function setupEmailTab() {
         displayEmailResult(serverResult.email, 'cached')
         await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
         hideStatus(statusEl)
+        // Auto-generate draft for cached email
+        await generateDraft(profile)
       } else {
         hideStatus(statusEl)
       }
