@@ -74,6 +74,39 @@
   .empty-state { text-align: center; padding: 24px 16px; color: #888; }
   .empty-state .icon { font-size: 32px; margin-bottom: 10px; }
   .empty-state p { font-size: 13px; line-height: 1.5; }
+
+  /* ── Dark Mode ── */
+  body.dark { background: #0f1117; color: #e8eaf0; }
+  body.dark .header { background: #1a2744; }
+  body.dark .tabs { background: #1a1d27; border-color: #2a2d3a; }
+  body.dark .tab { color: #999; }
+  body.dark .tab:hover { background: #1f2235; color: #7da4e8; }
+  body.dark .tab.active { color: #7da4e8; border-color: #7da4e8; }
+  body.dark .tab-content { background: transparent; }
+  body.dark .card { background: #1a1d27; border-color: #2a2d3a; color: #e8eaf0; }
+  body.dark .card-title { color: #6b7280; }
+  body.dark .field-label { color: #6b7280; }
+  body.dark .field-value { color: #e8eaf0; }
+  body.dark .btn-secondary { background: #252836; color: #cdd0da; border-color: #3a3d4a; }
+  body.dark .btn-secondary:hover { background: #2d3044; }
+  body.dark .btn-danger { background: #2a1a1a; color: #e06c75; border-color: #5a2a2a; }
+  body.dark .btn-danger:hover { background: #341f1f; }
+  body.dark input[type="email"], body.dark input[type="text"], body.dark textarea, body.dark select {
+    background: #252836; border-color: #3a3d4a; color: #e8eaf0;
+  }
+  body.dark input:focus, body.dark textarea:focus { border-color: #7da4e8; }
+  body.dark label { color: #9ca3af; }
+  body.dark .status.info { background: #1a2744; color: #7da4e8; border-color: #2a3d6a; }
+  body.dark .status.success { background: #0d2a1a; color: #4ade80; border-color: #1a4d2a; }
+  body.dark .status.error { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
+  body.dark .empty-state { color: #6b7280; }
+  body.dark .settings-section-title { color: #6b7280; }
+  body.dark #card-active-job { background: #0d1f3a !important; border-color: #1a3a6a !important; }
+  body.dark .login-logo h2 { color: #7da4e8; }
+  body.dark .login-logo p, body.dark .login-hint { color: #6b7280; }
+  body.dark .login-divider::before, body.dark .login-divider::after { background: #2a2d3a; }
+  body.dark .btn-google { background: #1a1d27; color: #e8eaf0; border-color: #3a3d4a; }
+  body.dark .btn-google:hover { background: #252836; }
 </style>
 </head>
 <body>
@@ -208,6 +241,13 @@
         <div class="field"><div class="field-label">Email</div><div class="field-value" id="settings-email">—</div></div>
         <div class="field"><div class="field-label">Plan</div><div class="field-value"><span id="settings-plan">Free</span><span class="plan-badge" id="settings-plan-badge">Free</span></div></div>
         <div class="field"><div class="field-label">Lookups Used</div><div class="field-value" id="settings-lookups">—</div></div>
+        <div class="field" style="flex-direction:row;align-items:center;justify-content:space-between;margin-top:6px;">
+          <div class="field-label" style="margin:0;">Dark Mode</div>
+          <label style="display:flex;align-items:center;gap:6px;margin:0;cursor:pointer;">
+            <input type="checkbox" id="toggle-dark-mode" style="width:auto;padding:0;border:none;" />
+            <span id="dark-mode-label" style="font-size:11px;color:#888;">Off</span>
+          </label>
+        </div>
         <button class="btn btn-secondary" id="btn-upgrade" style="margin-top:8px;">⬆️ Upgrade Plan</button>
         <button class="btn btn-danger" id="btn-sign-out" style="margin-top:8px;">Sign Out</button>
       </div>

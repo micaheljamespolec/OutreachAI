@@ -108,7 +108,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else cleanHeadline = segments[0].trim()
   }
 
-  const title = cleanHeadline.includes(' at ')
+  let title = cleanHeadline.includes(' at ')
     ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
     : cleanHeadline
 
@@ -198,6 +198,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   } catch (e) {
     // Experience extraction is best-effort
   }
+
+  // ── Override title & company from current experience entry ───────────────
+  const currentExp = experience.find(e => e.current) || experience[0]
+  if (currentExp?.title) title = currentExp.title
+  if (currentExp?.company) company = currentExp.company
 
   // ── LinkedIn URL: prefer the public profile URL ─────────────────────────
   let linkedinUrl = window.location.href.split('?')[0]

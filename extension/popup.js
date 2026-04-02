@@ -19,6 +19,14 @@ function setStorage(obj) {
   return new Promise(r => chrome.storage.local.set(obj, r))
 }
 
+function applyDarkMode(enabled) {
+  document.body.classList.toggle('dark', enabled)
+  const label = document.getElementById('dark-mode-label')
+  if (label) label.textContent = enabled ? 'On' : 'Off'
+  const checkbox = document.getElementById('toggle-dark-mode')
+  if (checkbox) checkbox.checked = enabled
+}
+
 function displayEmailResult(email, source) {
   document.getElementById('email-found').style.display = 'block'
   document.getElementById('found-email').textContent = email
@@ -46,6 +54,7 @@ function setupTabs() {
 }
 
 function showLoginScreen() {
+  getStorage(['pref_dark_mode']).then(d => applyDarkMode(!!d.pref_dark_mode))
   document.getElementById('login-screen').style.display = 'block'
   document.getElementById('main-app').style.display = 'none'
   const statusEl = document.getElementById('login-status')
@@ -63,6 +72,9 @@ function showLoginScreen() {
 }
 
 async function showMainApp(user) {
+  // Apply dark mode preference immediately
+  const darkPref = await getStorage(['pref_dark_mode'])
+  applyDarkMode(!!darkPref.pref_dark_mode)
   document.getElementById('login-screen').style.display = 'none'
   document.getElementById('main-app').style.display = 'block'
   setupTabs()
@@ -404,6 +416,15 @@ async function setupSettingsTab(user) {
   const prefs = await getStorage(['pref_your_name', 'pref_your_title'])
   if (prefs.pref_your_name) document.getElementById('pref-your-name').value = prefs.pref_your_name
   if (prefs.pref_your_title) document.getElementById('pref-your-title').value = prefs.pref_your_title
+
+  // Dark mode toggle
+  const darkPrefSettings = await getStorage(['pref_dark_mode'])
+  applyDarkMode(!!darkPrefSettings.pref_dark_mode)
+  document.getElementById('toggle-dark-mode')?.addEventListener('change', async (e) => {
+    const enabled = e.target.checked
+    await setStorage({ pref_dark_mode: enabled })
+    applyDarkMode(enabled)
+  })
 
   document.getElementById('btn-save-prefs').addEventListener('click', async () => {
     const statusEl = document.getElementById('prefs-status')
