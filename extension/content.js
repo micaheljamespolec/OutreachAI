@@ -154,34 +154,35 @@ function doScrape(sendResponse) {
   // title and company are determined after experience is scraped (below)
   // Priority: page title > experience section > headline fallback
 
-  // ── Experience: gather current roles for richer context ─────────────────────
-  // LinkedIn no longer uses #experience — find the section by its heading text
+  // ── Experience: parse from raw section text (LinkedIn no longer uses <li>) ───
+  // Section text format: "Experience\n\nTitle\n\nCompany\n\nDate - Present...\n\nTitle2..."
   const experience = []
   try {
-    const expSection = [...document.querySelectorAll('section')].find(s => {
-      const heading = s.querySelector('h2, h3, div[class*="pvs-header"]')
-      return heading?.innerText?.trim().toLowerCase().startsWith('experience')
-    })
+    const expSection = [...document.querySelectorAll('section')].find(s =>
+      s.innerText?.trim().startsWith('Experience')
+    )
     if (expSection) {
-      const items = expSection.querySelectorAll('li')
-      for (const item of items) {
-        if (experience.length >= 5) break
-        const lines = item.innerText?.trim()?.split('\n').map(l => l.trim()).filter(Boolean) ?? []
-        if (lines.length >= 2) {
-          const isCurrent = lines.some(l => l.includes('Present'))
-          const roleTitle = lines[0] || ''
-          const compLink = item.querySelector('a[href*="/company/"]')
-          const roleCompany = compLink?.innerText?.trim()?.split('\n')[0]?.trim() || ''
-          const dateLine = lines.find(l => /\b(20\d{2}|Present)\b/.test(l)) || ''
-          if (roleTitle && roleTitle.length < 100) {
-            experience.push({
-              title: roleTitle,
-              company: roleCompany,
-              dates: dateLine,
-              current: isCurrent,
-            })
-          }
+      const lines = expSection.innerText
+        .split('\n')
+        .map(l => l.trim())
+        .filter(Boolean)
+        .slice(1) // drop the "Experience" heading
+
+      // Lines come in groups: Title, Company, DateRange, Location, (optional description)...
+      // We detect a "role block" by finding a date line like "Nov 2024 - Present"
+      let i = 0
+      while (i < lines.length && experience.length < 5) {
+        const dateIdx = lines.findIndex((l, idx) => idx >= i && /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/.test(l))
+        if (dateIdx === -1) break
+        // Title is 2 lines before the date, company is 1 line before
+        const roleTitle   = dateIdx >= 2 ? lines[dateIdx - 2] : (dateIdx >= 1 ? lines[dateIdx - 1] : '')
+        const roleCompany = dateIdx >= 1 ? lines[dateIdx - 1] : ''
+        const dateLine    = lines[dateIdx]
+        const isCurrent   = dateLine.includes('Present')
+        if (roleTitle && roleTitle.length < 100 && roleTitle !== roleCompany) {
+          experience.push({ title: roleTitle, company: roleCompany, dates: dateLine, current: isCurrent })
         }
+        i = dateIdx + 1
       }
     }
   } catch (e) {
