@@ -156,9 +156,10 @@ function doScrape(sendResponse) {
 
   // ── Experience: parse from raw section text (LinkedIn no longer uses <li>) ───
   // Section text format: "Experience\n\nTitle\n\nCompany\n\nDate - Present...\n\nTitle2..."
+  // On Recruiter pages, skip this entirely — the DOM has UI labels not real job data
   const experience = []
   try {
-    const expSection = [...document.querySelectorAll('section')].find(s =>
+    const expSection = !isRecruiter && [...document.querySelectorAll('section')].find(s =>
       s.innerText?.trim().startsWith('Experience')
     )
     if (expSection) {
@@ -191,19 +192,19 @@ function doScrape(sendResponse) {
 
   // ── Derive title & company from experience (preferred) or headline ────────
   // Prefer title from current experience entry; fall back to headline-parsed title
-  // Priority 1: document.title ("Name - Title - Company | LinkedIn") - always reliable
-  // Priority 2: Experience section current role (if lazy-loaded in DOM)
-  // Priority 3: Headline text fallback
+  // Priority 1: Experience section current role (regular LinkedIn only)
+  // Priority 2: document.title if it has "Name - Title - Company" format
+  // Priority 3: Headline text (always present, Recruiter-safe fallback)
   const currentExp = experience.find(e => e.current) || experience[0]
 
-  const title = titleFromPageTitle
-    || currentExp?.title
+  const title = currentExp?.title
+    || titleFromPageTitle
     || (cleanHeadline.includes(' at ')
       ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
       : cleanHeadline)
 
-  let company = companyFromPageTitle
-    || currentExp?.company
+  let company = currentExp?.company
+    || companyFromPageTitle
     || (cleanHeadline.includes(' at ')
       ? cleanHeadline.split(' at ').slice(-1)[0].trim()
       : '')
