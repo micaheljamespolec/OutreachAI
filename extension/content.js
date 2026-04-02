@@ -155,36 +155,31 @@ function doScrape(sendResponse) {
   // Priority: page title > experience section > headline fallback
 
   // ── Experience: gather current roles for richer context ─────────────────────
+  // LinkedIn no longer uses #experience — find the section by its heading text
   const experience = []
   try {
-    const expSection = document.querySelector('#experience')
-      ?? document.querySelector('[id="experience"]')
+    const expSection = [...document.querySelectorAll('section')].find(s => {
+      const heading = s.querySelector('h2, h3, div[class*="pvs-header"]')
+      return heading?.innerText?.trim().toLowerCase().startsWith('experience')
+    })
     if (expSection) {
-      // Walk up to the containing <section>
-      const section = expSection.closest('section') ?? expSection.parentElement
-      if (section) {
-        // Each role is typically in a list item with a company link
-        const items = section.querySelectorAll('li')
-        for (const item of items) {
-          if (experience.length >= 5) break  // cap at 5 roles
-          const lines = item.innerText?.trim()?.split('\n').map(l => l.trim()).filter(Boolean) ?? []
-          if (lines.length >= 2) {
-            // Check if this entry mentions "Present" (current role)
-            const isCurrent = lines.some(l => l.includes('Present'))
-            const roleTitle = lines[0] || ''
-            // Find company name from a link
-            const compLink = item.querySelector('a[href*="/company/"]')
-            const roleCompany = compLink?.innerText?.trim()?.split('\n')[0]?.trim() || ''
-            // Find date range
-            const dateLine = lines.find(l => /\b(20\d{2}|Present)\b/.test(l)) || ''
-            if (roleTitle && roleTitle.length < 100) {
-              experience.push({
-                title: roleTitle,
-                company: roleCompany,
-                dates: dateLine,
-                current: isCurrent,
-              })
-            }
+      const items = expSection.querySelectorAll('li')
+      for (const item of items) {
+        if (experience.length >= 5) break
+        const lines = item.innerText?.trim()?.split('\n').map(l => l.trim()).filter(Boolean) ?? []
+        if (lines.length >= 2) {
+          const isCurrent = lines.some(l => l.includes('Present'))
+          const roleTitle = lines[0] || ''
+          const compLink = item.querySelector('a[href*="/company/"]')
+          const roleCompany = compLink?.innerText?.trim()?.split('\n')[0]?.trim() || ''
+          const dateLine = lines.find(l => /\b(20\d{2}|Present)\b/.test(l)) || ''
+          if (roleTitle && roleTitle.length < 100) {
+            experience.push({
+              title: roleTitle,
+              company: roleCompany,
+              dates: dateLine,
+              current: isCurrent,
+            })
           }
         }
       }
