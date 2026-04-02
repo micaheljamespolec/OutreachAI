@@ -127,8 +127,22 @@ function doScrape(sendResponse) {
     if (dashIdx !== -1) headline = beforeLinkedIn.slice(dashIdx + 3).trim()
   }
 
-  // ── Extract title and company from headline ────────────────────────────────
-  // Clean up: if headline has pipes, take the first segment that contains " at "
+  // ── Strategy 1: Parse title & company from document.title ──────────────────
+  // LinkedIn's page title is always "Name - Title - Company | LinkedIn"
+  // This is the most reliable source — always present, no lazy-loading issues.
+  let titleFromPageTitle = ''
+  let companyFromPageTitle = ''
+  const pageTitleRaw = document.title.split(' | LinkedIn')[0].split(' | ')[0]
+  const pageTitleParts = pageTitleRaw.split(' - ').map(s => s.trim()).filter(Boolean)
+  // parts[0] = Name, parts[1] = Title, parts[2] = Company
+  if (pageTitleParts.length >= 3) {
+    titleFromPageTitle = pageTitleParts[1] || ''
+    companyFromPageTitle = pageTitleParts[2] || ''
+  } else if (pageTitleParts.length === 2 && pageTitleParts[0] === fullName) {
+    titleFromPageTitle = pageTitleParts[1] || ''
+  }
+
+  // ── Extract title and company from headline (fallback only) ──────────────────
   let cleanHeadline = headline
   if (headline.includes(' | ')) {
     const segments = headline.split(' | ')
@@ -138,7 +152,7 @@ function doScrape(sendResponse) {
   }
 
   // title and company are determined after experience is scraped (below)
-  // so we can prefer the first current experience entry over headline parsing.
+  // Priority: page title > experience section > headline fallback
 
   // ── Experience: gather current roles for richer context ─────────────────────
   const experience = []
@@ -181,14 +195,22 @@ function doScrape(sendResponse) {
 
   // ── Derive title & company from experience (preferred) or headline ────────
   // Prefer title from current experience entry; fall back to headline-parsed title
+  // Priority 1: document.title ("Name - Title - Company | LinkedIn") - always reliable
+  // Priority 2: Experience section current role (if lazy-loaded in DOM)
+  // Priority 3: Headline text fallback
   const currentExp = experience.find(e => e.current) || experience[0]
-  const title = currentExp?.title || (cleanHeadline.includes(' at ')
-    ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
-    : cleanHeadline)
 
-  let company = currentExp?.company || (cleanHeadline.includes(' at ')
-    ? cleanHeadline.split(' at ').slice(-1)[0].trim()
-    : '')
+  const title = titleFromPageTitle
+    || currentExp?.title
+    || (cleanHeadline.includes(' at ')
+      ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
+      : cleanHeadline)
+
+  let company = companyFromPageTitle
+    || currentExp?.company
+    || (cleanHeadline.includes(' at ')
+      ? cleanHeadline.split(' at ').slice(-1)[0].trim()
+      : '')
 
   // ── Company fallback: extract from profile page DOM if not in headline ────
   if (!company) {
