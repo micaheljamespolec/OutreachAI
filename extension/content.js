@@ -154,60 +154,31 @@ function doScrape(sendResponse) {
   // title and company are determined after experience is scraped (below)
   // Priority: page title > experience section > headline fallback
 
-  // ── Experience: parse from raw section text (LinkedIn no longer uses <li>) ───
-  // Section text format: "Experience\n\nTitle\n\nCompany\n\nDate - Present...\n\nTitle2..."
-  // On Recruiter pages, skip this entirely — the DOM has UI labels not real job data
-  const experience = []
-  try {
-    const expSection = !isRecruiter && [...document.querySelectorAll('section')].find(s =>
-      s.innerText?.trim().startsWith('Experience')
-    )
-    if (expSection) {
-      const lines = expSection.innerText
-        .split('\n')
-        .map(l => l.trim())
-        .filter(Boolean)
-        .slice(1) // drop the "Experience" heading
+  // ── Title: always use the headline ──────────────────────────────────────────
+  // The headline is the most reliable source on both regular LinkedIn and Recruiter.
+  // Experience section DOM layout varies too much between page types to parse reliably.
+  // Headline examples:
+  //   "Senior Recruiter at Sunrise Systems"  → title = "Senior Recruiter"
+  //   "Strategic U.S. Talent Recruitment Leader | Results-Focused"  → title = full headline
+  //   "Co-Founder"  → title = "Co-Founder"
 
-      // Lines come in groups: Title, Company, DateRange, Location, (optional description)...
-      // We detect a "role block" by finding a date line like "Nov 2024 - Present"
-      let i = 0
-      while (i < lines.length && experience.length < 5) {
-        const dateIdx = lines.findIndex((l, idx) => idx >= i && /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/.test(l))
-        if (dateIdx === -1) break
-        // Title is 2 lines before the date, company is 1 line before
-        const roleTitle   = dateIdx >= 2 ? lines[dateIdx - 2] : (dateIdx >= 1 ? lines[dateIdx - 1] : '')
-        const roleCompany = dateIdx >= 1 ? lines[dateIdx - 1] : ''
-        const dateLine    = lines[dateIdx]
-        const isCurrent   = dateLine.includes('Present')
-        if (roleTitle && roleTitle.length < 100 && roleTitle !== roleCompany) {
-          experience.push({ title: roleTitle, company: roleCompany, dates: dateLine, current: isCurrent })
-        }
-        i = dateIdx + 1
-      }
-    }
-  } catch (e) {
-    // Experience extraction is best-effort
+  let title = ''
+  let company = ''
+
+  if (cleanHeadline.includes(' at ')) {
+    // "Title at Company" format
+    const atIdx = cleanHeadline.lastIndexOf(' at ')
+    title   = cleanHeadline.slice(0, atIdx).trim()
+    company = cleanHeadline.slice(atIdx + 4).trim()
+  } else if (cleanHeadline.includes(' | ')) {
+    // "Title | Tagline" — take the first segment as title
+    title = cleanHeadline.split(' | ')[0].trim()
+  } else {
+    title = cleanHeadline
   }
 
-  // ── Derive title & company from experience (preferred) or headline ────────
-  // Prefer title from current experience entry; fall back to headline-parsed title
-  // Priority 1: Experience section current role (regular LinkedIn only)
-  // Priority 2: document.title if it has "Name - Title - Company" format
-  // Priority 3: Headline text (always present, Recruiter-safe fallback)
-  const currentExp = experience.find(e => e.current) || experience[0]
-
-  const title = currentExp?.title
-    || titleFromPageTitle
-    || (cleanHeadline.includes(' at ')
-      ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
-      : cleanHeadline)
-
-  let company = currentExp?.company
-    || companyFromPageTitle
-    || (cleanHeadline.includes(' at ')
-      ? cleanHeadline.split(' at ').slice(-1)[0].trim()
-      : '')
+  // Keep experience array for context (used in AI draft) but don't use for title/company
+  const experience = []
 
   // ── Company fallback: extract from profile page DOM if not in headline ────
   if (!company) {
