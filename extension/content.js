@@ -99,8 +99,8 @@ function doScrape(sendResponse) {
     }
   }
 
-  // ── Recruiter fallback: use data-anonymize="headline" attribute ─────────
-  if (!headline && isRecruiter) {
+  // ── Recruiter: always use data-anonymize="headline" — skip the h1 walker ──
+  if (isRecruiter) {
     headline = document.querySelector('[data-anonymize="headline"]')?.innerText?.trim() || ''
   }
 
