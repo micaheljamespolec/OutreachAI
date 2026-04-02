@@ -32,13 +32,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 function doScrape(sendResponse) {
 
   // ── Name ──────────────────────────────────────────────────────────────────
-  // LinkedIn uses h1 or h2 for the profile name — find the right one
   const isRecruiter = window.location.href.includes('/talent/') || window.location.href.includes('/recruiter/')
   let h1 = document.querySelector('h1')
 
-  // On Recruiter pages, the page title IS the person's name — use it directly
   if (isRecruiter) {
-    h1 = null // don't trust h1/h2 on Recruiter pages
+    // Recruiter DOM: name is in [data-anonymize="person-name"], h1 = "From public profile"
+    h1 = document.querySelector('[data-anonymize="person-name"]') || null
   } else if (!h1) {
     // Regular LinkedIn: find the h2 that matches the name from the page title
     const titleName = document.title.split(' | ')[0].split(' - ')[0].trim()
@@ -100,24 +99,9 @@ function doScrape(sendResponse) {
     }
   }
 
-  // ── Recruiter fallback: scan the whole page for headline-like text ────────
+  // ── Recruiter fallback: use data-anonymize="headline" attribute ─────────
   if (!headline && isRecruiter) {
-    // On Recruiter pages, look for any text containing " at " near the top
-    const allText = document.querySelectorAll('span, div, p')
-    for (const el of allText) {
-      const text = el.textContent?.trim()
-      if (
-        text &&
-        text.includes(' at ') &&
-        text.length > 15 &&
-        text.length < 200 &&
-        text !== fullName &&
-        !text.includes('\n')
-      ) {
-        headline = text
-        break
-      }
-    }
+    headline = document.querySelector('[data-anonymize="headline"]')?.innerText?.trim() || ''
   }
 
   // ── Fallback: parse from document title ────────────────────────────────────
