@@ -75,6 +75,7 @@ async function showMainApp(user) {
   // Apply dark mode preference immediately
   const darkPref = await getStorage(['pref_dark_mode'])
   applyDarkMode(!!darkPref.pref_dark_mode)
+
   document.getElementById('login-screen').style.display = 'none'
   document.getElementById('main-app').style.display = 'block'
   setupTabs()

@@ -108,57 +108,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     else cleanHeadline = segments[0].trim()
   }
 
-  let title = cleanHeadline.includes(' at ')
-    ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
-    : cleanHeadline
-
-  let company = cleanHeadline.includes(' at ')
-    ? cleanHeadline.split(' at ').slice(-1)[0].trim()
-    : ''
-
-  // ── Company fallback: extract from profile page DOM if not in headline ────
-  if (!company) {
-    // Strategy 1: Find the company logo/link in the profile header card
-    // On standard LinkedIn profiles, the current company appears with a small logo
-    // right below the headline, linking to /company/. It's typically the ONLY
-    // company link inside the profile card (before the experience section).
-    const profileCard = h1?.closest('main') ?? h1?.closest('section') ?? document.querySelector('main')
-    if (profileCard) {
-      // Look for company links that appear BEFORE the experience section
-      const expAnchor = document.querySelector('#experience')
-      const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
-      for (const link of companyLinks) {
-        // If we found the experience section, only consider links above it
-        if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
-        const text = link.innerText?.trim()?.split('\n')[0]?.trim()
-        if (!text || text.length < 2 || text.length > 80) continue
-        if (text.includes('Follow') || text.includes('follower')) continue
-        // Skip university/education links — they usually contain 'University', 'College', 'School', 'Institute'
-        if (/\b(University|College|School|Institute|Academy)\b/i.test(text)) continue
-        company = text
-        break
-      }
-    }
-
-    // Strategy 2: Parse from the page title ("Name - Title - Company | LinkedIn")
-    if (!company) {
-      const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
-      if (titleParts.length >= 3) {
-        const candidate = titleParts[titleParts.length - 1].trim()
-        if (candidate && candidate !== fullName && candidate.length < 80
-            && !/\b(University|College|School|Institute|Academy)\b/i.test(candidate)) {
-          company = candidate
-        }
-      }
-      // If we still don't have one, accept even education as company (better than nothing)
-      if (!company && titleParts.length >= 3) {
-        const candidate = titleParts[titleParts.length - 1].trim()
-        if (candidate && candidate !== fullName && candidate.length < 80) {
-          company = candidate
-        }
-      }
-    }
-  }
+  // title and company are determined after experience is scraped (below)
+  // so we can prefer the first current experience entry over headline parsing.
 
   // ── Experience: gather current roles for richer context ─────────────────────
   const experience = []
@@ -199,10 +150,53 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     // Experience extraction is best-effort
   }
 
-  // ── Override title & company from current experience entry ───────────────
+  // ── Derive title & company from experience (preferred) or headline ────────
+  // Prefer title from current experience entry; fall back to headline-parsed title
   const currentExp = experience.find(e => e.current) || experience[0]
-  if (currentExp?.title) title = currentExp.title
-  if (currentExp?.company) company = currentExp.company
+  const title = currentExp?.title || (cleanHeadline.includes(' at ')
+    ? cleanHeadline.split(' at ').slice(0, -1).join(' at ').trim()
+    : cleanHeadline)
+
+  let company = currentExp?.company || (cleanHeadline.includes(' at ')
+    ? cleanHeadline.split(' at ').slice(-1)[0].trim()
+    : '')
+
+  // ── Company fallback: extract from profile page DOM if not in headline ────
+  if (!company) {
+    // Strategy 1: Find the company logo/link in the profile header card
+    const profileCard = h1?.closest('main') ?? h1?.closest('section') ?? document.querySelector('main')
+    if (profileCard) {
+      const expAnchor = document.querySelector('#experience')
+      const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
+      for (const link of companyLinks) {
+        if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
+        const text = link.innerText?.trim()?.split('\n')[0]?.trim()
+        if (!text || text.length < 2 || text.length > 80) continue
+        if (text.includes('Follow') || text.includes('follower')) continue
+        if (/\b(University|College|School|Institute|Academy)\b/i.test(text)) continue
+        company = text
+        break
+      }
+    }
+
+    // Strategy 2: Parse from the page title ("Name - Title - Company | LinkedIn")
+    if (!company) {
+      const titleParts = document.title.split(' | LinkedIn')[0]?.split(' - ') ?? []
+      if (titleParts.length >= 3) {
+        const candidate = titleParts[titleParts.length - 1].trim()
+        if (candidate && candidate !== fullName && candidate.length < 80
+            && !/\b(University|College|School|Institute|Academy)\b/i.test(candidate)) {
+          company = candidate
+        }
+      }
+      if (!company && titleParts.length >= 3) {
+        const candidate = titleParts[titleParts.length - 1].trim()
+        if (candidate && candidate !== fullName && candidate.length < 80) {
+          company = candidate
+        }
+      }
+    }
+  }
 
   // ── LinkedIn URL: prefer the public profile URL ─────────────────────────
   let linkedinUrl = window.location.href.split('?')[0]
