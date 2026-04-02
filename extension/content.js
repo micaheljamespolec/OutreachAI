@@ -1,6 +1,35 @@
 // ─── content.js ──────────────────────────────────────────────────────────────
+
+// Scroll down to force LinkedIn to lazy-load the Experience section, then scroll back
+function ensureExperienceLoaded() {
+  return new Promise(resolve => {
+    // If Experience section already exists, nothing to do
+    if (document.querySelector('#experience')) { resolve(); return }
+    // Scroll down far enough to trigger lazy loading
+    window.scrollTo(0, 1200)
+    // Wait up to 3s for #experience to appear
+    let waited = 0
+    const interval = setInterval(() => {
+      waited += 200
+      if (document.querySelector('#experience') || waited >= 3000) {
+        clearInterval(interval)
+        // Scroll back to top so the user doesn't notice
+        window.scrollTo(0, 0)
+        resolve()
+      }
+    }, 200)
+  })
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type !== 'scrape') return false
+
+  // Ensure Experience section is loaded before scraping, then do the work async
+  ensureExperienceLoaded().then(() => doScrape(sendResponse))
+  return true // keep message channel open for async response
+})
+
+function doScrape(sendResponse) {
 
   // ── Name ──────────────────────────────────────────────────────────────────
   // LinkedIn uses h1 or h2 for the profile name — find the right one
@@ -222,6 +251,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     linkedinUrl,
     experience,
   })
-
-  return true
-})
+}
