@@ -331,9 +331,9 @@
 
   <!-- Tab order: Email · Job · Profile · Settings -->
   <div class="tabs">
-    <div class="tab active" data-tab="email">✉️ Email</div>
+    <div class="tab active" data-tab="email">✉️ Outreach</div>
     <div class="tab" data-tab="job">📋 Job</div>
-    <div class="tab" data-tab="profile">👤 Profile</div>
+    <div class="tab" data-tab="profile">👤 Candidate</div>
     <div class="tab" data-tab="settings">⚙️ Settings</div>
   </div>
 
@@ -402,7 +402,7 @@
         <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
       </div>
 
-      <!-- 4b. Requirements Match panel -->
+      <!-- 7. Requirements Match panel (secondary, below main workflow) -->
       <div id="match-panel" style="display:none;margin-bottom:8px;">
         <div class="card" style="padding:0;overflow:hidden;">
           <div style="padding:9px 13px 7px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
@@ -430,7 +430,7 @@
 
       <!-- 5. Primary CTA — context-aware, one at a time -->
       <div class="cta-area">
-        <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email  ·  uses 1 lookup</button>
+        <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email · uses 1 lookup</button>
         <button class="btn btn-primary" id="btn-generate-draft" style="display:none;">✍️ Generate Draft</button>
         <button class="btn btn-success" id="btn-open-gmail" style="display:none;">📨 Open in Gmail</button>
         <div id="email-status" class="status" style="margin-top:8px;"></div>
@@ -440,7 +440,7 @@
       <div class="secondary-actions" id="secondary-actions">
         <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
         <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate draft</button>
-        <button class="btn-small" id="btn-check-fit">🎯 Check fit</button>
+        <button class="btn-small" id="btn-check-fit">🎯 Analyze Fit · uses 1 AI run</button>
       </div>
 
     </div>
@@ -521,7 +521,8 @@
       <div class="card">
         <div class="field"><div class="field-label">Email</div><div class="field-value" id="settings-email">—</div></div>
         <div class="field"><div class="field-label">Plan</div><div class="field-value"><span class="plan-badge free" id="settings-plan-badge">Free</span></div></div>
-        <div class="field"><div class="field-label">Lookups used</div><div class="field-value" id="settings-lookups">—</div></div>
+        <div class="field"><div class="field-label">Email lookups used</div><div class="field-value" id="settings-lookups">—</div></div>
+        <div class="field"><div class="field-label">AI runs used</div><div class="field-value" id="settings-ai-runs">—</div></div>
         <button class="btn btn-secondary" id="btn-upgrade" style="margin-top:10px;">⬆️ Upgrade plan</button>
         <button class="btn btn-danger" id="btn-sign-out" style="margin-top:7px;">Sign out</button>
       </div>

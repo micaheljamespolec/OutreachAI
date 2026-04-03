@@ -1,7 +1,7 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCredits } from './core/credits.js'
+import { getCredits, deductAiRun } from './core/credits.js'
 import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft, extractJob, requirementsMatch } from './core/api.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -83,21 +83,21 @@ async function loadCreditsUI() {
     const left = max - used
     // Set copy and state
     if (left <= 0) {
-      pill.textContent = '0 left · Upgrade'
+      pill.textContent = '0 lookups · Upgrade'
       pill.className = 'credit-pill critical'
     } else if (left <= 2) {
-      pill.textContent = `${left} left · Upgrade`
+      pill.textContent = `${left} lookup${left === 1 ? '' : 's'} left · Upgrade`
       pill.className = 'credit-pill critical'
     } else if (left <= 5) {
-      pill.textContent = `${left} credits left`
+      pill.textContent = `${left} lookups left`
       pill.className = 'credit-pill low'
     } else {
-      pill.textContent = `${left} credits left`
+      pill.textContent = `${left} lookups left`
       pill.className = 'credit-pill'
     }
     return { used, max, left }
   } catch {
-    pill.textContent = '— credits'
+    pill.textContent = '— lookups'
     pill.className = 'credit-pill'
     return { used: 0, max: 10, left: 10 }
   }
@@ -403,6 +403,31 @@ async function setupRequirementsMatch(profile) {
       return
     }
 
+    // ── Cache check: reuse result if same candidate + same job ──────────────
+    const cacheKey = `match_cache_${profile.linkedinUrl}_${storage.job_title}_${storage.job_company || ''}`
+    const cached = await getStorage([cacheKey])
+    if (cached[cacheKey]?.result) {
+      $('match-panel').style.display = 'block'
+      showMatchPanel(cached[cacheKey].result)
+      // Show subtle cached indicator
+      const statusEl = $('match-status')
+      showStatus(statusEl, '↩ Showing cached result — re-run to refresh.', 'info')
+      return
+    }
+
+    // ── Check AI run quota ──────────────────────────────────────────────────
+    const credits = await getCredits()
+    if (credits) {
+      const tier = credits.tier ?? 'free'
+      const aiUsed = credits.ai_runs_used ?? 0
+      const aiMax = CONFIG.tiers[tier]?.ai_runs ?? 20
+      if (aiUsed >= aiMax) {
+        showStatus($('match-status'), `AI run limit reached (${aiMax}/month). Upgrade to analyze more candidates.`, 'error')
+        $('match-panel').style.display = 'block'
+        return
+      }
+    }
+
     const statusEl = $('match-status')
     $('match-panel').style.display = 'block'
     $('match-summary').textContent = ''
@@ -418,6 +443,14 @@ async function setupRequirementsMatch(profile) {
         description: storage.job_description || '',
       })
       if (result.error) throw new Error(result.error)
+
+      // Deduct AI run client-side (server doesn't track this yet)
+      await deductAiRun()
+      await loadCreditsUI()
+
+      // Cache the result for this candidate + job combination
+      await setStorage({ [cacheKey]: { result, timestamp: Date.now() } })
+
       hideStatus(statusEl)
       showMatchPanel(result)
     } catch (e) {
@@ -527,12 +560,15 @@ async function setupSettingsTab(user) {
   try {
     const credits = await getCredits()
     const tier = credits?.tier ?? 'free'
-    const used = credits?.lookups_used ?? 0
-    const max = CONFIG.tiers[tier]?.lookups ?? 10
+    const lookupsUsed = credits?.lookups_used ?? 0
+    const lookupsMax = CONFIG.tiers[tier]?.lookups ?? 10
+    const aiUsed = credits?.ai_runs_used ?? 0
+    const aiMax = CONFIG.tiers[tier]?.ai_runs ?? 20
     const badge = $('settings-plan-badge')
     badge.textContent = CONFIG.tiers[tier]?.label ?? 'Free'
     badge.className = `plan-badge${tier === 'free' ? ' free' : ''}`
-    $('settings-lookups').textContent = `${used} / ${max}`
+    $('settings-lookups').textContent = `${lookupsUsed} / ${lookupsMax}`
+    if ($('settings-ai-runs')) $('settings-ai-runs').textContent = `${aiUsed} / ${aiMax}`
   } catch {}
   $('btn-upgrade').addEventListener('click', () => createCheckout())
   $('btn-sign-out').addEventListener('click', async () => { await signOut(); showLoginScreen() })

@@ -21,9 +21,9 @@ export const CONFIG = {
   },
 
   tiers: {
-    free:    { lookups: 10,  emails: 10,   label: 'Free'    },
-    sourcer: { lookups: 50,  emails: 100,  label: 'Sourcer' },
-    pro:     { lookups: 200, emails: 9999, label: 'Pro'     },
+    free:    { lookups: 10,  ai_runs: 20,  emails: 10,   label: 'Free'    },
+    sourcer: { lookups: 50,  ai_runs: 200, emails: 100,  label: 'Sourcer' },
+    pro:     { lookups: 200, ai_runs: 999, emails: 9999, label: 'Pro'     },
   },
 
   bonusActivities: {

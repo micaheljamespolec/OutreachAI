@@ -52,6 +52,25 @@ export async function deductCredit() {
   } catch { return false }
 }
 
+export async function deductAiRun() {
+  try {
+    const user = await getUser()
+    if (!user) return false
+    const credits = await getCredits()
+    if (!credits) return false
+    const tier  = credits.tier ?? 'free'
+    const limit = CONFIG.tiers[tier]?.ai_runs ?? 20
+    const used  = credits.ai_runs_used ?? 0
+    if (used >= limit) return false
+    const headers = await getHeaders()
+    await fetch(`${DB}/credits?user_id=eq.${user.id}`, {
+      method: 'PATCH', headers,
+      body: JSON.stringify({ ai_runs_used: used + 1 }),
+    })
+    return true
+  } catch { return false }
+}
+
 export async function completeBonusActivity(activity) {
   try {
     const user = await getUser()
