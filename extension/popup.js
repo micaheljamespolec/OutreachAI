@@ -4,6 +4,7 @@ import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from '.
 import { getCredits } from './core/credits.js'
 import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft, extractJob } from './core/api.js'
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
 function showStatus(el, msg, type = 'info') {
   el.textContent = msg
   el.className = `status ${type} show`
@@ -18,30 +19,34 @@ function getStorage(keys) {
 function setStorage(obj) {
   return new Promise(r => chrome.storage.local.set(obj, r))
 }
+function initials(name) {
+  return (name || '').split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?'
+}
 
+// ── Theme ─────────────────────────────────────────────────────────────────────
+// theme values: 'light' | 'dark' | 'system'
+function resolveTheme(pref) {
+  if (pref === 'dark') return 'dark'
+  if (pref === 'light') return 'light'
+  // system
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
+function applyTheme(pref) {
+  const resolved = resolveTheme(pref || 'system')
+  document.body.classList.toggle('dark', resolved === 'dark')
+  // Update segmented control
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.theme === (pref || 'system'))
+  })
+}
+
+// Keep backward compat: applyDarkMode(bool) still works for old callers
 function applyDarkMode(enabled) {
-  document.body.classList.toggle('dark', enabled)
-  const label = document.getElementById('dark-mode-label')
-  if (label) label.textContent = enabled ? 'On' : 'Off'
-  const checkbox = document.getElementById('toggle-dark-mode')
-  if (checkbox) checkbox.checked = enabled
+  applyTheme(enabled ? 'dark' : 'light')
 }
 
-function displayEmailResult(email, source) {
-  document.getElementById('email-found').style.display = 'block'
-  document.getElementById('found-email').textContent = email
-  const btn = document.getElementById('btn-find-email')
-  if (source === 'cached' || source === 'cache') {
-    document.getElementById('found-email-confidence').textContent = '✅ Previously found'
-    // Keep button clickable for re-check, but make it secondary
-    btn.textContent = '🔄 Re-check Email (uses 1 lookup)'
-    btn.classList.remove('btn-primary')
-    btn.classList.add('btn-secondary')
-  } else {
-    document.getElementById('found-email-confidence').textContent = '✅ Found via FullEnrich'
-  }
-}
-
+// ── Tabs ─────────────────────────────────────────────────────────────────────
 function setupTabs() {
   document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
@@ -53,55 +58,95 @@ function setupTabs() {
   })
 }
 
+// ── Login screen ─────────────────────────────────────────────────────────────
 function showLoginScreen() {
-  getStorage(['pref_dark_mode']).then(d => applyDarkMode(!!d.pref_dark_mode))
+  getStorage(['pref_theme', 'pref_dark_mode']).then(d => {
+    applyTheme(d.pref_theme || (d.pref_dark_mode ? 'dark' : 'system'))
+  })
   document.getElementById('login-screen').style.display = 'block'
   document.getElementById('main-app').style.display = 'none'
   const statusEl = document.getElementById('login-status')
+
   document.getElementById('btn-send-magic-link').addEventListener('click', async () => {
     const email = document.getElementById('login-email').value.trim()
     if (!email) { showStatus(statusEl, 'Please enter your email.', 'error'); return }
-    showStatus(statusEl, 'Sending magic link...', 'info')
+    showStatus(statusEl, 'Sending magic link…', 'info')
     const { error } = await sendMagicLink(email)
     if (error) { showStatus(statusEl, `Error: ${error.message}`, 'error'); return }
     showStatus(statusEl, 'Check your email for the magic link!', 'success')
   })
+
   document.getElementById('btn-google-signin').addEventListener('click', () => {
     signInWithGoogle()
   })
 }
 
+// ── Main app ──────────────────────────────────────────────────────────────────
 async function showMainApp(user) {
-  // Apply dark mode preference immediately
-  const darkPref = await getStorage(['pref_dark_mode'])
-  applyDarkMode(!!darkPref.pref_dark_mode)
+  // Apply theme before rendering
+  const prefs = await getStorage(['pref_theme', 'pref_dark_mode'])
+  applyTheme(prefs.pref_theme || (prefs.pref_dark_mode ? 'dark' : 'system'))
 
   document.getElementById('login-screen').style.display = 'none'
   document.getElementById('main-app').style.display = 'block'
+
   setupTabs()
   await loadCreditsUI()
-  await setupEmailTab()
+
+  // Scrape profile once and share across tabs
+  const profile = await scrapeCurrentProfile()
+
+  await setupEmailTab(profile)
+  setupProfileTab(profile)
   setupJobTab()
   await setupSettingsTab(user)
 }
 
+// ── Credits header ────────────────────────────────────────────────────────────
 async function loadCreditsUI() {
   try {
     const credits = await getCredits()
     const tier = credits?.tier ?? 'free'
     const used = credits?.lookups_used ?? 0
     const max = CONFIG.tiers[tier]?.lookups ?? 10
-    document.getElementById('header-credits').textContent = `${used} / ${max} lookups`
+    document.getElementById('header-credits').textContent = `${used} / ${max}`
   } catch {
-    document.getElementById('header-credits').textContent = '- / - lookups'
+    document.getElementById('header-credits').textContent = '—'
   }
 }
 
-
-async function setupEmailTab() {
+// ── Scrape profile ────────────────────────────────────────────────────────────
+async function scrapeCurrentProfile() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   const url = tab?.url ?? ''
+  const isLinkedIn = url.includes('linkedin.com/in/') ||
+    url.includes('linkedin.com/talent/') ||
+    url.includes('linkedin.com/recruiter/')
+  if (!isLinkedIn) return null
+  try {
+    const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+    return data?.fullName ? data : null
+  } catch { return null }
+}
 
+// ── Email tab ─────────────────────────────────────────────────────────────────
+function displayEmailResult(email, source) {
+  document.getElementById('email-found-row').style.display = 'flex'
+  document.getElementById('found-email').textContent = email
+  const btn = document.getElementById('btn-find-email')
+  if (source === 'cached' || source === 'cache') {
+    document.getElementById('found-email-confidence').textContent = '✅ Previously found'
+    btn.textContent = '🔄 Re-check Email (uses 1 lookup)'
+    btn.classList.remove('btn-primary')
+    btn.classList.add('btn-ghost')
+  } else {
+    document.getElementById('found-email-confidence').textContent = '✅ Found via FullEnrich'
+  }
+}
+
+async function setupEmailTab(profile) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const url = tab?.url ?? ''
   const isLinkedIn = url.includes('linkedin.com/in/') ||
     url.includes('linkedin.com/talent/') ||
     url.includes('linkedin.com/recruiter/')
@@ -115,132 +160,115 @@ async function setupEmailTab() {
   document.getElementById('state-not-linkedin').style.display = 'none'
   document.getElementById('state-email').style.display = 'block'
 
-  // ── Show active job context on Email tab ────────────────────────────────
+  // ── Job context ────────────────────────────────────────────────────────────
   const jobData = await getStorage(['job_title', 'job_company', 'job_description'])
   if (jobData.job_title) {
-    document.getElementById('card-active-job').style.display = 'block'
+    document.getElementById('email-job-context').style.display = 'block'
     document.getElementById('active-job-title').textContent = jobData.job_title
     document.getElementById('active-job-company').textContent = jobData.job_company || ''
-    const desc = jobData.job_description || ''
-    document.getElementById('active-job-desc').textContent = desc.length > 120 ? desc.slice(0, 120) + '...' : desc
   } else {
-    document.getElementById('card-no-job').style.display = 'block'
+    document.getElementById('email-no-job').style.display = 'block'
   }
-  // "Change job" and "Go to Job tab" links switch to the Job tab
-  document.getElementById('link-change-job')?.addEventListener('click', (e) => {
+  document.getElementById('link-change-job')?.addEventListener('click', e => {
     e.preventDefault()
     document.querySelector('.tab[data-tab="job"]').click()
   })
-  document.getElementById('link-add-job')?.addEventListener('click', (e) => {
+  document.getElementById('link-add-job')?.addEventListener('click', e => {
     e.preventDefault()
     document.querySelector('.tab[data-tab="job"]').click()
+  })
+
+  // ── Candidate summary row ──────────────────────────────────────────────────
+  const loadingEl = document.getElementById('email-profile-loading')
+  const candidateRow = document.getElementById('email-candidate-row')
+  const errorEl = document.getElementById('email-profile-error')
+
+  loadingEl.style.display = 'block'
+  loadingEl.classList.add('show')
+
+  if (!profile?.fullName) {
+    loadingEl.style.display = 'none'
+    errorEl.style.display = 'block'
+    return
+  }
+
+  loadingEl.style.display = 'none'
+  candidateRow.style.display = 'flex'
+  document.getElementById('email-avatar').textContent = initials(profile.fullName)
+  document.getElementById('email-cand-name').textContent = profile.fullName
+  const meta = [profile.title, profile.company].filter(Boolean).join(' · ')
+  document.getElementById('email-cand-meta').textContent = meta || '—'
+
+  // "View →" switches to Profile tab
+  document.getElementById('btn-view-profile')?.addEventListener('click', () => {
+    document.querySelector('.tab[data-tab="profile"]').click()
   })
 
   if (!await isLoggedIn()) {
-    document.getElementById('profile-loading').classList.remove('show')
-    const errEl = document.getElementById('profile-error')
-    errEl.textContent = 'Sign in to look up emails'
-    errEl.style.display = 'block'
+    const btn = document.getElementById('btn-find-email')
+    btn.textContent = 'Sign in to look up emails'
+    btn.disabled = true
     return
   }
 
-  const profileLoading = document.getElementById('profile-loading')
-  const profileData = document.getElementById('profile-data')
-  const profileError = document.getElementById('profile-error')
-
-  let profile = null
-
-  try {
-    const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-    if (data?.fullName) profile = data
-  } catch(e) {}
-
-  profileLoading.classList.remove('show')
-
-  if (!profile?.fullName) {
-    profileError.style.display = 'block'
-    return
-  }
-
-  profileData.style.display = 'block'
-  document.getElementById('p-name').textContent = profile.fullName || '-'
-  document.getElementById('p-title').textContent = profile.title || '-'
-  document.getElementById('p-company').textContent = profile.company || '-'
-
-  // ── Check for previously looked-up email ──────────────────────────────
+  // ── Cache check ────────────────────────────────────────────────────────────
   const cacheKey = `email_cache_${profile.linkedinUrl}`
   const draftKey = `draft_cache_${profile.linkedinUrl}`
   const cached = await getStorage([cacheKey])
   const cachedResult = cached[cacheKey]
 
   if (cachedResult?.email) {
-    // Local cache hit — show instantly
     displayEmailResult(cachedResult.email, 'cached')
     const draftCached = await getStorage([draftKey])
     if (draftCached[draftKey]?.draft) {
-      document.getElementById('card-draft').style.display = 'block'
-      document.getElementById('email-draft').value = draftCached[draftKey].draft
-      if (draftCached[draftKey].subject) {
-        document.getElementById('email-draft').dataset.subject = draftCached[draftKey].subject
-      }
+      showDraft(draftCached[draftKey].draft, draftCached[draftKey].subject)
     } else {
-      // Email cached but no draft yet — auto-generate
       await generateDraft(profile)
     }
   } else if (profile.linkedinUrl) {
-    // No local cache — check server cache only (no FullEnrich call, no credit used)
     const statusEl = document.getElementById('email-status')
-    showStatus(statusEl, 'Checking for previous lookup...', 'info')
+    showStatus(statusEl, 'Checking for previous lookup…', 'info')
     try {
-      const serverResult = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true)
+      const serverResult = await lookupEmail(
+        profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true
+      )
       if (serverResult.found && serverResult.email) {
         displayEmailResult(serverResult.email, 'cached')
         await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
         hideStatus(statusEl)
-        // Auto-generate draft for cached email
         await generateDraft(profile)
       } else {
         hideStatus(statusEl)
       }
-    } catch (e) {
-      hideStatus(statusEl)
-    }
+    } catch { hideStatus(statusEl) }
   }
 
+  // ── Find email button ──────────────────────────────────────────────────────
   document.getElementById('btn-find-email').addEventListener('click', async () => {
     const btn = document.getElementById('btn-find-email')
     const statusEl = document.getElementById('email-status')
     btn.disabled = true
-    showStatus(statusEl, 'Looking up email...', 'info')
-
+    showStatus(statusEl, 'Looking up email…', 'info')
     try {
-      const result = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company)
-
+      const result = await lookupEmail(
+        profile.firstName, profile.lastName, profile.linkedinUrl, profile.company
+      )
       if (result.found && result.email) {
         displayEmailResult(result.email, result.source)
-        // Save to local cache so popup remembers on reopen
         await setStorage({ [cacheKey]: { email: result.email, source: result.source, timestamp: Date.now() } })
         hideStatus(statusEl)
-        // Auto-generate a draft after successful email lookup
         await generateDraft(profile)
       } else {
         document.getElementById('email-not-found').style.display = 'block'
-        const manualInput = document.createElement('input')
-        manualInput.type = 'email'
-        manualInput.id = 'manual-email'
-        manualInput.placeholder = 'Enter email manually'
-        manualInput.style.marginTop = '8px'
-        document.getElementById('email-not-found').after(manualInput)
-        showStatus(statusEl, 'Not found — enter manually above.', 'info')
+        showStatus(statusEl, 'Not found — enter email manually.', 'info')
       }
-    } catch(e) {
+    } catch (e) {
       let msg = 'Lookup failed. Try again.'
-      if (e.message === 'Not signed in') msg = 'Please sign in first'
-      else if (e.message?.includes('Credit limit')) msg = 'Credit limit reached. Upgrade your plan for more lookups.'
-      else if (e.message?.includes('402')) msg = 'Credit limit reached. Upgrade your plan for more lookups.'
+      if (e.message === 'Not signed in') msg = 'Please sign in first.'
+      else if (e.message?.includes('Credit limit') || e.message?.includes('402'))
+        msg = 'Credit limit reached. Upgrade your plan.'
       showStatus(statusEl, msg, 'error')
     }
-
     btn.disabled = false
     await loadCreditsUI()
   })
@@ -250,19 +278,27 @@ async function setupEmailTab() {
   document.getElementById('btn-open-gmail')?.addEventListener('click', () => {
     const draft = document.getElementById('email-draft').value.trim()
     const toEmail = document.getElementById('found-email')?.textContent?.trim()
-    const manualEmail = document.getElementById('manual-email')?.value?.trim()
-    const to = (toEmail && toEmail !== '-') ? toEmail : (manualEmail || '')
-    const aiSubject = document.getElementById('email-draft')?.dataset?.subject
-    const subject = encodeURIComponent(aiSubject || `Exciting opportunity for ${profile?.firstName || 'you'}`)
-    const body = encodeURIComponent(draft)
-    chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${body}` })
+    const to = (toEmail && toEmail !== '—') ? toEmail : ''
+    const subject = encodeURIComponent(
+      document.getElementById('email-draft')?.dataset?.subject ||
+      `Exciting opportunity for ${profile?.firstName || 'you'}`
+    )
+    chrome.tabs.create({
+      url: `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${encodeURIComponent(draft)}`
+    })
   })
+}
+
+function showDraft(draftText, subject) {
+  document.getElementById('card-draft').style.display = 'block'
+  document.getElementById('email-draft').value = draftText
+  if (subject) document.getElementById('email-draft').dataset.subject = subject
 }
 
 async function generateDraft(profile) {
   const statusEl = document.getElementById('draft-status')
   document.getElementById('card-draft').style.display = 'block'
-  showStatus(statusEl, 'Generating personalized email...', 'info')
+  showStatus(statusEl, 'Generating personalized email…', 'info')
 
   try {
     const storage = await getStorage(['job_title', 'job_company', 'job_description', 'pref_your_name', 'pref_your_title'])
@@ -275,36 +311,102 @@ async function generateDraft(profile) {
       name: storage.pref_your_name || '',
       title: storage.pref_your_title || '',
     }
-
     const result = await apiGenerateDraft(profile, job, recruiter)
-
     if (result.draft) {
-      document.getElementById('email-draft').value = result.draft
-      if (result.subject) {
-        document.getElementById('email-draft').dataset.subject = result.subject
-      }
-      // Cache the draft locally so it survives popup close/reopen
+      showDraft(result.draft, result.subject)
       if (profile.linkedinUrl) {
-        const draftKey = `draft_cache_${profile.linkedinUrl}`
-        await setStorage({ [draftKey]: { draft: result.draft, subject: result.subject || '', timestamp: Date.now() } })
+        await setStorage({
+          [`draft_cache_${profile.linkedinUrl}`]: {
+            draft: result.draft, subject: result.subject || '', timestamp: Date.now()
+          }
+        })
       }
-      showStatus(statusEl, 'Draft generated!', 'success')
-      setTimeout(() => hideStatus(statusEl), 3000)
+      showStatus(statusEl, 'Draft ready!', 'success')
+      setTimeout(() => hideStatus(statusEl), 2500)
     } else {
-      showStatus(statusEl, 'No draft returned. Try again.', 'error')
+      showStatus(statusEl, 'No draft returned. Try regenerating.', 'error')
     }
   } catch (e) {
-    console.error('generate-draft error:', e)
-    let errMsg = 'Failed to generate draft. Try again.'
-    if (e.message?.includes('503') || e.message?.includes('not configured')) {
-      errMsg = 'AI service not configured. Set GEMINI_API_KEY in Supabase secrets.'
-    } else if (e.message?.includes('429') || e.message?.includes('rate limit')) {
-      errMsg = 'AI rate limit reached. Wait a moment and click Regenerate.'
-    }
-    showStatus(statusEl, errMsg, 'error')
+    let msg = 'Failed to generate draft.'
+    if (e.message?.includes('503') || e.message?.includes('not configured'))
+      msg = 'AI service not configured.'
+    else if (e.message?.includes('429') || e.message?.includes('rate limit'))
+      msg = 'AI rate limit hit. Wait a moment and regenerate.'
+    showStatus(statusEl, msg, 'error')
   }
 }
 
+// ── Profile tab ───────────────────────────────────────────────────────────────
+function setupProfileTab(profile) {
+  const [tab] = [document.querySelector('.tab[data-tab="profile"]')]
+
+  const showNotLinkedIn = () => {
+    document.getElementById('profile-not-linkedin').style.display = 'block'
+    document.getElementById('profile-data-view').style.display = 'none'
+    document.getElementById('profile-loading-state').style.display = 'none'
+    document.getElementById('profile-error-state').style.display = 'none'
+  }
+  const showError = () => {
+    document.getElementById('profile-not-linkedin').style.display = 'none'
+    document.getElementById('profile-data-view').style.display = 'none'
+    document.getElementById('profile-loading-state').style.display = 'none'
+    document.getElementById('profile-error-state').style.display = 'block'
+  }
+  const showData = (p) => {
+    document.getElementById('profile-not-linkedin').style.display = 'none'
+    document.getElementById('profile-error-state').style.display = 'none'
+    document.getElementById('profile-loading-state').style.display = 'none'
+    document.getElementById('profile-data-view').style.display = 'block'
+
+    document.getElementById('prof-name').textContent = p.fullName || '—'
+    document.getElementById('prof-title').textContent = p.title || '—'
+    document.getElementById('prof-company').textContent = p.company || '—'
+    const urlEl = document.getElementById('prof-url')
+    if (p.linkedinUrl) {
+      urlEl.innerHTML = `<a href="${p.linkedinUrl}" target="_blank">${p.linkedinUrl.replace('https://', '')}</a>`
+    } else {
+      urlEl.textContent = '—'
+    }
+
+    // Experience list
+    if (p.experience?.length) {
+      const card = document.getElementById('prof-experience-card')
+      const list = document.getElementById('prof-experience-list')
+      list.innerHTML = p.experience.map(exp => `
+        <div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #f3f4f6;">
+          <div style="font-size:13px;font-weight:600;color:#111827;">${exp.title || ''}</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:1px;">${exp.company || ''}${exp.dates ? ' · ' + exp.dates : ''}</div>
+        </div>
+      `).join('')
+      // Remove last border
+      const items = list.querySelectorAll('div')
+      if (items.length) items[items.length - 1].style.borderBottom = 'none'
+      card.style.display = 'block'
+    }
+  }
+
+  // Check if we're on LinkedIn
+  chrome.tabs.query({ active: true, currentWindow: true }, ([activeTab]) => {
+    const url = activeTab?.url ?? ''
+    const isLinkedIn = url.includes('linkedin.com/in/') ||
+      url.includes('linkedin.com/talent/') ||
+      url.includes('linkedin.com/recruiter/')
+    if (!isLinkedIn) { showNotLinkedIn(); return }
+    if (!profile) { showError(); return }
+    showData(profile)
+  })
+
+  // Re-scrape button
+  document.getElementById('btn-rescrape')?.addEventListener('click', async () => {
+    document.getElementById('profile-loading-state').style.display = 'block'
+    document.getElementById('profile-data-view').style.display = 'none'
+    const fresh = await scrapeCurrentProfile()
+    if (fresh) showData(fresh)
+    else showError()
+  })
+}
+
+// ── Job tab ───────────────────────────────────────────────────────────────────
 function setupJobTab() {
   getStorage(['job_title', 'job_company', 'job_description', 'job_url']).then(d => {
     if (d.job_title) document.getElementById('job-title').value = d.job_title
@@ -313,142 +415,102 @@ function setupJobTab() {
     if (d.job_url) document.getElementById('job-url').value = d.job_url
   })
 
-  // Extract job details from URL
   document.getElementById('btn-extract-job').addEventListener('click', async () => {
     const url = document.getElementById('job-url').value.trim()
     const statusEl = document.getElementById('extract-status')
     if (!url) { showStatus(statusEl, 'Paste a job posting URL first.', 'error'); return }
     if (!url.startsWith('http')) { showStatus(statusEl, 'Please enter a valid URL starting with http.', 'error'); return }
-
     const btn = document.getElementById('btn-extract-job')
     btn.disabled = true
-    showStatus(statusEl, 'Opening job page and extracting...', 'info')
-
+    showStatus(statusEl, 'Opening job page and extracting…', 'info')
     try {
-      // Open the URL in a background tab and extract the rendered text
-      const tab = await chrome.tabs.create({ url, active: false })
-      
-      // Wait for the page to load (JS-rendered pages need time)
+      const jobTab = await chrome.tabs.create({ url, active: false })
       await new Promise(resolve => {
         const listener = (tabId, info) => {
-          if (tabId === tab.id && info.status === 'complete') {
+          if (tabId === jobTab.id && info.status === 'complete') {
             chrome.tabs.onUpdated.removeListener(listener)
             resolve()
           }
         }
         chrome.tabs.onUpdated.addListener(listener)
-        // Timeout after 15s
-        setTimeout(() => { chrome.tabs.onUpdated.removeListener(listener); resolve() }, 15000)
+        setTimeout(resolve, 15000)
       })
-
-      // Give JS-rendered pages a bit more time to populate content
-      await new Promise(r => setTimeout(r, 3000))
-
-      // Extract text from the tab
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => document.body.innerText?.slice(0, 8000) || '',
-      })
-      const pageText = results?.[0]?.result || ''
-
-      // Close the background tab
-      chrome.tabs.remove(tab.id).catch(() => {})
-
-      if (!pageText || pageText.length < 50) {
-        showStatus(statusEl, 'Could not read page content. Try entering manually.', 'error')
-        btn.disabled = false
-        return
-      }
-
-      showStatus(statusEl, 'Analyzing job posting with AI...', 'info')
-
-      const result = await extractJob(pageText)
-      if (result.title) document.getElementById('job-title').value = result.title
-      if (result.company) document.getElementById('job-company').value = result.company
-      if (result.description) document.getElementById('job-description').value = result.description
-
-      // Auto-save
-      await setStorage({
-        job_title: result.title || '',
-        job_company: result.company || '',
-        job_description: result.description || '',
-        job_url: url,
-      })
-
-      showStatus(statusEl, 'Job details extracted and saved!', 'success')
-      setTimeout(() => hideStatus(statusEl), 3000)
-    } catch (e) {
-      let msg = 'Could not extract job details. Try entering manually.'
+      await new Promise(r => setTimeout(r, 1500))
+      let pageText = ''
       try {
-        const parsed = JSON.parse(e.message)
-        if (parsed.error) msg = parsed.error
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: jobTab.id },
+          func: () => document.body?.innerText ?? '',
+        })
+        pageText = results?.[0]?.result ?? ''
       } catch {}
-      showStatus(statusEl, msg, 'error')
+      chrome.tabs.remove(jobTab.id).catch(() => {})
+      if (!pageText) { showStatus(statusEl, 'Could not read that page. Try pasting details manually.', 'error'); btn.disabled = false; return }
+      const jobData = await extractJob(pageText.slice(0, 12000))
+      if (jobData?.title) document.getElementById('job-title').value = jobData.title
+      if (jobData?.company) document.getElementById('job-company').value = jobData.company
+      if (jobData?.description) document.getElementById('job-description').value = jobData.description
+      showStatus(statusEl, 'Job details extracted!', 'success')
+    } catch (e) {
+      showStatus(statusEl, `Extraction failed: ${e.message}`, 'error')
     }
     btn.disabled = false
   })
 
-  // Save job manually
   document.getElementById('btn-save-job').addEventListener('click', async () => {
     const statusEl = document.getElementById('job-status')
-    await setStorage({
-      job_title: document.getElementById('job-title').value.trim(),
-      job_company: document.getElementById('job-company').value.trim(),
-      job_description: document.getElementById('job-description').value.trim(),
-      job_url: document.getElementById('job-url').value.trim(),
-    })
+    const title = document.getElementById('job-title').value.trim()
+    const company = document.getElementById('job-company').value.trim()
+    const desc = document.getElementById('job-description').value.trim()
+    const url = document.getElementById('job-url').value.trim()
+    if (!title) { showStatus(statusEl, 'Add a role title first.', 'error'); return }
+    await setStorage({ job_title: title, job_company: company, job_description: desc, job_url: url })
     showStatus(statusEl, 'Job saved!', 'success')
     setTimeout(() => hideStatus(statusEl), 2000)
   })
 }
 
+// ── Settings tab ──────────────────────────────────────────────────────────────
 async function setupSettingsTab(user) {
-  document.getElementById('settings-email').textContent = user?.email ?? '-'
+  if (user?.email) document.getElementById('settings-email').textContent = user.email
+
   try {
     const credits = await getCredits()
     const tier = credits?.tier ?? 'free'
     const used = credits?.lookups_used ?? 0
     const max = CONFIG.tiers[tier]?.lookups ?? 10
-    document.getElementById('settings-plan').textContent = CONFIG.tiers[tier]?.label ?? 'Free'
-    document.getElementById('settings-plan-badge').textContent = CONFIG.tiers[tier]?.label ?? 'Free'
+    const badge = document.getElementById('settings-plan-badge')
+    badge.textContent = CONFIG.tiers[tier]?.label ?? 'Free'
+    badge.className = `plan-badge${tier === 'free' ? ' free' : ''}`
     document.getElementById('settings-lookups').textContent = `${used} / ${max}`
   } catch {}
-
-  const prefs = await getStorage(['pref_your_name', 'pref_your_title'])
-  if (prefs.pref_your_name) document.getElementById('pref-your-name').value = prefs.pref_your_name
-  if (prefs.pref_your_title) document.getElementById('pref-your-title').value = prefs.pref_your_title
-
-  // Dark mode toggle
-  const darkPrefSettings = await getStorage(['pref_dark_mode'])
-  applyDarkMode(!!darkPrefSettings.pref_dark_mode)
-  document.getElementById('toggle-dark-mode')?.addEventListener('change', async (e) => {
-    const enabled = e.target.checked
-    await setStorage({ pref_dark_mode: enabled })
-    applyDarkMode(enabled)
-  })
-
-  document.getElementById('btn-save-prefs').addEventListener('click', async () => {
-    const statusEl = document.getElementById('prefs-status')
-    await setStorage({
-      pref_your_name: document.getElementById('pref-your-name').value.trim(),
-      pref_your_title: document.getElementById('pref-your-title').value.trim(),
-    })
-    showStatus(statusEl, 'Saved!', 'success')
-    setTimeout(() => hideStatus(statusEl), 2000)
-  })
 
   document.getElementById('btn-upgrade').addEventListener('click', () => createCheckout())
   document.getElementById('btn-sign-out').addEventListener('click', async () => {
     await signOut()
-    document.getElementById('main-app').style.display = 'none'
-    document.getElementById('login-screen').style.display = 'block'
     showLoginScreen()
+  })
+
+  // ── Theme control ──────────────────────────────────────────────────────────
+  const prefs = await getStorage(['pref_theme', 'pref_dark_mode'])
+  const savedTheme = prefs.pref_theme || (prefs.pref_dark_mode ? 'dark' : 'system')
+  applyTheme(savedTheme)
+
+  document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const theme = btn.dataset.theme
+      await setStorage({ pref_theme: theme })
+      applyTheme(theme)
+    })
   })
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
   const loggedIn = await isLoggedIn()
   if (!loggedIn) { showLoginScreen(); return }
   const user = await getUser()
   await showMainApp(user)
-})
+}
+
+init()
