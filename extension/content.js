@@ -173,10 +173,12 @@ function doScrape(sendResponse) {
       const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
       for (const link of companyLinks) {
         if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
-        // Skip links inside Highlights, mutual connections, sidebar, or "You might like"
+        // Skip links inside Highlights, Activity, posts, sidebar, or "You might like"
         const parentSection = link.closest('section')
         const parentHeading = parentSection?.querySelector('h2,h3')?.innerText?.trim() || ''
-        if (['Highlights', 'You might like', 'People you may know'].includes(parentHeading)) continue
+        if (['Highlights', 'You might like', 'People you may know', 'Activity'].includes(parentHeading)) continue
+        // Also skip if link is inside a post/activity card or feed update
+        if (link.closest('[data-urn*="activity"], .feed-shared-update-v2, .occludable-update, .profile-creator-shared-feed-update')) continue
         if (link.closest('.ph5, [data-view-name*="highlight"], .mn-connection-card, .scaffold-layout__aside')) continue
         const text = link.innerText?.trim()?.split('\n')[0]?.trim()
         if (!text || text.length < 2 || text.length > 80) continue
