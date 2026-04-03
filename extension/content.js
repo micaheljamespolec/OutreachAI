@@ -99,9 +99,9 @@ function doScrape(sendResponse) {
     }
   }
 
-  // ── Recruiter: always use data-anonymize="headline" — skip the h1 walker ──
+  // ── Recruiter: headline lives in .artdeco-entity-lockup__subtitle ──────────
   if (isRecruiter) {
-    headline = document.querySelector('[data-anonymize="headline"]')?.innerText?.trim() || ''
+    headline = document.querySelector('.artdeco-entity-lockup__subtitle')?.innerText?.trim() || ''
   }
 
   // ── Fallback: parse from document title ────────────────────────────────────
@@ -173,6 +173,8 @@ function doScrape(sendResponse) {
       const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
       for (const link of companyLinks) {
         if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
+        // Skip links inside Highlights, mutual connections, or sidebar cards
+        if (link.closest('.ph5, [data-view-name*="highlight"], .mn-connection-card, .scaffold-layout__aside')) continue
         const text = link.innerText?.trim()?.split('\n')[0]?.trim()
         if (!text || text.length < 2 || text.length > 80) continue
         if (text.includes('Follow') || text.includes('follower')) continue
