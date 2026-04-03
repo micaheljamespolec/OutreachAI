@@ -103,6 +103,26 @@ export async function extractJob(pageText) {
   return res.json()
 }
 
+export async function requirementsMatch(profile, job) {
+  const token = await getAccessToken()
+  const headers = {
+    'Content-Type': 'application/json',
+    'apikey':       CONFIG.supabaseKey,
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/requirements-match`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ profile, job }),
+  })
+  if (!res.ok) {
+    const errText = await res.text()
+    throw new Error(errText || `requirements-match failed: ${res.status}`)
+  }
+  return res.json()
+}
+
 // Opens pricing page — Stripe checkout handled via website, not extension
 export function createCheckout() {
   chrome.tabs.create({ url: CONFIG.pricingUrl })

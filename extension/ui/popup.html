@@ -23,6 +23,20 @@
     padding: 3px 9px; font-size: 11px; font-weight: 500;
   }
 
+  /* ── Credit pill ── */
+  .credit-pill {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
+    color: white; border-radius: 20px; padding: 4px 10px;
+    font-size: 11px; font-weight: 600; cursor: pointer;
+    transition: all 0.15s; white-space: nowrap; letter-spacing: 0.1px;
+  }
+  .credit-pill:hover { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.5); }
+  .credit-pill:active { transform: scale(0.97); }
+  .credit-pill.low { background: rgba(251,191,36,0.22); border-color: rgba(251,191,36,0.5); color: #fde68a; }
+  .credit-pill.low:hover { background: rgba(251,191,36,0.35); }
+  .credit-pill.critical { background: rgba(239,68,68,0.22); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .credit-pill.critical:hover { background: rgba(239,68,68,0.35); }
+
   /* ── Tabs ── */
   .tabs { display: flex; background: white; border-bottom: 1px solid #e5e7eb; }
   .tab {
@@ -278,6 +292,9 @@
   body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
   body.dark .empty-state { color: #4b5563; }
   body.dark .empty-state strong { color: #6b7280; }
+  body.dark .credit-pill { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
+  body.dark #match-panel .card { background: #1a1d2e; border-color: #2d3148; }
+  body.dark #match-summary { color: #d1d5db; }
 </style>
 </head>
 <body>
@@ -309,7 +326,7 @@
   <div class="header">
     <span>💼</span>
     <h1>OutreachAI</h1>
-    <span class="header-badge" id="header-credits">— / —</span>
+    <button class="credit-pill" id="credit-pill" title="Click to upgrade">— left</button>
   </div>
 
   <!-- Tab order: Email · Job · Profile · Settings -->
@@ -368,8 +385,8 @@
           <div class="status-chip-value missing" id="chip-draft">Not ready</div>
         </div>
         <div class="status-chip">
-          <div class="status-chip-label">Credits</div>
-          <div class="status-chip-value" id="chip-credits">—</div>
+          <div class="status-chip-label">Fit</div>
+          <div class="status-chip-value missing" id="chip-match">Not checked</div>
         </div>
       </div>
 
@@ -385,6 +402,32 @@
         <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
       </div>
 
+      <!-- 4b. Requirements Match panel -->
+      <div id="match-panel" style="display:none;margin-bottom:8px;">
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div style="padding:9px 13px 7px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
+            <span class="card-label" style="margin:0;">🎯 Requirements Match</span>
+            <button class="btn-link" id="btn-close-match" style="font-size:11px;color:#9ca3af;">✕</button>
+          </div>
+          <div style="padding:10px 13px;" id="match-content">
+            <div id="match-summary" style="font-size:12px;color:#374151;font-style:italic;margin-bottom:10px;line-height:1.5;"></div>
+            <div id="match-strong" style="display:none;margin-bottom:8px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#16a34a;margin-bottom:5px;">✓ Strong matches</div>
+              <div id="match-strong-list"></div>
+            </div>
+            <div id="match-possible" style="display:none;margin-bottom:8px;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#d97706;margin-bottom:5px;">~ Possible matches</div>
+              <div id="match-possible-list"></div>
+            </div>
+            <div id="match-unclear" style="display:none;">
+              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:5px;">? Unclear or missing</div>
+              <div id="match-unclear-list"></div>
+            </div>
+            <div id="match-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
+          </div>
+        </div>
+      </div>
+
       <!-- 5. Primary CTA — context-aware, one at a time -->
       <div class="cta-area">
         <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email  ·  uses 1 lookup</button>
@@ -397,6 +440,7 @@
       <div class="secondary-actions" id="secondary-actions">
         <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
         <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate draft</button>
+        <button class="btn-small" id="btn-check-fit">🎯 Check fit</button>
       </div>
 
     </div>

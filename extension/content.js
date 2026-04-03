@@ -161,8 +161,74 @@ function doScrape(sendResponse) {
     title = cleanHeadline
   }
 
-  // Keep experience array for context (used in AI draft) but don't use for title/company
+  // ── About / Summary text ─────────────────────────────────────────────────
+  let about = ''
+  try {
+    const aboutSection = [...document.querySelectorAll('section')].find(s =>
+      s.innerText?.trim().startsWith('About')
+    )
+    if (aboutSection) {
+      about = aboutSection.innerText.trim().replace(/^About\s*/i, '').trim().slice(0, 800)
+    }
+  } catch {}
+
+  // ── Skills ────────────────────────────────────────────────────────────────
+  const skills = []
+  try {
+    const skillsSection = [...document.querySelectorAll('section')].find(s =>
+      /^Skills/.test(s.innerText?.trim())
+    )
+    if (skillsSection) {
+      // LinkedIn renders skills as spans/divs with the skill name — grab unique text nodes
+      const skillEls = skillsSection.querySelectorAll('a[href*="/skills/"], span[aria-hidden="true"]')
+      const seen = new Set()
+      for (const el of skillEls) {
+        const text = el.innerText?.trim()
+        if (text && text.length > 1 && text.length < 60 && !seen.has(text)
+            && !text.includes('·') && !text.includes('endorsement')) {
+          seen.add(text)
+          skills.push(text)
+          if (skills.length >= 20) break
+        }
+      }
+      // Fallback: parse from raw section text if no skill elements found
+      if (!skills.length) {
+        const rawLines = skillsSection.innerText.split('\n').map(l => l.trim()).filter(Boolean).slice(1)
+        for (const line of rawLines) {
+          if (line.length > 1 && line.length < 60 && !line.includes('endorsement') && !/^\d+$/.test(line)) {
+            skills.push(line)
+            if (skills.length >= 20) break
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // ── Experience (full, for match context) ──────────────────────────────────
   const experience = []
+
+  // ── Also populate experience array from the same section ────────────────────
+  try {
+    const expSection2 = !isRecruiter && [...document.querySelectorAll('section')].find(s =>
+      s.innerText?.trim().startsWith('Experience')
+    )
+    if (expSection2) {
+      const lines = expSection2.innerText.split('\n').map(l => l.trim()).filter(Boolean).slice(1)
+      let i = 0
+      while (i < lines.length && experience.length < 6) {
+        const dateIdx = lines.findIndex((l, idx) => idx >= i &&
+          /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/.test(l))
+        if (dateIdx === -1) break
+        const roleTitle2 = dateIdx >= 2 ? lines[dateIdx - 2] : (dateIdx >= 1 ? lines[dateIdx - 1] : '')
+        const roleCompany2 = dateIdx >= 1 ? lines[dateIdx - 1].split('·')[0].trim() : ''
+        const isCurrent = lines[dateIdx].includes('Present')
+        if (roleTitle2 && roleTitle2.length < 100 && roleTitle2 !== roleCompany2) {
+          experience.push({ title: roleTitle2, company: roleCompany2, dates: lines[dateIdx], current: isCurrent })
+        }
+        i = dateIdx + 1
+      }
+    }
+  } catch {}
 
   // ── Company fallback: read from Experience section text ─────────────────────
   // LinkedIn often renders the company as an image (alt text only), so /company/
@@ -232,6 +298,9 @@ function doScrape(sendResponse) {
     lastName:  nameParts.slice(1).join(' ') || '',
     title,
     company,
+    headline,
+    about,
+    skills,
     linkedinUrl,
     experience,
   })

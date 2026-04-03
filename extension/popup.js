@@ -2,7 +2,7 @@
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
 import { getCredits } from './core/credits.js'
-import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft, extractJob } from './core/api.js'
+import { createCheckout, lookupEmail, generateDraft as apiGenerateDraft, extractJob, requirementsMatch } from './core/api.js'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function showStatus(el, msg, type = 'info') { el.textContent = msg; el.className = `status ${type} show` }
@@ -60,8 +60,13 @@ async function showMainApp(user) {
   $('main-app').style.display = 'block'
   setupTabs()
   await loadCreditsUI()
+
+  // Credit pill click → pricing/upgrade
+  $('credit-pill')?.addEventListener('click', () => createCheckout())
+
   const profile = await scrapeCurrentProfile()
   await setupEmailTab(profile)
+  await setupRequirementsMatch(profile)
   setupProfileTab(profile)
   setupJobTab()
   await setupSettingsTab(user)
@@ -69,16 +74,32 @@ async function showMainApp(user) {
 
 // ── Credits ───────────────────────────────────────────────────────────────────
 async function loadCreditsUI() {
+  const pill = $('credit-pill')
   try {
     const credits = await getCredits()
     const tier = credits?.tier ?? 'free'
     const used = credits?.lookups_used ?? 0
     const max = CONFIG.tiers[tier]?.lookups ?? 10
-    $('header-credits').textContent = `${used} / ${max}`
-    return { used, max }
+    const left = max - used
+    // Set copy and state
+    if (left <= 0) {
+      pill.textContent = '0 left · Upgrade'
+      pill.className = 'credit-pill critical'
+    } else if (left <= 2) {
+      pill.textContent = `${left} left · Upgrade`
+      pill.className = 'credit-pill critical'
+    } else if (left <= 5) {
+      pill.textContent = `${left} credits left`
+      pill.className = 'credit-pill low'
+    } else {
+      pill.textContent = `${left} credits left`
+      pill.className = 'credit-pill'
+    }
+    return { used, max, left }
   } catch {
-    $('header-credits').textContent = '—'
-    return { used: 0, max: 10 }
+    pill.textContent = '— credits'
+    pill.className = 'credit-pill'
+    return { used: 0, max: 10, left: 10 }
   }
 }
 
@@ -146,17 +167,6 @@ async function setupEmailTab(profile) {
   }
   $('state-not-linkedin').style.display = 'none'
   $('state-email').style.display = 'block'
-
-  // ── Credits chip ──────────────────────────────────────────────────────────
-  try {
-    const credits = await getCredits()
-    const tier = credits?.tier ?? 'free'
-    const used = credits?.lookups_used ?? 0
-    const max = CONFIG.tiers[tier]?.lookups ?? 10
-    const left = max - used
-    $('chip-credits').textContent = `${left} left`
-    $('chip-credits').className = `status-chip-value${left <= 2 ? ' warn' : ''}`
-  } catch {}
 
   // ── Candidate summary ─────────────────────────────────────────────────────
   if (!profile?.fullName) {
@@ -307,9 +317,17 @@ async function generateDraft(profile) {
   showStatus(statusEl, 'Generating personalized email…', 'info')
   try {
     const storage = await getStorage(['job_title', 'job_company', 'job_description', 'pref_your_name', 'pref_your_title'])
+    // Include match context if available (panel is visible and has content)
+    const matchSummary = $('match-summary')?.textContent?.trim() || ''
+    const job = {
+      title: storage.job_title || '',
+      company: storage.job_company || '',
+      description: storage.job_description || '',
+      matchContext: matchSummary || undefined,
+    }
     const result = await apiGenerateDraft(
       profile,
-      { title: storage.job_title || '', company: storage.job_company || '', description: storage.job_description || '' },
+      job,
       { name: storage.pref_your_name || '', title: storage.pref_your_title || '' }
     )
     if (result.draft) {
@@ -328,6 +346,84 @@ async function generateDraft(profile) {
     else if (e.message?.includes('429') || e.message?.includes('rate limit')) msg = 'AI rate limit hit. Wait and try again.'
     showStatus(statusEl, msg, 'error')
   }
+}
+
+// ── Requirements Match ───────────────────────────────────────────────────────
+function renderMatchItem(text, evidence) {
+  return `<div style="margin-bottom:6px;padding:6px 8px;background:#f9fafb;border-radius:5px;">
+    <div style="font-size:12px;font-weight:500;color:#111827;line-height:1.4;">${text}</div>
+    ${evidence ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;line-height:1.3;">${evidence}</div>` : ''}
+  </div>`
+}
+
+function showMatchPanel(result) {
+  const panel = $('match-panel')
+  panel.style.display = 'block'
+
+  if (result.summary) $('match-summary').textContent = result.summary
+
+  const sections = [
+    { key: 'strong', listId: 'match-strong-list', wrapperId: 'match-strong' },
+    { key: 'possible', listId: 'match-possible-list', wrapperId: 'match-possible' },
+    { key: 'unclear', listId: 'match-unclear-list', wrapperId: 'match-unclear' },
+  ]
+  for (const { key, listId, wrapperId } of sections) {
+    const items = result[key] || []
+    if (items.length) {
+      $(listId).innerHTML = items.map(i => renderMatchItem(i.point, i.evidence)).join('')
+      $(wrapperId).style.display = 'block'
+    } else {
+      $(wrapperId).style.display = 'none'
+    }
+  }
+
+  // Update fit chip
+  const strongCount = (result.strong || []).length
+  const chip = $('chip-match')
+  if (strongCount >= 3) { chip.textContent = 'Strong fit'; chip.className = 'status-chip-value found' }
+  else if (strongCount >= 1) { chip.textContent = 'Partial fit'; chip.className = 'status-chip-value warn' }
+  else { chip.textContent = 'Weak fit'; chip.className = 'status-chip-value missing' }
+}
+
+async function setupRequirementsMatch(profile) {
+  $('btn-close-match')?.addEventListener('click', () => {
+    $('match-panel').style.display = 'none'
+  })
+
+  $('btn-check-fit')?.addEventListener('click', async () => {
+    if (!profile?.fullName) {
+      showStatus($('match-status'), 'No profile loaded — open a LinkedIn profile first.', 'error')
+      $('match-panel').style.display = 'block'
+      return
+    }
+    const storage = await getStorage(['job_title', 'job_company', 'job_description'])
+    if (!storage.job_title) {
+      showStatus($('match-status'), 'No job set — add one in the Job tab first.', 'error')
+      $('match-panel').style.display = 'block'
+      return
+    }
+
+    const statusEl = $('match-status')
+    $('match-panel').style.display = 'block'
+    $('match-summary').textContent = ''
+    $('match-strong').style.display = 'none'
+    $('match-possible').style.display = 'none'
+    $('match-unclear').style.display = 'none'
+    showStatus(statusEl, 'Analyzing fit against job requirements…', 'info')
+
+    try {
+      const result = await requirementsMatch(profile, {
+        title: storage.job_title,
+        company: storage.job_company || '',
+        description: storage.job_description || '',
+      })
+      if (result.error) throw new Error(result.error)
+      hideStatus(statusEl)
+      showMatchPanel(result)
+    } catch (e) {
+      showStatus(statusEl, `Match analysis failed: ${e.message}`, 'error')
+    }
+  })
 }
 
 // ── Profile tab ───────────────────────────────────────────────────────────────
