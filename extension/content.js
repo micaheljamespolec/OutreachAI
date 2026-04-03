@@ -179,11 +179,12 @@ function doScrape(sendResponse) {
         // Find first date line — company is the line immediately before it
         const dateIdx = lines.findIndex(l => /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/.test(l))
         if (dateIdx >= 1) {
-          const candidate = lines[dateIdx - 1]
-          // Sanity check: not a job title (we already have title), not a location, not a date
-          if (candidate && candidate !== title && candidate.length < 80
-              && !/\b(Full.time|Part.time|Contract|Internship|Freelance)\b/i.test(candidate)
-              && !/,/.test(candidate) // skip "City, Country" location lines
+          // Strip employment type suffix: "UpToSpeed · Internship" → "UpToSpeed"
+          let candidate = lines[dateIdx - 1].split('·')[0].trim()
+          // Sanity check: not empty, not a location ("City, Country"), not a bare employment type
+          if (candidate && candidate !== title && candidate.length > 1 && candidate.length < 80
+              && !/,/.test(candidate)
+              && !/^(Full.time|Part.time|Contract|Internship|Freelance|Self.employed)$/i.test(candidate)
           ) {
             company = candidate
           }
