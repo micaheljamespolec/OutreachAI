@@ -164,22 +164,16 @@ function doScrape(sendResponse) {
   // Keep experience array for context (used in AI draft) but don't use for title/company
   const experience = []
 
-  // ── Company fallback: extract from profile page DOM if not in headline ────
+  // ── Company fallback: only look inside the top profile header card ─────────
+  // The profile header is the section that contains the h1/name element.
+  // Restricting to this section avoids picking up companies mentioned in posts,
+  // hackathon activity, highlights, or sidebar suggestions.
   if (!company) {
-    // Strategy 1: Find the company logo/link in the profile header card
-    const profileCard = h1?.closest('main') ?? h1?.closest('section') ?? document.querySelector('main')
-    if (profileCard) {
-      const expAnchor = document.querySelector('#experience')
-      const companyLinks = profileCard.querySelectorAll('a[href*="/company/"]')
+    const headerSection = h1?.closest('section') ?? h1?.closest('.pv-top-card') ?? h1?.closest('div.mt2')
+    const searchRoot = headerSection ?? h1?.parentElement?.parentElement?.parentElement
+    if (searchRoot) {
+      const companyLinks = searchRoot.querySelectorAll('a[href*="/company/"]')
       for (const link of companyLinks) {
-        if (expAnchor && link.compareDocumentPosition(expAnchor) & Node.DOCUMENT_POSITION_PRECEDING) continue
-        // Skip links inside Highlights, Activity, posts, sidebar, or "You might like"
-        const parentSection = link.closest('section')
-        const parentHeading = parentSection?.querySelector('h2,h3')?.innerText?.trim() || ''
-        if (['Highlights', 'You might like', 'People you may know', 'Activity'].includes(parentHeading)) continue
-        // Also skip if link is inside a post/activity card or feed update
-        if (link.closest('[data-urn*="activity"], .feed-shared-update-v2, .occludable-update, .profile-creator-shared-feed-update')) continue
-        if (link.closest('.ph5, [data-view-name*="highlight"], .mn-connection-card, .scaffold-layout__aside')) continue
         const text = link.innerText?.trim()?.split('\n')[0]?.trim()
         if (!text || text.length < 2 || text.length > 80) continue
         if (text.includes('Follow') || text.includes('follower')) continue
