@@ -164,25 +164,32 @@ function doScrape(sendResponse) {
   // Keep experience array for context (used in AI draft) but don't use for title/company
   const experience = []
 
-  // ── Company fallback: only look inside the top profile header card ─────────
-  // The profile header is the section that contains the h1/name element.
-  // Restricting to this section avoids picking up companies mentioned in posts,
-  // hackathon activity, highlights, or sidebar suggestions.
+  // ── Company fallback: read from Experience section text ─────────────────────
+  // LinkedIn often renders the company as an image (alt text only), so /company/
+  // link scanning is unreliable. Instead, parse the Experience section raw text
+  // which always has "Title\n\nCompany\n\nDate" in plain text.
   if (!company) {
-    const headerSection = h1?.closest('section') ?? h1?.closest('.pv-top-card') ?? h1?.closest('div.mt2')
-    const searchRoot = headerSection ?? h1?.parentElement?.parentElement?.parentElement
-    if (searchRoot) {
-      const companyLinks = searchRoot.querySelectorAll('a[href*="/company/"]')
-      for (const link of companyLinks) {
-        const text = link.innerText?.trim()?.split('\n')[0]?.trim()
-        if (!text || text.length < 2 || text.length > 80) continue
-        if (text.includes('Follow') || text.includes('follower')) continue
-        if (text.startsWith('You both') || text.includes('worked at')) continue
-        if (/\b(University|College|School|Institute|Academy)\b/i.test(text)) continue
-        company = text
-        break
+    try {
+      const expSection = !isRecruiter && [...document.querySelectorAll('section')].find(s =>
+        s.innerText?.trim().startsWith('Experience')
+      )
+      if (expSection) {
+        const lines = expSection.innerText
+          .split('\n').map(l => l.trim()).filter(Boolean).slice(1)
+        // Find first date line — company is the line immediately before it
+        const dateIdx = lines.findIndex(l => /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{4}/.test(l))
+        if (dateIdx >= 1) {
+          const candidate = lines[dateIdx - 1]
+          // Sanity check: not a job title (we already have title), not a location, not a date
+          if (candidate && candidate !== title && candidate.length < 80
+              && !/\b(Full.time|Part.time|Contract|Internship|Freelance)\b/i.test(candidate)
+              && !/,/.test(candidate) // skip "City, Country" location lines
+          ) {
+            company = candidate
+          }
+        }
       }
-    }
+    } catch {}
 
     // Strategy 2: Parse from the page title ("Name - Title - Company | LinkedIn")
     if (!company) {
