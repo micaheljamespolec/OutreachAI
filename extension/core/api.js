@@ -103,6 +103,48 @@ export async function extractJob(pageText) {
   return res.json()
 }
 
+export async function bootstrapCandidate(payload) {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Not signed in')
+  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/candidate-bootstrap`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': CONFIG.supabaseKey,
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) { const t = await res.text(); throw new Error(t || `bootstrap failed: ${res.status}`) }
+  return res.json()
+}
+
+export async function pollJob(job_id) {
+  const token = await getAccessToken()
+  const headers = { 'apikey': CONFIG.supabaseKey }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(
+    `${CONFIG.supabaseUrl}/rest/v1/workflow_jobs?id=eq.${job_id}&select=id,status,step,error_code,error_message`,
+    { headers }
+  )
+  if (!res.ok) throw new Error(`poll failed: ${res.status}`)
+  const rows = await res.json()
+  return rows?.[0] || null
+}
+
+export async function getOutreachPackage(candidate_id) {
+  const token = await getAccessToken()
+  const headers = { 'apikey': CONFIG.supabaseKey }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+  const res = await fetch(
+    `${CONFIG.supabaseUrl}/rest/v1/candidates?id=eq.${candidate_id}&select=*`,
+    { headers }
+  )
+  if (!res.ok) throw new Error(`getOutreachPackage failed: ${res.status}`)
+  const rows = await res.json()
+  return rows?.[0] || null
+}
+
 export async function requirementsMatch(profile, job) {
   const token = await getAccessToken()
   const headers = {
