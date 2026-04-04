@@ -18,10 +18,6 @@
     padding: 10px 14px; display: flex; align-items: center; gap: 8px;
   }
   .header h1 { font-size: 15px; font-weight: 700; flex: 1; letter-spacing: -0.2px; }
-  .header-badge {
-    background: rgba(255,255,255,0.18); border-radius: 20px;
-    padding: 3px 9px; font-size: 11px; font-weight: 500;
-  }
 
   /* ── Credit pill ── */
   .credit-pill {
@@ -63,42 +59,65 @@
     letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 8px;
   }
 
-  /* ── Summary cards (candidate + job) ── */
-  .summary-row {
-    display: flex; gap: 8px; margin-bottom: 8px;
+  /* ── Candidate card — compact inline inputs ── */
+  .candidate-card {
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 10px 13px; margin-bottom: 8px;
   }
-  .summary-card {
-    flex: 1; background: white; border: 1px solid #e5e7eb;
-    border-radius: 8px; padding: 9px 11px; min-width: 0;
+  .candidate-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
   }
-  .summary-card-label {
+  .candidate-card-label {
     font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 4px;
+    letter-spacing: 0.6px; color: #9ca3af;
   }
-  .summary-card-name { font-size: 12.5px; font-weight: 600; color: #111827; line-height: 1.3; }
-  .summary-card-sub {
-    font-size: 11px; color: #6b7280; margin-top: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  .candidate-card-url {
+    font-size: 10.5px; color: #9ca3af; display: flex; align-items: center; gap: 4px;
+    overflow: hidden; max-width: 160px;
   }
-  .summary-card-action {
-    display: inline-block; margin-top: 5px; font-size: 10.5px;
-    color: #0a66c2; cursor: pointer; background: none; border: none; padding: 0;
+  .candidate-card-url a {
+    color: #6b7280; text-decoration: none; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; display: block; max-width: 130px;
   }
-  .summary-card-action:hover { text-decoration: underline; }
-  /* Job card tint */
-  .summary-card.job { background: #eff6ff; border-color: #bfdbfe; }
-  .summary-card.job .summary-card-label { color: #3b82f6; }
-  .summary-card.job .summary-card-name { color: #1e3a8a; }
-  .summary-card.job .summary-card-sub { color: #3b82f6; }
-  .summary-card.job .summary-card-action { color: #2563eb; }
-  /* No-job state */
-  .summary-card.job.empty { background: #f9fafb; border-color: #e5e7eb; border-style: dashed; }
-  .summary-card.job.empty .summary-card-name { color: #9ca3af; font-weight: 400; font-size: 12px; }
+  .candidate-card-url a:hover { color: #0a66c2; text-decoration: underline; }
+  .candidate-card-copy {
+    background: none; border: none; cursor: pointer; color: #9ca3af;
+    padding: 0; font-size: 11px; line-height: 1; flex-shrink: 0;
+  }
+  .candidate-card-copy:hover { color: #0a66c2; }
+  /* Inline field rows */
+  .cand-field {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
+  }
+  .cand-field:last-child { margin-bottom: 0; }
+  .cand-field-label {
+    font-size: 10.5px; color: #9ca3af; width: 44px; flex-shrink: 0; font-weight: 500;
+  }
+  .cand-field input {
+    flex: 1; padding: 4px 8px; border: 1.5px solid #e5e7eb; border-radius: 5px;
+    font-size: 12.5px; color: #111827; background: white; outline: none;
+    transition: border-color 0.12s; font-family: inherit;
+  }
+  .cand-field input:focus { border-color: #0a66c2; }
+  .cand-field input::placeholder { color: #d1d5db; }
+
+  /* ── Job context row ── */
+  .job-context-row {
+    background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
+    padding: 9px 12px; margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .job-context-main { min-width: 0; flex: 1; }
+  .job-context-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; margin-bottom: 2px; }
+  .job-context-title { font-size: 12.5px; font-weight: 600; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .job-context-company { font-size: 11px; color: #3b82f6; }
+  .job-context-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
+  .btn-link { background: none; border: none; color: #0a66c2; font-size: 11px; cursor: pointer; padding: 0; flex-shrink: 0; }
+  .btn-link:hover { text-decoration: underline; }
 
   /* ── Status strip ── */
-  .status-strip {
-    display: flex; gap: 6px; margin-bottom: 8px;
-  }
+  .status-strip { display: flex; gap: 6px; margin-bottom: 8px; }
   .status-chip {
     flex: 1; background: white; border: 1px solid #e5e7eb;
     border-radius: 6px; padding: 6px 8px; text-align: center;
@@ -110,14 +129,10 @@
   .status-chip-value.ready { color: #16a34a; }
   .status-chip-value.warn { color: #d97706; }
 
-  /* ── Main CTA area ── */
-  .cta-area { margin-bottom: 8px; }
-
   /* ── Email found banner ── */
   .email-banner {
     background: #f0fdf4; border: 1px solid #bbf7d0;
-    border-radius: 8px; padding: 8px 11px; margin-bottom: 8px;
-    display: none;
+    border-radius: 8px; padding: 8px 11px; margin-bottom: 8px; display: none;
   }
   .email-banner-addr { font-size: 13px; font-weight: 600; color: #166534; word-break: break-all; }
   .email-banner-badge { font-size: 10.5px; color: #16a34a; margin-top: 1px; }
@@ -129,15 +144,30 @@
     border: 1.5px solid #e5e7eb; border-radius: 8px;
     font-size: 12px; color: #111827; line-height: 1.55;
     resize: vertical; min-height: 120px; outline: none;
-    transition: border-color 0.15s; background: white;
-    font-family: inherit;
+    transition: border-color 0.15s; background: white; font-family: inherit;
   }
   .draft-area textarea:focus { border-color: #0a66c2; }
 
-  /* ── Secondary actions ── */
-  .secondary-actions {
-    display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+  /* ── CTA area ── */
+  .cta-area { margin-bottom: 8px; }
+
+  /* ── Open email row (Outlook primary, Gmail secondary) ── */
+  .open-email-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .btn-open-outlook {
+    flex: 1.4; padding: 9px 10px; border-radius: 7px; font-size: 12.5px;
+    font-weight: 600; cursor: pointer; border: none; text-align: center;
+    background: #0078d4; color: white; transition: background 0.15s;
   }
+  .btn-open-outlook:hover { background: #006cbf; }
+  .btn-open-gmail-sec {
+    flex: 1; padding: 9px 10px; border-radius: 7px; font-size: 12px;
+    font-weight: 500; cursor: pointer; border: 1.5px solid #d1d5db;
+    background: white; color: #374151; transition: all 0.15s; text-align: center;
+  }
+  .btn-open-gmail-sec:hover { background: #f3f4f6; border-color: #9ca3af; }
+
+  /* ── Secondary actions ── */
+  .secondary-actions { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
   .btn-small {
     flex: 1; padding: 7px 8px; border-radius: 6px; font-size: 11.5px;
     font-weight: 500; cursor: pointer; border: 1.5px solid #e5e7eb;
@@ -146,6 +176,23 @@
   }
   .btn-small:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
   .btn-small:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Analyze Fit collapsible ── */
+  .fit-section { margin-bottom: 4px; }
+  .fit-toggle {
+    width: 100%; text-align: left; padding: 7px 11px;
+    background: white; border: 1.5px solid #e5e7eb; border-radius: 7px;
+    font-size: 12px; font-weight: 500; color: #6b7280; cursor: pointer;
+    transition: all 0.15s; display: flex; align-items: center; justify-content: space-between;
+  }
+  .fit-toggle:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+  .fit-toggle .fit-chevron { font-size: 10px; transition: transform 0.2s; }
+  .fit-toggle.open .fit-chevron { transform: rotate(180deg); }
+  .fit-body { display: none; margin-top: 6px; }
+  .fit-body.open { display: block; }
+
+  /* ── Match panel ── */
+  #match-panel { display: none; }
 
   /* ── Buttons ── */
   .btn {
@@ -161,8 +208,6 @@
   .btn-secondary:hover { background: #f9fafb; }
   .btn-success { background: #16a34a; color: white; }
   .btn-success:hover:not(:disabled) { background: #15803d; }
-  .btn-ghost { background: transparent; color: #6b7280; border: 1.5px solid #e5e7eb; }
-  .btn-ghost:hover { background: #f3f4f6; color: #374151; }
   .btn-danger { background: #fff1f2; color: #be123c; border: 1.5px solid #fecdd3; }
   .btn-danger:hover { background: #ffe4e6; }
 
@@ -194,15 +239,13 @@
   .status.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
   .status.error   { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
 
-  /* ── Fields (Profile tab) ── */
+  /* ── Fields (Candidate tab) ── */
   .field { margin-bottom: 8px; }
   .field:last-child { margin-bottom: 0; }
   .field-label { font-size: 11px; color: #9ca3af; margin-bottom: 2px; }
   .field-value { font-size: 13px; color: #111827; font-weight: 500; word-break: break-word; line-height: 1.4; }
   .field-value a { color: #0a66c2; text-decoration: none; }
   .field-value a:hover { text-decoration: underline; }
-  .btn-link { background: none; border: none; color: #0a66c2; font-size: 11px; cursor: pointer; padding: 0; }
-  .btn-link:hover { text-decoration: underline; }
 
   /* ── Settings ── */
   .settings-group { margin-bottom: 14px; }
@@ -230,9 +273,9 @@
   .btn-google:hover { background: #f9fafb; border-color: #9ca3af; }
 
   /* ── Empty state ── */
-  .empty-state { text-align: center; padding: 28px 16px; color: #9ca3af; }
-  .empty-state .icon { font-size: 32px; margin-bottom: 10px; }
-  .empty-state p { font-size: 13px; line-height: 1.6; }
+  .empty-state { text-align: center; padding: 24px 16px; color: #9ca3af; }
+  .empty-state .icon { font-size: 28px; margin-bottom: 8px; }
+  .empty-state p { font-size: 12.5px; line-height: 1.6; }
   .empty-state strong { color: #6b7280; }
 
   /* ══════════════════════════════════════════════════════
@@ -246,13 +289,16 @@
   body.dark .tab.active { color: #93b4ef; border-color: #93b4ef; }
   body.dark .card { background: #1a1d2e; border-color: #2d3148; }
   body.dark .card-label { color: #4b5563; }
-  body.dark .summary-card { background: #1a1d2e; border-color: #2d3148; }
-  body.dark .summary-card-name { color: #e5e7eb; }
-  body.dark .summary-card-sub { color: #6b7280; }
-  body.dark .summary-card.job { background: #0d1f3a; border-color: #1e3a6a; }
-  body.dark .summary-card.job .summary-card-name { color: #93b4ef; }
-  body.dark .summary-card.job.empty { background: #1a1d2e; border-color: #2d3148; }
-  body.dark .summary-card.job.empty .summary-card-name { color: #4b5563; }
+  body.dark .candidate-card { background: #1a1d2e; border-color: #2d3148; }
+  body.dark .candidate-card-label { color: #4b5563; }
+  body.dark .candidate-card-url a { color: #6b7280; }
+  body.dark .cand-field-label { color: #6b7280; }
+  body.dark .cand-field input { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
+  body.dark .cand-field input:focus { border-color: #93b4ef; }
+  body.dark .cand-field input::placeholder { color: #4b5563; }
+  body.dark .job-context-row { background: #0d1f3a; border-color: #1e3a6a; }
+  body.dark .job-context-title { color: #93b4ef; }
+  body.dark .job-context-empty { color: #4b5563; }
   body.dark .status-chip { background: #1a1d2e; border-color: #2d3148; }
   body.dark .status-chip-label { color: #4b5563; }
   body.dark .status-chip-value { color: #6b7280; }
@@ -265,9 +311,9 @@
   body.dark .draft-area textarea:focus { border-color: #93b4ef; }
   body.dark .btn-small { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
   body.dark .btn-small:hover { background: #252836; color: #d1d5db; }
+  body.dark .fit-toggle { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
+  body.dark .fit-toggle:hover { background: #252836; color: #d1d5db; }
   body.dark .btn-secondary { background: #252836; color: #d1d5db; border-color: #3a3d52; }
-  body.dark .btn-ghost { background: transparent; color: #6b7280; border-color: #2d3148; }
-  body.dark .btn-ghost:hover { background: #252836; color: #d1d5db; }
   body.dark .btn-danger { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
   body.dark input[type="email"], body.dark input[type="text"], body.dark select,
   body.dark textarea.input-field { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
@@ -295,6 +341,10 @@
   body.dark .credit-pill { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
   body.dark #match-panel .card { background: #1a1d2e; border-color: #2d3148; }
   body.dark #match-summary { color: #d1d5db; }
+  body.dark .btn-open-gmail-sec { background: #1a1d2e; border-color: #2d3148; color: #d1d5db; }
+  body.dark .btn-open-gmail-sec:hover { background: #252836; }
+  body.dark .candidate-card-copy { color: #4b5563; }
+  body.dark .candidate-card-url a { color: #4b5563; }
 </style>
 </head>
 <body>
@@ -326,10 +376,9 @@
   <div class="header">
     <span>💼</span>
     <h1>OutreachAI</h1>
-    <button class="credit-pill" id="credit-pill" title="Click to upgrade">— left</button>
+    <button class="credit-pill" id="credit-pill" title="Click to upgrade">— lookups</button>
   </div>
 
-  <!-- Tab order: Email · Job · Profile · Settings -->
   <div class="tabs">
     <div class="tab active" data-tab="email">✉️ Outreach</div>
     <div class="tab" data-tab="job">📋 Job</div>
@@ -338,112 +387,125 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
-       EMAIL TAB — workflow dashboard
+       OUTREACH TAB
   ══════════════════════════════════════════════════════ -->
   <div class="tab-content active" id="tab-email">
 
-    <!-- Not on LinkedIn -->
-    <div id="state-not-linkedin" class="empty-state" style="display:none;">
-      <div class="icon">🔗</div>
-      <p>Open a <strong>LinkedIn profile page</strong><br>to get started.</p>
+    <!-- 1. Candidate details card — editable inline fields -->
+    <div class="candidate-card">
+      <div class="candidate-card-header">
+        <span class="candidate-card-label">Candidate</span>
+        <div class="candidate-card-url" id="cand-url-row" style="display:none;">
+          <a href="#" id="cand-url-link" target="_blank">linkedin.com/in/…</a>
+          <button class="candidate-card-copy" id="btn-copy-url" title="Copy URL">⎘</button>
+        </div>
+      </div>
+      <div class="cand-field">
+        <span class="cand-field-label">Name</span>
+        <input type="text" id="cand-name" placeholder="Full name" autocomplete="off" />
+      </div>
+      <div class="cand-field">
+        <span class="cand-field-label">Title</span>
+        <input type="text" id="cand-title" placeholder="Current role" autocomplete="off" />
+      </div>
+      <div class="cand-field">
+        <span class="cand-field-label">Company</span>
+        <input type="text" id="cand-company" placeholder="Current company" autocomplete="off" />
+      </div>
     </div>
 
-    <!-- On LinkedIn -->
-    <div id="state-email" style="display:none;">
-
-      <!-- 1. Candidate + Job summary row -->
-      <div class="summary-row">
-        <!-- Candidate card -->
-        <div class="summary-card" id="summary-candidate">
-          <div class="summary-card-label">Candidate</div>
-          <div class="summary-card-name" id="sc-name">Scanning…</div>
-          <div class="summary-card-sub" id="sc-meta"></div>
-          <button class="summary-card-action" id="btn-view-profile">View profile →</button>
-        </div>
-        <!-- Job card -->
-        <div class="summary-card job" id="summary-job">
-          <div class="summary-card-label">Recruiting for</div>
-          <div class="summary-card-name" id="sc-job-title">—</div>
-          <div class="summary-card-sub" id="sc-job-company"></div>
-          <button class="summary-card-action" id="btn-edit-job">Edit job →</button>
+    <!-- 2. Job context row -->
+    <div class="job-context-row" id="job-context-row">
+      <div class="job-context-main">
+        <div class="job-context-label">Recruiting for</div>
+        <div id="jcr-content">
+          <span class="job-context-empty">No job set</span>
         </div>
       </div>
-
-      <!-- Profile error -->
-      <div id="email-profile-error" class="status error" style="display:none;">
-        Could not read profile. Make sure you're on a LinkedIn profile page.
-      </div>
-
-      <!-- 2. Status strip -->
-      <div class="status-strip">
-        <div class="status-chip">
-          <div class="status-chip-label">Email</div>
-          <div class="status-chip-value missing" id="chip-email">Not found</div>
-        </div>
-        <div class="status-chip">
-          <div class="status-chip-label">Draft</div>
-          <div class="status-chip-value missing" id="chip-draft">Not ready</div>
-        </div>
-        <div class="status-chip">
-          <div class="status-chip-label">Fit</div>
-          <div class="status-chip-value missing" id="chip-match">Not checked</div>
-        </div>
-      </div>
-
-      <!-- 3. Email found banner (shown when email exists) -->
-      <div class="email-banner" id="email-banner">
-        <div class="email-banner-addr" id="found-email">—</div>
-        <div class="email-banner-badge" id="found-email-confidence"></div>
-      </div>
-
-      <!-- 4. Draft area (shown when draft exists) -->
-      <div class="draft-area" id="draft-area">
-        <textarea id="email-draft" rows="7" placeholder="Your personalized outreach email will appear here…"></textarea>
-        <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
-      </div>
-
-      <!-- 7. Requirements Match panel (secondary, below main workflow) -->
-      <div id="match-panel" style="display:none;margin-bottom:8px;">
-        <div class="card" style="padding:0;overflow:hidden;">
-          <div style="padding:9px 13px 7px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
-            <span class="card-label" style="margin:0;">🎯 Requirements Match</span>
-            <button class="btn-link" id="btn-close-match" style="font-size:11px;color:#9ca3af;">✕</button>
-          </div>
-          <div style="padding:10px 13px;" id="match-content">
-            <div id="match-summary" style="font-size:12px;color:#374151;font-style:italic;margin-bottom:10px;line-height:1.5;"></div>
-            <div id="match-strong" style="display:none;margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#16a34a;margin-bottom:5px;">✓ Strong matches</div>
-              <div id="match-strong-list"></div>
-            </div>
-            <div id="match-possible" style="display:none;margin-bottom:8px;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#d97706;margin-bottom:5px;">~ Possible matches</div>
-              <div id="match-possible-list"></div>
-            </div>
-            <div id="match-unclear" style="display:none;">
-              <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:5px;">? Unclear or missing</div>
-              <div id="match-unclear-list"></div>
-            </div>
-            <div id="match-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 5. Primary CTA — context-aware, one at a time -->
-      <div class="cta-area">
-        <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email · uses 1 lookup</button>
-        <button class="btn btn-primary" id="btn-generate-draft" style="display:none;">✍️ Generate Draft</button>
-        <button class="btn btn-success" id="btn-open-gmail" style="display:none;">📨 Open in Gmail</button>
-        <div id="email-status" class="status" style="margin-top:8px;"></div>
-      </div>
-
-      <!-- 6. Secondary actions -->
-      <div class="secondary-actions" id="secondary-actions">
-        <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
-        <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate draft</button>
-        <button class="btn-small" id="btn-check-fit">🎯 Analyze Fit · uses 1 AI run</button>
-      </div>
-
+      <button class="btn-link" id="btn-edit-job">Edit →</button>
     </div>
+
+    <!-- 3. Status strip -->
+    <div class="status-strip">
+      <div class="status-chip">
+        <div class="status-chip-label">Email</div>
+        <div class="status-chip-value missing" id="chip-email">Not found</div>
+      </div>
+      <div class="status-chip">
+        <div class="status-chip-label">Draft</div>
+        <div class="status-chip-value missing" id="chip-draft">Not ready</div>
+      </div>
+      <div class="status-chip">
+        <div class="status-chip-label">Fit</div>
+        <div class="status-chip-value missing" id="chip-match">Not checked</div>
+      </div>
+    </div>
+
+    <!-- 4. Email found banner -->
+    <div class="email-banner" id="email-banner">
+      <div class="email-banner-addr" id="found-email">—</div>
+      <div class="email-banner-badge" id="found-email-confidence"></div>
+    </div>
+
+    <!-- 5. Draft area -->
+    <div class="draft-area" id="draft-area">
+      <textarea id="email-draft" rows="7" placeholder="Your personalized outreach email will appear here…"></textarea>
+      <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
+    </div>
+
+    <!-- 6. Primary CTA -->
+    <div class="cta-area">
+      <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email · uses 1 lookup</button>
+      <button class="btn btn-primary" id="btn-generate-draft" style="display:none;">✍️ Generate Draft</button>
+      <div id="email-status" class="status" style="margin-top:8px;"></div>
+    </div>
+
+    <!-- 7. Open email row (Outlook primary, Gmail secondary) — shown when draft ready -->
+    <div class="open-email-row" id="open-email-row" style="display:none;">
+      <button class="btn-open-outlook" id="btn-open-outlook">📧 Open in Outlook</button>
+      <button class="btn-open-gmail-sec" id="btn-open-gmail">Gmail</button>
+    </div>
+
+    <!-- 8. Secondary actions -->
+    <div class="secondary-actions">
+      <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
+      <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate</button>
+    </div>
+
+    <!-- 9. Analyze Fit — collapsible secondary section -->
+    <div class="fit-section">
+      <button class="fit-toggle" id="fit-toggle">
+        <span>🎯 Analyze Fit · uses 1 AI run</span>
+        <span class="fit-chevron">▼</span>
+      </button>
+      <div class="fit-body" id="fit-body">
+        <div id="match-panel">
+          <div class="card" style="padding:0;overflow:hidden;margin-bottom:0;">
+            <div style="padding:8px 13px 6px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
+              <span class="card-label" style="margin:0;">Requirements Match</span>
+              <button class="btn-small" id="btn-run-fit" style="flex:0;padding:4px 10px;font-size:11px;">Run analysis</button>
+            </div>
+            <div style="padding:10px 13px;">
+              <div id="match-summary" style="font-size:12px;color:#374151;font-style:italic;margin-bottom:10px;line-height:1.5;display:none;"></div>
+              <div id="match-strong" style="display:none;margin-bottom:8px;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#16a34a;margin-bottom:5px;">✓ Strong matches</div>
+                <div id="match-strong-list"></div>
+              </div>
+              <div id="match-possible" style="display:none;margin-bottom:8px;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#d97706;margin-bottom:5px;">~ Possible matches</div>
+                <div id="match-possible-list"></div>
+              </div>
+              <div id="match-unclear" style="display:none;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#9ca3af;margin-bottom:5px;">? Unclear or missing</div>
+                <div id="match-unclear-list"></div>
+              </div>
+              <div id="match-status" class="status" style="margin-bottom:0;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -459,7 +521,7 @@
       <button class="btn btn-primary" id="btn-extract-job">Extract job details</button>
       <div id="extract-status" class="status" style="margin-top:8px;"></div>
     </div>
-    <div class="card" id="card-job-details">
+    <div class="card">
       <div class="card-label">📋 Job Details <span style="font-size:10px;font-weight:400;color:#9ca3af;text-transform:none;letter-spacing:0;">&nbsp;— edit as needed</span></div>
       <div class="form-group">
         <label for="job-title">Role title</label>
@@ -480,7 +542,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
-       PROFILE TAB — read-only reference
+       CANDIDATE TAB — read-only reference
   ══════════════════════════════════════════════════════ -->
   <div class="tab-content" id="tab-profile">
     <div id="profile-not-linkedin" class="empty-state" style="display:none;">
@@ -531,7 +593,7 @@
       <div class="settings-group-label">Appearance</div>
       <div class="card">
         <div class="field-label" style="margin-bottom:6px;">Theme</div>
-        <div class="theme-control" id="theme-control">
+        <div class="theme-control">
           <button class="theme-btn" data-theme="light">☀️ Light</button>
           <button class="theme-btn active" data-theme="system">System</button>
           <button class="theme-btn" data-theme="dark">🌙 Dark</button>

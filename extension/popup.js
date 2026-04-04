@@ -60,16 +60,29 @@ async function showMainApp(user) {
   $('main-app').style.display = 'block'
   setupTabs()
   await loadCreditsUI()
-
-  // Credit pill click → pricing/upgrade
   $('credit-pill')?.addEventListener('click', () => createCheckout())
 
-  const profile = await scrapeCurrentProfile()
-  await setupEmailTab(profile)
-  await setupRequirementsMatch(profile)
-  setupProfileTab(profile)
+  // Detect current tab URL — no DOM scraping
+  const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+  const pageUrl = activeTab?.url ?? ''
+  const linkedInUrl = extractLinkedInUrl(pageUrl)
+
+  await setupOutreachTab(linkedInUrl)
+  setupCandidateTab(linkedInUrl)
   setupJobTab()
   await setupSettingsTab(user)
+}
+
+// ── Extract LinkedIn URL from page URL ─────────────────────────────────────────
+function extractLinkedInUrl(pageUrl) {
+  if (!pageUrl) return null
+  // Regular profiles: linkedin.com/in/username
+  const inMatch = pageUrl.match(/linkedin\.com\/in\/[^/?#]+/)
+  if (inMatch) return 'https://www.' + inMatch[0]
+  // Recruiter profiles: linkedin.com/talent/profile/...
+  const talentMatch = pageUrl.match(/linkedin\.com\/talent\/profile\/[^/?#]+/)
+  if (talentMatch) return 'https://www.' + talentMatch[0]
+  return null
 }
 
 // ── Credits ───────────────────────────────────────────────────────────────────
@@ -81,7 +94,6 @@ async function loadCreditsUI() {
     const used = credits?.lookups_used ?? 0
     const max = CONFIG.tiers[tier]?.lookups ?? 10
     const left = max - used
-    // Set copy and state
     if (left <= 0) {
       pill.textContent = '0 lookups · Upgrade'
       pill.className = 'credit-pill critical'
@@ -103,51 +115,29 @@ async function loadCreditsUI() {
   }
 }
 
-// ── Scrape ────────────────────────────────────────────────────────────────────
-async function scrapeCurrentProfile() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  const url = tab?.url ?? ''
-  if (!url.includes('linkedin.com/in/') && !url.includes('linkedin.com/talent/') && !url.includes('linkedin.com/recruiter/')) return null
-  try {
-    const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-    return data?.fullName ? data : null
-  } catch { return null }
-}
-
-// ── Email tab — workflow dashboard ────────────────────────────────────────────
-// Tracks workflow state
-let _emailState = { email: null, emailSource: null, hasDraft: false }
+// ── Workflow state ────────────────────────────────────────────────────────────
+let _state = { email: null, emailSource: null, hasDraft: false, linkedInUrl: null }
 
 function updateWorkflowUI() {
-  const { email, emailSource, hasDraft } = _emailState
+  const { email, hasDraft } = _state
 
   // Status chips
-  if (email) {
-    $('chip-email').textContent = '✓ Found'
-    $('chip-email').className = 'status-chip-value found'
-  } else {
-    $('chip-email').textContent = 'Not found'
-    $('chip-email').className = 'status-chip-value missing'
-  }
-  if (hasDraft) {
-    $('chip-draft').textContent = '✓ Ready'
-    $('chip-draft').className = 'status-chip-value ready'
-  } else {
-    $('chip-draft').textContent = 'Not ready'
-    $('chip-draft').className = 'status-chip-value missing'
-  }
+  $('chip-email').textContent = email ? '✓ Found' : 'Not found'
+  $('chip-email').className = `status-chip-value${email ? ' found' : ' missing'}`
+  $('chip-draft').textContent = hasDraft ? '✓ Ready' : 'Not ready'
+  $('chip-draft').className = `status-chip-value${hasDraft ? ' ready' : ' missing'}`
 
-  // Primary CTA — show exactly one
+  // Primary CTA
   $('btn-find-email').style.display = 'none'
   $('btn-generate-draft').style.display = 'none'
-  $('btn-open-gmail').style.display = 'none'
+  $('open-email-row').style.display = 'none'
 
   if (!email) {
     $('btn-find-email').style.display = 'block'
   } else if (!hasDraft) {
     $('btn-generate-draft').style.display = 'block'
   } else {
-    $('btn-open-gmail').style.display = 'block'
+    $('open-email-row').style.display = 'flex'
   }
 
   // Secondary actions
@@ -155,185 +145,239 @@ function updateWorkflowUI() {
   $('btn-regenerate').style.display = hasDraft ? 'block' : 'none'
 }
 
-async function setupEmailTab(profile) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  const url = tab?.url ?? ''
-  const isLinkedIn = url.includes('linkedin.com/in/') || url.includes('linkedin.com/talent/') || url.includes('linkedin.com/recruiter/')
+// ── Outreach tab ──────────────────────────────────────────────────────────────
+async function setupOutreachTab(linkedInUrl) {
+  _state.linkedInUrl = linkedInUrl
 
-  if (!isLinkedIn) {
-    $('state-not-linkedin').style.display = 'block'
-    $('state-email').style.display = 'none'
-    return
-  }
-  $('state-not-linkedin').style.display = 'none'
-  $('state-email').style.display = 'block'
+  // ── Candidate card — restore or pre-fill from URL ────────────────────────
+  const stored = await getStorage(['cand_name', 'cand_title', 'cand_company', 'cand_linkedin_url'])
 
-  // ── Candidate summary ─────────────────────────────────────────────────────
-  if (!profile?.fullName) {
-    $('email-profile-error').style.display = 'block'
-    $('summary-candidate').style.opacity = '0.4'
-    $('sc-name').textContent = 'Not found'
-    $('sc-meta').textContent = ''
+  // If URL changed (new profile), clear old candidate data
+  const storedUrl = stored.cand_linkedin_url || ''
+  const urlChanged = linkedInUrl && storedUrl && linkedInUrl !== storedUrl
+
+  if (urlChanged) {
+    // New profile — clear fields so recruiter fills them fresh
+    await setStorage({ cand_name: '', cand_title: '', cand_company: '', cand_linkedin_url: linkedInUrl })
+    $('cand-name').value = ''
+    $('cand-title').value = ''
+    $('cand-company').value = ''
   } else {
-    $('sc-name').textContent = profile.fullName
-    $('sc-meta').textContent = [profile.title, profile.company].filter(Boolean).join(' · ')
+    $('cand-name').value = stored.cand_name || ''
+    $('cand-title').value = stored.cand_title || ''
+    $('cand-company').value = stored.cand_company || ''
+    if (linkedInUrl) await setStorage({ cand_linkedin_url: linkedInUrl })
   }
 
-  // ── Job summary ───────────────────────────────────────────────────────────
+  // Show LinkedIn URL row if on a profile page
+  if (linkedInUrl) {
+    const slug = linkedInUrl.replace('https://www.', '')
+    const urlLink = $('cand-url-link')
+    urlLink.href = linkedInUrl
+    urlLink.textContent = slug.length > 36 ? slug.slice(0, 36) + '…' : slug
+    $('cand-url-row').style.display = 'flex'
+  }
+
+  // Copy URL button
+  $('btn-copy-url')?.addEventListener('click', () => {
+    if (linkedInUrl) navigator.clipboard.writeText(linkedInUrl).catch(() => {})
+  })
+
+  // Auto-focus first empty field
+  const nameInput = $('cand-name')
+  const titleInput = $('cand-title')
+  const compInput = $('cand-company')
+  if (!nameInput.value) nameInput.focus()
+  else if (!titleInput.value) titleInput.focus()
+  else if (!compInput.value) compInput.focus()
+
+  // Enter key advances to next field
+  nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); titleInput.focus() } })
+  titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); compInput.focus() } })
+  compInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); compInput.blur() } })
+
+  // Save candidate fields on change
+  const saveCandidate = () => setStorage({
+    cand_name: $('cand-name').value.trim(),
+    cand_title: $('cand-title').value.trim(),
+    cand_company: $('cand-company').value.trim(),
+    cand_linkedin_url: linkedInUrl || '',
+  })
+  ;[$('cand-name'), $('cand-title'), $('cand-company')].forEach(el => {
+    el.addEventListener('blur', saveCandidate)
+    el.addEventListener('input', saveCandidate)
+  })
+
+  // ── Job context row ───────────────────────────────────────────────────────
   const jobData = await getStorage(['job_title', 'job_company'])
+  const jcrContent = $('jcr-content')
   if (jobData.job_title) {
-    $('sc-job-title').textContent = jobData.job_title
-    $('sc-job-company').textContent = jobData.job_company || ''
-    $('summary-job').classList.remove('empty')
-  } else {
-    $('sc-job-title').textContent = 'No job set'
-    $('summary-job').classList.add('empty')
+    jcrContent.innerHTML = `
+      <div class="job-context-title">${jobData.job_title}</div>
+      ${jobData.job_company ? `<div class="job-context-company">${jobData.job_company}</div>` : ''}
+    `
   }
-
-  $('btn-view-profile').addEventListener('click', () => switchTab('profile'))
   $('btn-edit-job').addEventListener('click', () => switchTab('job'))
 
-  // Initialize workflow state
-  updateWorkflowUI()
-
-  if (!await isLoggedIn()) {
-    $('btn-find-email').textContent = 'Sign in to look up emails'
-    $('btn-find-email').disabled = true
-    $('btn-find-email').style.display = 'block'
-    $('btn-generate-draft').style.display = 'none'
-    return
-  }
-
-  // ── Check cache ───────────────────────────────────────────────────────────
-  if (profile?.linkedinUrl) {
-    const cacheKey = `email_cache_${profile.linkedinUrl}`
-    const draftKey = `draft_cache_${profile.linkedinUrl}`
+  // ── Check cache for this LinkedIn URL ─────────────────────────────────────
+  if (linkedInUrl) {
+    const cacheKey = `email_cache_${linkedInUrl}`
+    const draftKey = `draft_cache_${linkedInUrl}`
     const cached = await getStorage([cacheKey, draftKey])
-
     if (cached[cacheKey]?.email) {
       setEmailFound(cached[cacheKey].email, 'cached')
-    } else {
-      // Check server cache silently
-      const statusEl = $('email-status')
-      try {
-        const serverResult = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company, true)
-        if (serverResult.found && serverResult.email) {
-          setEmailFound(serverResult.email, 'cached')
-          await setStorage({ [cacheKey]: { email: serverResult.email, source: 'cache', timestamp: Date.now() } })
-        }
-      } catch {}
-      hideStatus(statusEl)
     }
-
     if (cached[draftKey]?.draft) {
       setDraftReady(cached[draftKey].draft, cached[draftKey].subject)
-    } else if (_emailState.email && !_emailState.hasDraft) {
-      // Email found but no draft — auto-generate
-      await generateDraft(profile)
+    } else if (cached[cacheKey]?.email) {
+      // Email cached but no draft — silent server check then auto-generate
     }
   }
 
+  updateWorkflowUI()
+
   // ── Button wiring ─────────────────────────────────────────────────────────
+
   $('btn-find-email').addEventListener('click', async () => {
-    if (!profile?.fullName) return
+    await saveCandidate()
+    const name = $('cand-name').value.trim()
+    const company = $('cand-company').value.trim()
+    if (!name) { showStatus($('email-status'), 'Enter the candidate\'s name first.', 'error'); return }
+
     const btn = $('btn-find-email')
     const statusEl = $('email-status')
     btn.disabled = true
     showStatus(statusEl, 'Looking up email…', 'info')
+
+    // Parse first/last from full name
+    const parts = name.split(' ')
+    const firstName = parts[0] || ''
+    const lastName = parts.slice(1).join(' ') || ''
+
     try {
-      const result = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company)
+      const result = await lookupEmail(firstName, lastName, _state.linkedInUrl || '', company)
       if (result.found && result.email) {
         setEmailFound(result.email, result.source)
-        const cacheKey = `email_cache_${profile.linkedinUrl}`
-        await setStorage({ [cacheKey]: { email: result.email, source: result.source, timestamp: Date.now() } })
+        if (_state.linkedInUrl) {
+          await setStorage({ [`email_cache_${_state.linkedInUrl}`]: { email: result.email, source: result.source, timestamp: Date.now() } })
+        }
         hideStatus(statusEl)
-        await generateDraft(profile)
+        await generateDraft()
       } else {
-        showStatus(statusEl, 'No email found for this profile.', 'error')
+        showStatus(statusEl, 'No email found for this candidate.', 'error')
       }
     } catch (e) {
       let msg = 'Lookup failed. Try again.'
       if (e.message === 'Not signed in') msg = 'Please sign in first.'
-      else if (e.message?.includes('Credit limit') || e.message?.includes('402')) msg = 'Credit limit reached. Upgrade your plan.'
+      else if (e.message?.includes('Credit limit') || e.message?.includes('402')) msg = 'Lookup limit reached. Upgrade your plan.'
       showStatus(statusEl, msg, 'error')
     }
     btn.disabled = false
     await loadCreditsUI()
   })
 
-  $('btn-generate-draft').addEventListener('click', () => generateDraft(profile))
-  $('btn-regenerate').addEventListener('click', () => generateDraft(profile))
+  $('btn-generate-draft').addEventListener('click', () => generateDraft())
+  $('btn-regenerate').addEventListener('click', () => generateDraft())
 
   $('btn-recheck-email').addEventListener('click', async () => {
-    if (!profile?.fullName) return
+    await saveCandidate()
+    const name = $('cand-name').value.trim()
+    const company = $('cand-company').value.trim()
+    if (!name) { showStatus($('email-status'), 'Enter the candidate\'s name first.', 'error'); return }
+    const btn = $('btn-recheck-email')
     const statusEl = $('email-status')
-    $('btn-recheck-email').disabled = true
+    btn.disabled = true
     showStatus(statusEl, 'Re-checking email…', 'info')
+    const parts = name.split(' ')
     try {
-      const result = await lookupEmail(profile.firstName, profile.lastName, profile.linkedinUrl, profile.company)
+      const result = await lookupEmail(parts[0] || '', parts.slice(1).join(' ') || '', _state.linkedInUrl || '', company)
       if (result.found && result.email) {
         setEmailFound(result.email, result.source)
-        const cacheKey = `email_cache_${profile.linkedinUrl}`
-        await setStorage({ [cacheKey]: { email: result.email, source: result.source, timestamp: Date.now() } })
+        if (_state.linkedInUrl) {
+          await setStorage({ [`email_cache_${_state.linkedInUrl}`]: { email: result.email, source: result.source, timestamp: Date.now() } })
+        }
         hideStatus(statusEl)
       } else {
         showStatus(statusEl, 'Still no email found.', 'error')
       }
-    } catch (e) {
-      showStatus(statusEl, 'Re-check failed. Try again.', 'error')
-    }
-    $('btn-recheck-email').disabled = false
+    } catch { showStatus($('email-status'), 'Re-check failed.', 'error') }
+    btn.disabled = false
     await loadCreditsUI()
   })
 
-  $('btn-open-gmail').addEventListener('click', () => {
+  // ── Open email compose ────────────────────────────────────────────────────
+  function getComposeData() {
     const draft = $('email-draft').value.trim()
-    const to = _emailState.email || ''
-    const subject = encodeURIComponent($('email-draft')?.dataset?.subject || `Exciting opportunity for ${profile?.firstName || 'you'}`)
-    chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${to}&su=${subject}&body=${encodeURIComponent(draft)}` })
+    const to = _state.email || ''
+    const subject = $('email-draft')?.dataset?.subject || `Exciting opportunity for ${$('cand-name').value.trim().split(' ')[0] || 'you'}`
+    return { draft, to, subject }
+  }
+
+  $('btn-open-outlook').addEventListener('click', () => {
+    const { draft, to, subject } = getComposeData()
+    const url = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(draft)}`
+    chrome.tabs.create({ url })
   })
+
+  $('btn-open-gmail').addEventListener('click', () => {
+    const { draft, to, subject } = getComposeData()
+    chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(draft)}` })
+  })
+
+  // ── Analyze Fit collapsible ───────────────────────────────────────────────
+  const fitToggle = $('fit-toggle')
+  const fitBody = $('fit-body')
+  fitToggle.addEventListener('click', () => {
+    const open = fitBody.classList.toggle('open')
+    fitToggle.classList.toggle('open', open)
+  })
+
+  $('btn-run-fit')?.addEventListener('click', () => runAnalyzeFit())
 }
 
 function setEmailFound(email, source) {
-  _emailState.email = email
-  _emailState.emailSource = source
+  _state.email = email
   $('email-banner').style.display = 'block'
   $('found-email').textContent = email
-  $('found-email-confidence').textContent = (source === 'cached' || source === 'cache') ? '✅ Previously found' : '✅ Found via FullEnrich'
+  $('found-email-confidence').textContent = (source === 'cached' || source === 'cache') ? '✅ Previously found' : '✅ Found'
   updateWorkflowUI()
 }
 
 function setDraftReady(draftText, subject) {
-  _emailState.hasDraft = true
+  _state.hasDraft = true
   $('draft-area').style.display = 'block'
   $('email-draft').value = draftText
   if (subject) $('email-draft').dataset.subject = subject
   updateWorkflowUI()
 }
 
-async function generateDraft(profile) {
+async function generateDraft() {
   const statusEl = $('draft-status')
   $('draft-area').style.display = 'block'
   showStatus(statusEl, 'Generating personalized email…', 'info')
   try {
     const storage = await getStorage(['job_title', 'job_company', 'job_description', 'pref_your_name', 'pref_your_title'])
-    // Include match context if available (panel is visible and has content)
-    const matchSummary = $('match-summary')?.textContent?.trim() || ''
-    const job = {
-      title: storage.job_title || '',
-      company: storage.job_company || '',
-      description: storage.job_description || '',
-      matchContext: matchSummary || undefined,
+    const name = $('cand-name').value.trim()
+    const parts = name.split(' ')
+    const profile = {
+      fullName: name,
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' ') || '',
+      title: $('cand-title').value.trim(),
+      company: $('cand-company').value.trim(),
+      linkedinUrl: _state.linkedInUrl || '',
     }
+    // Include match context if available
+    const matchSummary = $('match-summary')?.textContent?.trim() || ''
     const result = await apiGenerateDraft(
       profile,
-      job,
+      { title: storage.job_title || '', company: storage.job_company || '', description: storage.job_description || '', matchContext: matchSummary || undefined },
       { name: storage.pref_your_name || '', title: storage.pref_your_title || '' }
     )
     if (result.draft) {
       setDraftReady(result.draft, result.subject)
-      if (profile?.linkedinUrl) {
-        await setStorage({ [`draft_cache_${profile.linkedinUrl}`]: { draft: result.draft, subject: result.subject || '', timestamp: Date.now() } })
+      if (_state.linkedInUrl) {
+        await setStorage({ [`draft_cache_${_state.linkedInUrl}`]: { draft: result.draft, subject: result.subject || '', timestamp: Date.now() } })
       }
       showStatus(statusEl, 'Draft ready!', 'success')
       setTimeout(() => hideStatus(statusEl), 2500)
@@ -348,20 +392,19 @@ async function generateDraft(profile) {
   }
 }
 
-// ── Requirements Match ───────────────────────────────────────────────────────
+// ── Analyze Fit ───────────────────────────────────────────────────────────────
 function renderMatchItem(text, evidence) {
   return `<div style="margin-bottom:6px;padding:6px 8px;background:#f9fafb;border-radius:5px;">
     <div style="font-size:12px;font-weight:500;color:#111827;line-height:1.4;">${text}</div>
-    ${evidence ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;line-height:1.3;">${evidence}</div>` : ''}
+    ${evidence ? `<div style="font-size:11px;color:#6b7280;margin-top:2px;">${evidence}</div>` : ''}
   </div>`
 }
 
 function showMatchPanel(result) {
-  const panel = $('match-panel')
-  panel.style.display = 'block'
-
-  if (result.summary) $('match-summary').textContent = result.summary
-
+  if (result.summary) {
+    $('match-summary').textContent = result.summary
+    $('match-summary').style.display = 'block'
+  }
   const sections = [
     { key: 'strong', listId: 'match-strong-list', wrapperId: 'match-strong' },
     { key: 'possible', listId: 'match-possible-list', wrapperId: 'match-possible' },
@@ -372,12 +415,8 @@ function showMatchPanel(result) {
     if (items.length) {
       $(listId).innerHTML = items.map(i => renderMatchItem(i.point, i.evidence)).join('')
       $(wrapperId).style.display = 'block'
-    } else {
-      $(wrapperId).style.display = 'none'
     }
   }
-
-  // Update fit chip
   const strongCount = (result.strong || []).length
   const chip = $('chip-match')
   if (strongCount >= 3) { chip.textContent = 'Strong fit'; chip.className = 'status-chip-value found' }
@@ -385,122 +424,101 @@ function showMatchPanel(result) {
   else { chip.textContent = 'Weak fit'; chip.className = 'status-chip-value missing' }
 }
 
-async function setupRequirementsMatch(profile) {
-  $('btn-close-match')?.addEventListener('click', () => {
-    $('match-panel').style.display = 'none'
-  })
+async function runAnalyzeFit() {
+  const name = $('cand-name').value.trim()
+  const storage = await getStorage(['job_title', 'job_company', 'job_description'])
+  const statusEl = $('match-status')
 
-  $('btn-check-fit')?.addEventListener('click', async () => {
-    if (!profile?.fullName) {
-      showStatus($('match-status'), 'No profile loaded — open a LinkedIn profile first.', 'error')
-      $('match-panel').style.display = 'block'
+  if (!name) { showStatus(statusEl, 'Enter the candidate\'s name first.', 'error'); return }
+  if (!storage.job_title) { showStatus(statusEl, 'No job set — add one in the Job tab first.', 'error'); return }
+
+  // Cache check
+  const cacheKey = `match_cache_${_state.linkedInUrl || name}_${storage.job_title}_${storage.job_company || ''}`
+  const cached = await getStorage([cacheKey])
+  if (cached[cacheKey]?.result) {
+    showMatchPanel(cached[cacheKey].result)
+    showStatus(statusEl, '↩ Showing cached result — click Run again to refresh.', 'info')
+    return
+  }
+
+  // AI run quota check
+  const credits = await getCredits()
+  if (credits) {
+    const tier = credits.tier ?? 'free'
+    const aiUsed = credits.ai_runs_used ?? 0
+    const aiMax = CONFIG.tiers[tier]?.ai_runs ?? 20
+    if (aiUsed >= aiMax) {
+      showStatus(statusEl, `AI run limit reached (${aiMax}/month). Upgrade to continue.`, 'error')
       return
-    }
-    const storage = await getStorage(['job_title', 'job_company', 'job_description'])
-    if (!storage.job_title) {
-      showStatus($('match-status'), 'No job set — add one in the Job tab first.', 'error')
-      $('match-panel').style.display = 'block'
-      return
-    }
-
-    // ── Cache check: reuse result if same candidate + same job ──────────────
-    const cacheKey = `match_cache_${profile.linkedinUrl}_${storage.job_title}_${storage.job_company || ''}`
-    const cached = await getStorage([cacheKey])
-    if (cached[cacheKey]?.result) {
-      $('match-panel').style.display = 'block'
-      showMatchPanel(cached[cacheKey].result)
-      // Show subtle cached indicator
-      const statusEl = $('match-status')
-      showStatus(statusEl, '↩ Showing cached result — re-run to refresh.', 'info')
-      return
-    }
-
-    // ── Check AI run quota ──────────────────────────────────────────────────
-    const credits = await getCredits()
-    if (credits) {
-      const tier = credits.tier ?? 'free'
-      const aiUsed = credits.ai_runs_used ?? 0
-      const aiMax = CONFIG.tiers[tier]?.ai_runs ?? 20
-      if (aiUsed >= aiMax) {
-        showStatus($('match-status'), `AI run limit reached (${aiMax}/month). Upgrade to analyze more candidates.`, 'error')
-        $('match-panel').style.display = 'block'
-        return
-      }
-    }
-
-    const statusEl = $('match-status')
-    $('match-panel').style.display = 'block'
-    $('match-summary').textContent = ''
-    $('match-strong').style.display = 'none'
-    $('match-possible').style.display = 'none'
-    $('match-unclear').style.display = 'none'
-    showStatus(statusEl, 'Analyzing fit against job requirements…', 'info')
-
-    try {
-      const result = await requirementsMatch(profile, {
-        title: storage.job_title,
-        company: storage.job_company || '',
-        description: storage.job_description || '',
-      })
-      if (result.error) throw new Error(result.error)
-
-      // Deduct AI run client-side (server doesn't track this yet)
-      await deductAiRun()
-      await loadCreditsUI()
-
-      // Cache the result for this candidate + job combination
-      await setStorage({ [cacheKey]: { result, timestamp: Date.now() } })
-
-      hideStatus(statusEl)
-      showMatchPanel(result)
-    } catch (e) {
-      showStatus(statusEl, `Match analysis failed: ${e.message}`, 'error')
-    }
-  })
-}
-
-// ── Profile tab ───────────────────────────────────────────────────────────────
-function setupProfileTab(profile) {
-  const showNotLinkedIn = () => { $('profile-not-linkedin').style.display = 'block'; $('profile-data-view').style.display = 'none'; $('profile-loading-state').style.display = 'none'; $('profile-error-state').style.display = 'none' }
-  const showError = () => { $('profile-not-linkedin').style.display = 'none'; $('profile-data-view').style.display = 'none'; $('profile-loading-state').style.display = 'none'; $('profile-error-state').style.display = 'block' }
-  const showData = (p) => {
-    $('profile-not-linkedin').style.display = 'none'
-    $('profile-error-state').style.display = 'none'
-    $('profile-loading-state').style.display = 'none'
-    $('profile-data-view').style.display = 'block'
-    $('prof-name').textContent = p.fullName || '—'
-    $('prof-title').textContent = p.title || '—'
-    $('prof-company').textContent = p.company || '—'
-    const urlEl = $('prof-url')
-    if (p.linkedinUrl) {
-      urlEl.innerHTML = `<a href="${p.linkedinUrl}" target="_blank">${p.linkedinUrl.replace('https://', '')}</a>`
-    } else { urlEl.textContent = '—' }
-    if (p.experience?.length) {
-      const list = $('prof-experience-list')
-      list.innerHTML = p.experience.map((exp, i) => `
-        <div style="margin-bottom:${i < p.experience.length - 1 ? '10px' : '0'};${i < p.experience.length - 1 ? 'padding-bottom:10px;border-bottom:1px solid #f3f4f6;' : ''}">
-          <div style="font-size:13px;font-weight:600;color:#111827;">${exp.title || ''}</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:1px;">${exp.company || ''}${exp.dates ? ' · ' + exp.dates : ''}</div>
-        </div>`).join('')
-      $('prof-experience-card').style.display = 'block'
     }
   }
 
-  chrome.tabs.query({ active: true, currentWindow: true }, ([activeTab]) => {
-    const url = activeTab?.url ?? ''
-    const isLinkedIn = url.includes('linkedin.com/in/') || url.includes('linkedin.com/talent/') || url.includes('linkedin.com/recruiter/')
-    if (!isLinkedIn) { showNotLinkedIn(); return }
-    if (!profile) { showError(); return }
-    showData(profile)
-  })
+  showStatus(statusEl, 'Analyzing fit against job requirements…', 'info')
+  // Reset sections
+  $('match-summary').style.display = 'none'
+  $('match-strong').style.display = 'none'
+  $('match-possible').style.display = 'none'
+  $('match-unclear').style.display = 'none'
 
-  $('btn-rescrape')?.addEventListener('click', async () => {
-    $('profile-loading-state').style.display = 'block'
+  try {
+    const parts = name.split(' ')
+    const profile = {
+      fullName: name,
+      firstName: parts[0] || '',
+      lastName: parts.slice(1).join(' ') || '',
+      title: $('cand-title').value.trim(),
+      company: $('cand-company').value.trim(),
+      linkedinUrl: _state.linkedInUrl || '',
+    }
+    const result = await requirementsMatch(profile, {
+      title: storage.job_title,
+      company: storage.job_company || '',
+      description: storage.job_description || '',
+    })
+    if (result.error) throw new Error(result.error)
+    await deductAiRun()
+    await loadCreditsUI()
+    await setStorage({ [cacheKey]: { result, timestamp: Date.now() } })
+    hideStatus(statusEl)
+    showMatchPanel(result)
+  } catch (e) {
+    showStatus(statusEl, `Analysis failed: ${e.message}`, 'error')
+  }
+}
+
+// ── Candidate tab ─────────────────────────────────────────────────────────────
+function setupCandidateTab(linkedInUrl) {
+  const showNotLinkedIn = () => {
+    $('profile-not-linkedin').style.display = 'block'
     $('profile-data-view').style.display = 'none'
-    const fresh = await scrapeCurrentProfile()
-    if (fresh) showData(fresh)
-    else showError()
-  })
+    $('profile-loading-state').style.display = 'none'
+    $('profile-error-state').style.display = 'none'
+  }
+
+  if (!linkedInUrl) { showNotLinkedIn(); return }
+
+  // Show what we have from the editable fields + URL
+  $('profile-not-linkedin').style.display = 'none'
+  $('profile-data-view').style.display = 'block'
+  $('profile-error-state').style.display = 'none'
+  $('profile-loading-state').style.display = 'none'
+
+  const refresh = async () => {
+    const d = await getStorage(['cand_name', 'cand_title', 'cand_company', 'cand_linkedin_url'])
+    $('prof-name').textContent = d.cand_name || '—'
+    $('prof-title').textContent = d.cand_title || '—'
+    $('prof-company').textContent = d.cand_company || '—'
+    const urlEl = $('prof-url')
+    const url = d.cand_linkedin_url || linkedInUrl
+    if (url) {
+      urlEl.innerHTML = `<a href="${url}" target="_blank">${url.replace('https://www.', '')}</a>`
+    } else {
+      urlEl.textContent = '—'
+    }
+  }
+  refresh()
+
+  $('btn-rescrape')?.addEventListener('click', refresh)
 }
 
 // ── Job tab ───────────────────────────────────────────────────────────────────
@@ -572,7 +590,6 @@ async function setupSettingsTab(user) {
   } catch {}
   $('btn-upgrade').addEventListener('click', () => createCheckout())
   $('btn-sign-out').addEventListener('click', async () => { await signOut(); showLoginScreen() })
-
   const prefs = await getStorage(['pref_theme', 'pref_dark_mode'])
   applyTheme(prefs.pref_theme || (prefs.pref_dark_mode ? 'dark' : 'system'))
   document.querySelectorAll('.theme-btn').forEach(btn => {
