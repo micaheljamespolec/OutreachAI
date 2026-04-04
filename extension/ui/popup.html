@@ -18,40 +18,35 @@
     padding: 10px 14px; display: flex; align-items: center; gap: 8px;
   }
   .header h1 { font-size: 15px; font-weight: 700; flex: 1; letter-spacing: -0.2px; }
-
-  /* ── Credit pill ── */
   .credit-pill {
     background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
     color: white; border-radius: 20px; padding: 4px 10px;
     font-size: 11px; font-weight: 600; cursor: pointer;
-    transition: all 0.15s; white-space: nowrap; letter-spacing: 0.1px;
+    transition: all 0.15s; white-space: nowrap;
   }
-  .credit-pill:hover { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.5); }
+  .credit-pill:hover { background: rgba(255,255,255,0.28); }
   .credit-pill:active { transform: scale(0.97); }
   .credit-pill.low { background: rgba(251,191,36,0.22); border-color: rgba(251,191,36,0.5); color: #fde68a; }
-  .credit-pill.low:hover { background: rgba(251,191,36,0.35); }
   .credit-pill.critical { background: rgba(239,68,68,0.22); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
-  .credit-pill.critical:hover { background: rgba(239,68,68,0.35); }
 
   /* ── Tabs ── */
   .tabs { display: flex; background: white; border-bottom: 1px solid #e5e7eb; }
   .tab {
     flex: 1; text-align: center; padding: 9px 2px;
-    font-size: 11px; cursor: pointer; color: #6b7280;
-    transition: all 0.15s; user-select: none;
+    font-size: 11px; cursor: pointer; color: #6b7280; user-select: none;
+    transition: all 0.15s;
   }
   .tab:hover { color: #0a66c2; background: #f8fafc; }
   .tab.active { color: #0a66c2; border-bottom: 2px solid #0a66c2; font-weight: 600; }
 
-  /* ── Tab content ── */
+  /* ── Tab panels ── */
   .tab-content { display: none; padding: 12px; }
   .tab-content.active { display: block; }
 
   /* ── Cards ── */
   .card {
-    background: white; border-radius: 8px;
-    border: 1px solid #e5e7eb; padding: 11px 13px;
-    margin-bottom: 8px;
+    background: white; border-radius: 8px; border: 1px solid #e5e7eb;
+    padding: 11px 13px; margin-bottom: 8px;
   }
   .card:last-child { margin-bottom: 0; }
   .card-label {
@@ -59,80 +54,53 @@
     letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 8px;
   }
 
-  /* ── Candidate card — compact inline inputs ── */
-  .candidate-card {
+  /* ── Candidate header card ── */
+  .cand-header {
     background: white; border: 1px solid #e5e7eb; border-radius: 8px;
     padding: 10px 13px; margin-bottom: 8px;
   }
-  .candidate-card-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 8px;
+  .cand-header-top {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 8px;
   }
-  .candidate-card-label {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #9ca3af;
+  .cand-name { font-size: 14px; font-weight: 700; color: #111827; line-height: 1.3; }
+  .cand-meta { font-size: 12px; color: #6b7280; margin-top: 3px; line-height: 1.4; }
+  .cand-url {
+    font-size: 10.5px; color: #9ca3af; display: flex; align-items: center;
+    gap: 4px; flex-shrink: 0; margin-top: 2px;
   }
-  .candidate-card-url {
-    font-size: 10.5px; color: #9ca3af; display: flex; align-items: center; gap: 4px;
-    overflow: hidden; max-width: 160px;
-  }
-  .candidate-card-url a {
-    color: #6b7280; text-decoration: none; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis; display: block; max-width: 130px;
-  }
-  .candidate-card-url a:hover { color: #0a66c2; text-decoration: underline; }
-  .candidate-card-copy {
-    background: none; border: none; cursor: pointer; color: #9ca3af;
-    padding: 0; font-size: 11px; line-height: 1; flex-shrink: 0;
-  }
-  .candidate-card-copy:hover { color: #0a66c2; }
-  /* Inline field rows */
-  .cand-field {
-    display: flex; align-items: center; gap: 6px; margin-bottom: 5px;
-  }
-  .cand-field:last-child { margin-bottom: 0; }
-  .cand-field-label {
-    font-size: 10.5px; color: #9ca3af; width: 44px; flex-shrink: 0; font-weight: 500;
-  }
-  .cand-field input {
-    flex: 1; padding: 4px 8px; border: 1.5px solid #e5e7eb; border-radius: 5px;
-    font-size: 12.5px; color: #111827; background: white; outline: none;
-    transition: border-color 0.12s; font-family: inherit;
-  }
-  .cand-field input:focus { border-color: #0a66c2; }
-  .cand-field input::placeholder { color: #d1d5db; }
+  .cand-url a { color: #0a66c2; text-decoration: none; }
+  .cand-url a:hover { text-decoration: underline; }
+  .cand-url-icon { font-size: 12px; }
+  .cand-scanning { font-size: 12px; color: #9ca3af; font-style: italic; }
 
-  /* ── Job context row ── */
-  .job-context-row {
+  /* ── Job context pill ── */
+  .job-pill {
     background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px;
-    padding: 9px 12px; margin-bottom: 8px;
+    padding: 8px 12px; margin-bottom: 8px;
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
   }
-  .job-context-main { min-width: 0; flex: 1; }
-  .job-context-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; margin-bottom: 2px; }
-  .job-context-title { font-size: 12.5px; font-weight: 600; color: #1e3a8a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .job-context-company { font-size: 11px; color: #3b82f6; }
-  .job-context-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
+  .job-pill-main { min-width: 0; }
+  .job-pill-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; margin-bottom: 2px; }
+  .job-pill-title { font-size: 12.5px; font-weight: 600; color: #1e3a8a; }
+  .job-pill-company { font-size: 11px; color: #3b82f6; }
+  .job-pill-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
   .btn-link { background: none; border: none; color: #0a66c2; font-size: 11px; cursor: pointer; padding: 0; flex-shrink: 0; }
   .btn-link:hover { text-decoration: underline; }
 
-  /* ── Status strip ── */
+  /* ── Status chips ── */
   .status-strip { display: flex; gap: 6px; margin-bottom: 8px; }
-  .status-chip {
-    flex: 1; background: white; border: 1px solid #e5e7eb;
-    border-radius: 6px; padding: 6px 8px; text-align: center;
-  }
+  .status-chip { flex: 1; background: white; border: 1px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; text-align: center; }
   .status-chip-label { font-size: 9.5px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.4px; }
-  .status-chip-value { font-size: 11.5px; font-weight: 600; color: #6b7280; margin-top: 1px; }
+  .status-chip-value { font-size: 11.5px; font-weight: 600; color: #9ca3af; margin-top: 1px; }
   .status-chip-value.found { color: #16a34a; }
-  .status-chip-value.missing { color: #9ca3af; }
   .status-chip-value.ready { color: #16a34a; }
-  .status-chip-value.warn { color: #d97706; }
+  .status-chip-value.warn  { color: #d97706; }
 
   /* ── Email found banner ── */
   .email-banner {
-    background: #f0fdf4; border: 1px solid #bbf7d0;
-    border-radius: 8px; padding: 8px 11px; margin-bottom: 8px; display: none;
+    background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+    padding: 8px 11px; margin-bottom: 8px; display: none;
   }
   .email-banner-addr { font-size: 13px; font-weight: 600; color: #166534; word-break: break-all; }
   .email-banner-badge { font-size: 10.5px; color: #16a34a; margin-top: 1px; }
@@ -140,59 +108,11 @@
   /* ── Draft area ── */
   .draft-area { margin-bottom: 8px; display: none; }
   .draft-area textarea {
-    width: 100%; padding: 9px 11px;
-    border: 1.5px solid #e5e7eb; border-radius: 8px;
-    font-size: 12px; color: #111827; line-height: 1.55;
-    resize: vertical; min-height: 120px; outline: none;
-    transition: border-color 0.15s; background: white; font-family: inherit;
+    width: 100%; padding: 9px 11px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+    font-size: 12px; color: #111827; line-height: 1.55; resize: vertical; min-height: 120px;
+    outline: none; transition: border-color 0.15s; background: white; font-family: inherit;
   }
   .draft-area textarea:focus { border-color: #0a66c2; }
-
-  /* ── CTA area ── */
-  .cta-area { margin-bottom: 8px; }
-
-  /* ── Open email row (Outlook primary, Gmail secondary) ── */
-  .open-email-row { display: flex; gap: 6px; margin-bottom: 8px; }
-  .btn-open-outlook {
-    flex: 1.4; padding: 9px 10px; border-radius: 7px; font-size: 12.5px;
-    font-weight: 600; cursor: pointer; border: none; text-align: center;
-    background: #0078d4; color: white; transition: background 0.15s;
-  }
-  .btn-open-outlook:hover { background: #006cbf; }
-  .btn-open-gmail-sec {
-    flex: 1; padding: 9px 10px; border-radius: 7px; font-size: 12px;
-    font-weight: 500; cursor: pointer; border: 1.5px solid #d1d5db;
-    background: white; color: #374151; transition: all 0.15s; text-align: center;
-  }
-  .btn-open-gmail-sec:hover { background: #f3f4f6; border-color: #9ca3af; }
-
-  /* ── Secondary actions ── */
-  .secondary-actions { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-  .btn-small {
-    flex: 1; padding: 7px 8px; border-radius: 6px; font-size: 11.5px;
-    font-weight: 500; cursor: pointer; border: 1.5px solid #e5e7eb;
-    background: white; color: #6b7280; transition: all 0.15s; text-align: center;
-    white-space: nowrap;
-  }
-  .btn-small:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
-  .btn-small:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ── Analyze Fit collapsible ── */
-  .fit-section { margin-bottom: 4px; }
-  .fit-toggle {
-    width: 100%; text-align: left; padding: 7px 11px;
-    background: white; border: 1.5px solid #e5e7eb; border-radius: 7px;
-    font-size: 12px; font-weight: 500; color: #6b7280; cursor: pointer;
-    transition: all 0.15s; display: flex; align-items: center; justify-content: space-between;
-  }
-  .fit-toggle:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
-  .fit-toggle .fit-chevron { font-size: 10px; transition: transform 0.2s; }
-  .fit-toggle.open .fit-chevron { transform: rotate(180deg); }
-  .fit-body { display: none; margin-top: 6px; }
-  .fit-body.open { display: block; }
-
-  /* ── Match panel ── */
-  #match-panel { display: none; }
 
   /* ── Buttons ── */
   .btn {
@@ -206,38 +126,54 @@
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-secondary { background: white; color: #374151; border: 1.5px solid #d1d5db; }
   .btn-secondary:hover { background: #f9fafb; }
-  .btn-success { background: #16a34a; color: white; }
-  .btn-success:hover:not(:disabled) { background: #15803d; }
   .btn-danger { background: #fff1f2; color: #be123c; border: 1.5px solid #fecdd3; }
   .btn-danger:hover { background: #ffe4e6; }
 
-  /* ── Inputs ── */
-  input[type="email"], input[type="text"], select {
-    width: 100%; padding: 8px 10px;
-    border: 1.5px solid #d1d5db; border-radius: 7px;
-    font-size: 13px; color: #111827; background: white;
-    outline: none; transition: border-color 0.15s; font-family: inherit;
+  /* ── Open email row ── */
+  .open-email-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .btn-outlook {
+    flex: 1.4; padding: 10px; border-radius: 7px; font-size: 12.5px; font-weight: 600;
+    background: #0078d4; color: white; border: none; cursor: pointer; text-align: center;
+    transition: background 0.15s;
   }
-  input:focus, select:focus { border-color: #0a66c2; }
-  label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
-  .form-group { margin-bottom: 10px; }
-  .form-group:last-child { margin-bottom: 0; }
-  .helper-text { font-size: 11px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
-  textarea.input-field {
-    width: 100%; padding: 8px 10px;
-    border: 1.5px solid #d1d5db; border-radius: 7px;
-    font-size: 13px; color: #111827; background: white;
-    outline: none; resize: vertical; min-height: 80px;
-    line-height: 1.5; font-family: inherit; transition: border-color 0.15s;
+  .btn-outlook:hover { background: #006cbf; }
+  .btn-gmail {
+    flex: 1; padding: 10px; border-radius: 7px; font-size: 12px; font-weight: 500;
+    background: white; color: #374151; border: 1.5px solid #d1d5db; cursor: pointer;
+    text-align: center; transition: all 0.15s;
   }
-  textarea.input-field:focus { border-color: #0a66c2; }
+  .btn-gmail:hover { background: #f3f4f6; border-color: #9ca3af; }
+
+  /* ── Secondary actions ── */
+  .secondary-actions { display: flex; gap: 6px; margin-bottom: 8px; }
+  .btn-small {
+    flex: 1; padding: 7px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500;
+    cursor: pointer; border: 1.5px solid #e5e7eb; background: white; color: #6b7280;
+    transition: all 0.15s; text-align: center; white-space: nowrap;
+  }
+  .btn-small:hover { background: #f3f4f6; color: #374151; border-color: #d1d5db; }
+  .btn-small:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Analyze Fit collapsible ── */
+  .fit-toggle {
+    width: 100%; text-align: left; padding: 7px 11px;
+    background: white; border: 1.5px solid #e5e7eb; border-radius: 7px;
+    font-size: 12px; font-weight: 500; color: #6b7280; cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: all 0.15s; margin-bottom: 0;
+  }
+  .fit-toggle:hover { background: #f3f4f6; color: #374151; }
+  .fit-chevron { font-size: 10px; transition: transform 0.2s; }
+  .fit-toggle.open .fit-chevron { transform: rotate(180deg); }
+  .fit-body { display: none; margin-top: 6px; }
+  .fit-body.open { display: block; }
 
   /* ── Status messages ── */
   .status { padding: 8px 10px; border-radius: 7px; font-size: 12px; margin-bottom: 8px; display: none; }
   .status.show { display: block; }
-  .status.info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+  .status.info  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
   .status.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-  .status.error   { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+  .status.error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
 
   /* ── Fields (Candidate tab) ── */
   .field { margin-bottom: 8px; }
@@ -247,12 +183,28 @@
   .field-value a { color: #0a66c2; text-decoration: none; }
   .field-value a:hover { text-decoration: underline; }
 
+  /* ── Inputs ── */
+  input[type="email"], input[type="text"], select {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; color: #111827; background: white; outline: none;
+    transition: border-color 0.15s; font-family: inherit;
+  }
+  input:focus { border-color: #0a66c2; }
+  label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
+  .form-group { margin-bottom: 10px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .helper-text { font-size: 11px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
+  textarea.input-field {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; color: #111827; background: white; outline: none;
+    resize: vertical; min-height: 80px; line-height: 1.5; font-family: inherit;
+    transition: border-color 0.15s;
+  }
+  textarea.input-field:focus { border-color: #0a66c2; }
+
   /* ── Settings ── */
   .settings-group { margin-bottom: 14px; }
-  .settings-group-label {
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 6px; padding: 0 2px;
-  }
+  .settings-group-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 6px; padding: 0 2px; }
   .plan-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; background: #dbeafe; color: #1d4ed8; }
   .plan-badge.free { background: #f3f4f6; color: #6b7280; }
   .theme-control { display: flex; gap: 1px; background: #e5e7eb; border-radius: 7px; padding: 2px; }
@@ -270,7 +222,7 @@
   .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
   .login-divider span { font-size: 11px; color: #9ca3af; }
   .btn-google { display: flex; align-items: center; justify-content: center; background: white; color: #374151; border: 1.5px solid #d1d5db; font-weight: 500; gap: 8px; }
-  .btn-google:hover { background: #f9fafb; border-color: #9ca3af; }
+  .btn-google:hover { background: #f9fafb; }
 
   /* ── Empty state ── */
   .empty-state { text-align: center; padding: 24px 16px; color: #9ca3af; }
@@ -278,45 +230,36 @@
   .empty-state p { font-size: 12.5px; line-height: 1.6; }
   .empty-state strong { color: #6b7280; }
 
-  /* ══════════════════════════════════════════════════════
-     DARK MODE
-  ══════════════════════════════════════════════════════ */
+  /* ══════════════════════════ DARK MODE ══════════════════════════ */
   body.dark { background: #0f1117; color: #e5e7eb; }
   body.dark .header { background: #1e3a5f; }
   body.dark .tabs { background: #1a1d2e; border-color: #2d3148; }
   body.dark .tab { color: #6b7280; }
   body.dark .tab:hover { background: #1f2235; color: #93b4ef; }
   body.dark .tab.active { color: #93b4ef; border-color: #93b4ef; }
-  body.dark .card { background: #1a1d2e; border-color: #2d3148; }
+  body.dark .card, body.dark .cand-header { background: #1a1d2e; border-color: #2d3148; }
   body.dark .card-label { color: #4b5563; }
-  body.dark .candidate-card { background: #1a1d2e; border-color: #2d3148; }
-  body.dark .candidate-card-label { color: #4b5563; }
-  body.dark .candidate-card-url a { color: #6b7280; }
-  body.dark .cand-field-label { color: #6b7280; }
-  body.dark .cand-field input { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
-  body.dark .cand-field input:focus { border-color: #93b4ef; }
-  body.dark .cand-field input::placeholder { color: #4b5563; }
-  body.dark .job-context-row { background: #0d1f3a; border-color: #1e3a6a; }
-  body.dark .job-context-title { color: #93b4ef; }
-  body.dark .job-context-empty { color: #4b5563; }
+  body.dark .cand-name { color: #e5e7eb; }
+  body.dark .cand-meta, body.dark .cand-scanning { color: #6b7280; }
+  body.dark .job-pill { background: #0d1f3a; border-color: #1e3a6a; }
+  body.dark .job-pill-title { color: #93b4ef; }
+  body.dark .job-pill-empty { color: #4b5563; }
   body.dark .status-chip { background: #1a1d2e; border-color: #2d3148; }
   body.dark .status-chip-label { color: #4b5563; }
   body.dark .status-chip-value { color: #6b7280; }
-  body.dark .status-chip-value.found { color: #4ade80; }
-  body.dark .status-chip-value.ready { color: #4ade80; }
+  body.dark .status-chip-value.found, body.dark .status-chip-value.ready { color: #4ade80; }
   body.dark .email-banner { background: #0d2a1a; border-color: #166534; }
   body.dark .email-banner-addr { color: #4ade80; }
   body.dark .email-banner-badge { color: #22c55e; }
   body.dark .draft-area textarea { background: #1a1d2e; border-color: #2d3148; color: #e5e7eb; }
   body.dark .draft-area textarea:focus { border-color: #93b4ef; }
-  body.dark .btn-small { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
-  body.dark .btn-small:hover { background: #252836; color: #d1d5db; }
-  body.dark .fit-toggle { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
-  body.dark .fit-toggle:hover { background: #252836; color: #d1d5db; }
+  body.dark .btn-small, body.dark .fit-toggle { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
+  body.dark .btn-small:hover, body.dark .fit-toggle:hover { background: #252836; color: #d1d5db; }
   body.dark .btn-secondary { background: #252836; color: #d1d5db; border-color: #3a3d52; }
+  body.dark .btn-gmail { background: #1a1d2e; color: #d1d5db; border-color: #2d3148; }
+  body.dark .btn-gmail:hover { background: #252836; }
   body.dark .btn-danger { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
-  body.dark input[type="email"], body.dark input[type="text"], body.dark select,
-  body.dark textarea.input-field { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
+  body.dark input[type="email"], body.dark input[type="text"], body.dark textarea.input-field { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
   body.dark input:focus, body.dark textarea:focus { border-color: #93b4ef; }
   body.dark label { color: #6b7280; }
   body.dark .helper-text { color: #4b5563; }
@@ -329,22 +272,16 @@
   body.dark .settings-group-label { color: #4b5563; }
   body.dark .theme-control { background: #252836; }
   body.dark .theme-btn { color: #6b7280; }
-  body.dark .theme-btn.active { background: #3a3d52; color: #e5e7eb; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  body.dark .theme-btn.active { background: #3a3d52; color: #e5e7eb; }
   body.dark .plan-badge { background: #1e3a5f; color: #93b4ef; }
   body.dark .plan-badge.free { background: #252836; color: #6b7280; }
   body.dark .login-logo h2 { color: #93b4ef; }
-  body.dark .login-logo p, body.dark .login-hint { color: #4b5563; }
+  body.dark .login-logo p, body.dark .login-hint, body.dark .login-divider span { color: #4b5563; }
   body.dark .login-divider::before, body.dark .login-divider::after { background: #2d3148; }
   body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
   body.dark .empty-state { color: #4b5563; }
   body.dark .empty-state strong { color: #6b7280; }
-  body.dark .credit-pill { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-  body.dark #match-panel .card { background: #1a1d2e; border-color: #2d3148; }
   body.dark #match-summary { color: #d1d5db; }
-  body.dark .btn-open-gmail-sec { background: #1a1d2e; border-color: #2d3148; color: #d1d5db; }
-  body.dark .btn-open-gmail-sec:hover { background: #252836; }
-  body.dark .candidate-card-copy { color: #4b5563; }
-  body.dark .candidate-card-url a { color: #4b5563; }
 </style>
 </head>
 <body>
@@ -386,107 +323,100 @@
     <div class="tab" data-tab="settings">⚙️ Settings</div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       OUTREACH TAB
-  ══════════════════════════════════════════════════════ -->
+  <!-- ════════════════════ OUTREACH TAB ════════════════════ -->
   <div class="tab-content active" id="tab-email">
 
-    <!-- 1. Candidate details card — editable inline fields -->
-    <div class="candidate-card">
-      <div class="candidate-card-header">
-        <span class="candidate-card-label">Candidate</span>
-        <div class="candidate-card-url" id="cand-url-row" style="display:none;">
-          <a href="#" id="cand-url-link" target="_blank">linkedin.com/in/…</a>
-          <button class="candidate-card-copy" id="btn-copy-url" title="Copy URL">⎘</button>
+    <!-- Not on LinkedIn -->
+    <div id="state-not-linkedin" style="display:none;">
+      <div class="empty-state">
+        <div class="icon">🔗</div>
+        <p>Open a <strong>LinkedIn profile page</strong><br>to get started.</p>
+      </div>
+    </div>
+
+    <!-- On LinkedIn -->
+    <div id="state-email" style="display:none;">
+
+      <!-- 1. Candidate header (read-only, auto-filled) -->
+      <div class="cand-header">
+        <div class="cand-header-top">
+          <div>
+            <div class="cand-name" id="sc-name"><span class="cand-scanning">Scanning…</span></div>
+            <div class="cand-meta" id="sc-meta"></div>
+          </div>
+          <div class="cand-url" id="sc-url" style="display:none;">
+            <span class="cand-url-icon">🔗</span>
+            <a href="#" id="sc-url-link" target="_blank">linkedin.com/in/…</a>
+          </div>
         </div>
       </div>
-      <div class="cand-field">
-        <span class="cand-field-label">Name</span>
-        <input type="text" id="cand-name" placeholder="Full name" autocomplete="off" />
-      </div>
-      <div class="cand-field">
-        <span class="cand-field-label">Title</span>
-        <input type="text" id="cand-title" placeholder="Current role" autocomplete="off" />
-      </div>
-      <div class="cand-field">
-        <span class="cand-field-label">Company</span>
-        <input type="text" id="cand-company" placeholder="Current company" autocomplete="off" />
-      </div>
-    </div>
 
-    <!-- 2. Job context row -->
-    <div class="job-context-row" id="job-context-row">
-      <div class="job-context-main">
-        <div class="job-context-label">Recruiting for</div>
-        <div id="jcr-content">
-          <span class="job-context-empty">No job set</span>
+      <!-- 2. Job context pill -->
+      <div class="job-pill">
+        <div class="job-pill-main">
+          <div class="job-pill-label">Recruiting for</div>
+          <div id="job-pill-content"><span class="job-pill-empty">No job set</span></div>
+        </div>
+        <button class="btn-link" id="btn-edit-job">Edit →</button>
+      </div>
+
+      <!-- 3. Status strip -->
+      <div class="status-strip">
+        <div class="status-chip">
+          <div class="status-chip-label">Email</div>
+          <div class="status-chip-value" id="chip-email">Not found</div>
+        </div>
+        <div class="status-chip">
+          <div class="status-chip-label">Draft</div>
+          <div class="status-chip-value" id="chip-draft">Not ready</div>
         </div>
       </div>
-      <button class="btn-link" id="btn-edit-job">Edit →</button>
-    </div>
 
-    <!-- 3. Status strip -->
-    <div class="status-strip">
-      <div class="status-chip">
-        <div class="status-chip-label">Email</div>
-        <div class="status-chip-value missing" id="chip-email">Not found</div>
+      <!-- 4. Email found banner -->
+      <div class="email-banner" id="email-banner">
+        <div class="email-banner-addr" id="found-email">—</div>
+        <div class="email-banner-badge" id="found-email-confidence"></div>
       </div>
-      <div class="status-chip">
-        <div class="status-chip-label">Draft</div>
-        <div class="status-chip-value missing" id="chip-draft">Not ready</div>
+
+      <!-- 5. Draft area -->
+      <div class="draft-area" id="draft-area">
+        <textarea id="email-draft" rows="7" placeholder="Your outreach email will appear here…"></textarea>
+        <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
       </div>
-      <div class="status-chip">
-        <div class="status-chip-label">Fit</div>
-        <div class="status-chip-value missing" id="chip-match">Not checked</div>
+
+      <!-- 6. Primary CTA — one at a time -->
+      <div id="cta-area">
+        <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email · uses 1 lookup</button>
+        <button class="btn btn-primary" id="btn-generate-draft" style="display:none;">✍️ Generate Draft</button>
+        <div id="email-status" class="status" style="margin-top:8px;"></div>
       </div>
-    </div>
 
-    <!-- 4. Email found banner -->
-    <div class="email-banner" id="email-banner">
-      <div class="email-banner-addr" id="found-email">—</div>
-      <div class="email-banner-badge" id="found-email-confidence"></div>
-    </div>
+      <!-- 7. Open email row — Outlook primary, Gmail secondary -->
+      <div class="open-email-row" id="open-email-row" style="display:none;">
+        <button class="btn-outlook" id="btn-open-outlook">📧 Open in Outlook</button>
+        <button class="btn-gmail" id="btn-open-gmail">Gmail</button>
+      </div>
 
-    <!-- 5. Draft area -->
-    <div class="draft-area" id="draft-area">
-      <textarea id="email-draft" rows="7" placeholder="Your personalized outreach email will appear here…"></textarea>
-      <div id="draft-status" class="status" style="margin-top:6px;margin-bottom:0;"></div>
-    </div>
+      <!-- 8. Secondary actions -->
+      <div class="secondary-actions" id="secondary-actions" style="display:none;">
+        <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
+        <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate</button>
+      </div>
 
-    <!-- 6. Primary CTA -->
-    <div class="cta-area">
-      <button class="btn btn-primary" id="btn-find-email" style="display:none;">🔍 Find Email · uses 1 lookup</button>
-      <button class="btn btn-primary" id="btn-generate-draft" style="display:none;">✍️ Generate Draft</button>
-      <div id="email-status" class="status" style="margin-top:8px;"></div>
-    </div>
-
-    <!-- 7. Open email row (Outlook primary, Gmail secondary) — shown when draft ready -->
-    <div class="open-email-row" id="open-email-row" style="display:none;">
-      <button class="btn-open-outlook" id="btn-open-outlook">📧 Open in Outlook</button>
-      <button class="btn-open-gmail-sec" id="btn-open-gmail">Gmail</button>
-    </div>
-
-    <!-- 8. Secondary actions -->
-    <div class="secondary-actions">
-      <button class="btn-small" id="btn-recheck-email" style="display:none;">↻ Re-check email</button>
-      <button class="btn-small" id="btn-regenerate" style="display:none;">🔄 Regenerate</button>
-    </div>
-
-    <!-- 9. Analyze Fit — collapsible secondary section -->
-    <div class="fit-section">
-      <button class="fit-toggle" id="fit-toggle">
-        <span>🎯 Analyze Fit · uses 1 AI run</span>
-        <span class="fit-chevron">▼</span>
-      </button>
-      <div class="fit-body" id="fit-body">
-        <div id="match-panel">
-          <div class="card" style="padding:0;overflow:hidden;margin-bottom:0;">
+      <!-- 9. Analyze Fit — collapsible, secondary -->
+      <div style="margin-top:6px;">
+        <button class="fit-toggle" id="fit-toggle">
+          <span>🎯 Analyze Fit · uses 1 AI run</span>
+          <span class="fit-chevron">▼</span>
+        </button>
+        <div class="fit-body" id="fit-body">
+          <div class="card" style="padding:0;overflow:hidden;margin-top:0;">
             <div style="padding:8px 13px 6px;border-bottom:1px solid #f3f4f6;display:flex;align-items:center;justify-content:space-between;">
               <span class="card-label" style="margin:0;">Requirements Match</span>
-              <button class="btn-small" id="btn-run-fit" style="flex:0;padding:4px 10px;font-size:11px;">Run analysis</button>
+              <button class="btn-small" id="btn-run-fit" style="flex:0;padding:4px 10px;font-size:11px;">Run</button>
             </div>
             <div style="padding:10px 13px;">
-              <div id="match-summary" style="font-size:12px;color:#374151;font-style:italic;margin-bottom:10px;line-height:1.5;display:none;"></div>
+              <div id="match-summary" style="font-size:12px;color:#374151;font-style:italic;margin-bottom:8px;line-height:1.5;display:none;"></div>
               <div id="match-strong" style="display:none;margin-bottom:8px;">
                 <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#16a34a;margin-bottom:5px;">✓ Strong matches</div>
                 <div id="match-strong-list"></div>
@@ -504,13 +434,11 @@
           </div>
         </div>
       </div>
-    </div>
 
+    </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       JOB TAB
-  ══════════════════════════════════════════════════════ -->
+  <!-- ════════════════════ JOB TAB ════════════════════ -->
   <div class="tab-content" id="tab-job">
     <div class="card">
       <div class="card-label">🔗 Import from URL</div>
@@ -541,9 +469,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       CANDIDATE TAB — read-only reference
-  ══════════════════════════════════════════════════════ -->
+  <!-- ════════════════════ CANDIDATE TAB ════════════════════ -->
   <div class="tab-content" id="tab-profile">
     <div id="profile-not-linkedin" class="empty-state" style="display:none;">
       <div class="icon">🔗</div>
@@ -556,17 +482,7 @@
         <div class="field"><div class="field-label">Title</div><div class="field-value" id="prof-title">—</div></div>
         <div class="field"><div class="field-label">Company</div><div class="field-value" id="prof-company">—</div></div>
         <div class="field"><div class="field-label">LinkedIn</div><div class="field-value" id="prof-url">—</div></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:8px;">
-          <button class="btn-link" id="btn-rescrape">↻ Re-scan profile</button>
-        </div>
       </div>
-      <div id="prof-experience-card" class="card" style="display:none;">
-        <div class="card-label">💼 Experience</div>
-        <div id="prof-experience-list"></div>
-      </div>
-    </div>
-    <div id="profile-loading-state" class="empty-state" style="display:none;">
-      <p style="color:#9ca3af;font-size:12px;">Scanning profile…</p>
     </div>
     <div id="profile-error-state" class="empty-state" style="display:none;">
       <div class="icon">⚠️</div>
@@ -574,9 +490,7 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       SETTINGS TAB
-  ══════════════════════════════════════════════════════ -->
+  <!-- ════════════════════ SETTINGS TAB ════════════════════ -->
   <div class="tab-content" id="tab-settings">
     <div class="settings-group">
       <div class="settings-group-label">Account</div>
