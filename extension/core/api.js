@@ -4,6 +4,18 @@ import { getAccessToken } from './auth.js'
 
 const DB = `${CONFIG.supabaseUrl}/rest/v1`
 
+// Parse a human-readable error message from a Supabase/edge function error response
+function parseErrorMessage(text, status) {
+  try {
+    const j = JSON.parse(text)
+    // Supabase gateway 401: {"code":401,"message":"Invalid JWT"}
+    if (j.message) return j.message
+    if (j.error)   return j.error
+    if (j.msg)     return j.msg
+  } catch {}
+  return text || `Request failed (${status})`
+}
+
 async function getHeaders() {
   const token = await getAccessToken()
   return {
@@ -104,18 +116,42 @@ export async function extractJob(pageText) {
 }
 
 export async function bootstrapCandidate(payload) {
-  const token = await getAccessToken()
-  if (!token) throw new Error('Not signed in')
-  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/candidate-bootstrap`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': CONFIG.supabaseKey,
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) { const t = await res.text(); throw new Error(t || `bootstrap failed: ${res.status}`) }
+  const doRequest = async () => {
+    const token = await getAccessToken()
+    if (!token) throw new Error('Not signed in — please sign in again.')
+    return fetch(`${CONFIG.supabaseUrl}/functions/v1/candidate-bootstrap`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': CONFIG.supabaseKey,
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+  }
+
+  let res = await doRequest()
+
+  // On 401, attempt one token refresh then retry
+  if (res.status === 401) {
+    const { refreshSession } = await import('./auth.js')
+    const session = await new Promise(r => chrome.storage.local.get('outreachai_session', d => r(d.outreachai_session ?? null)))
+    if (session?.refresh_token) {
+      const refreshed = await refreshSession(session.refresh_token)
+      if (refreshed) {
+        res = await doRequest()
+      } else {
+        throw new Error('Session expired — please sign out and sign in again.')
+      }
+    } else {
+      throw new Error('Session expired — please sign out and sign in again.')
+    }
+  }
+
+  if (!res.ok) {
+    const t = await res.text()
+    throw new Error(parseErrorMessage(t, res.status))
+  }
   return res.json()
 }
 

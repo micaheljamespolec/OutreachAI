@@ -39,7 +39,7 @@ export async function getAccessToken() {
   return session?.access_token ?? null
 }
 
-async function refreshSession(refreshToken) {
+export async function refreshSession(refreshToken) {
   try {
     const res  = await fetch(`${BASE}/token?grant_type=refresh_token`, {
       method: 'POST', headers: HEADERS,

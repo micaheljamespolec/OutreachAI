@@ -187,7 +187,18 @@ async function setupOutreachTab(capture) {
 
   // Retry buttons
   $('btn-retry-lookup')?.addEventListener('click', () => startEnrichment(capture))
-  $('btn-retry-error')?.addEventListener('click', () => startEnrichment(capture))
+  $('btn-retry-error')?.addEventListener('click', () => {
+    // Hide sign-out button on retry
+    const signOutBtn = document.getElementById('btn-error-signout')
+    if (signOutBtn) signOutBtn.style.display = 'none'
+    startEnrichment(capture)
+  })
+  // Auth failure — sign out option
+  document.getElementById('btn-error-signout')?.addEventListener('click', async () => {
+    const { signOut } = await import('./core/auth.js')
+    await signOut()
+    showLoginScreen()
+  })
 
   // Refresh (bypass cache)
   $('btn-refresh')?.addEventListener('click', async () => {
@@ -238,10 +249,32 @@ async function startEnrichment(capture) {
   } catch (e) {
     hideAllStates()
     show('state-error')
-    const msg = e.message?.includes('Unauthorized') ? 'Please sign in first.'
-              : e.message?.includes('402') ? 'Lookup limit reached. Upgrade your plan.'
-              : e.message || 'Something went wrong.'
-    $('error-message').textContent = msg
+
+    // Parse structured error messages — never render raw JSON to the user
+    let msg = e.message || 'Something went wrong.'
+    try {
+      // If the message is itself a JSON string (from raw API error), parse it
+      const parsed = JSON.parse(msg)
+      msg = parsed.message || parsed.error || parsed.msg || msg
+    } catch {}
+
+    // Map to friendly messages
+    if (msg.toLowerCase().includes('invalid jwt') || msg.toLowerCase().includes('jwt expired') ||
+        msg.toLowerCase().includes('session expired') || e.message?.includes('401')) {
+      msg = 'Session expired — click here to sign out and sign back in.'
+      $('error-message').textContent = msg
+      // Show sign-out option in error state
+      const signOutBtn = document.getElementById('btn-error-signout')
+      if (signOutBtn) signOutBtn.style.display = 'block'
+    } else if (msg.includes('402') || msg.toLowerCase().includes('lookup limit') || msg.toLowerCase().includes('credit limit')) {
+      msg = 'Lookup limit reached. Upgrade your plan to continue.'
+      $('error-message').textContent = msg
+    } else if (msg.toLowerCase().includes('not signed in')) {
+      msg = 'Please sign in to use OutreachAI.'
+      $('error-message').textContent = msg
+    } else {
+      $('error-message').textContent = msg
+    }
   }
 
   await loadCreditsUI()
