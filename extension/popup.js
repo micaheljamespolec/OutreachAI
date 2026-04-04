@@ -200,7 +200,7 @@ async function setupOutreachTab(capture) {
 }
 
 function hideAllStates() {
-  for (const s of ['state-initial','state-running','state-ready','state-no-email','state-error']) hide(s)
+  for (const s of ['state-initial','state-running','state-ready','state-low-confidence','state-no-email','state-error']) hide(s)
 }
 
 async function startEnrichment(capture) {
@@ -283,6 +283,11 @@ async function pollForCompletion(job_id, candidate_id, capture) {
           hideAllStates()
           show('state-no-email')
           resolve()
+        } else if (job.status === 'completed' && job.step === 'employer_unclear') {
+          clearInterval(_pollTimer)
+          const pkg = await getOutreachPackage(candidate_id)
+          showLowConfidenceState(pkg, 'employer_unclear')
+          resolve()
         } else if (job.status === 'failed') {
           clearInterval(_pollTimer)
           reject(new Error(job.error_message || 'Enrichment failed.'))
@@ -297,12 +302,36 @@ async function pollForCompletion(job_id, candidate_id, capture) {
 async function cacheAndShowPackage(capture, pkg) {
   const cacheKey = `outreach_${capture.source_url || capture.full_name}`
   await setStorage({ [cacheKey]: { package: pkg, timestamp: Date.now() } })
-  showReadyState(pkg)
+
+  // Route to the appropriate UI state based on enrichment_state
+  const state = pkg?.enrichment_state
+  if (state === 'identity_uncertain' || state === 'title_confidence_low') {
+    showLowConfidenceState(pkg, state)
+  } else {
+    showReadyState(pkg)
+  }
 }
 
-function showReadyState(pkg) {
+function showReadyState(pkg, isLowConfidence = false) {
   hideAllStates()
   show('state-ready')
+
+  // Low-confidence banner (if applicable)
+  const existingBanner = document.getElementById('ready-confidence-banner')
+  if (existingBanner) existingBanner.remove()
+  if (isLowConfidence && pkg?.enrichment_state && pkg.enrichment_state !== 'ready') {
+    const banner = document.createElement('div')
+    banner.id = 'ready-confidence-banner'
+    banner.className = 'confidence-banner'
+    banner.style.marginBottom = '8px'
+    const conf = Math.round((pkg.overall_enrichment_confidence ?? 0) * 100)
+    banner.innerHTML = `<div class="confidence-banner-icon">⚠️</div>
+      <div class="confidence-banner-text">
+        <div class="confidence-banner-title">Low confidence draft</div>
+        <div>Enrichment confidence: ${conf}%. This draft uses limited signals — review before sending.</div>
+      </div>`
+    document.getElementById('state-ready')?.prepend(banner)
+  }
 
   // Email
   $('res-email').textContent = pkg.work_email || '—'
@@ -368,6 +397,49 @@ function showReadyState(pkg) {
       }
     }
   }
+}
+
+// ── Low-confidence state ─────────────────────────────────────────────────────
+function showLowConfidenceState(pkg, enrichment_state) {
+  hideAllStates()
+  show('state-low-confidence')
+
+  const conf = pkg?.overall_enrichment_confidence ?? 0
+  const pct = Math.round(conf * 100)
+  const bar = document.getElementById('lc-bar')
+  const pctEl = document.getElementById('lc-pct')
+  if (bar) {
+    bar.style.width = `${pct}%`
+    bar.className = `confidence-fill ${pct >= 60 ? 'high' : pct >= 35 ? 'mid' : 'low'}`
+  }
+  if (pctEl) pctEl.textContent = `${pct}%`
+
+  // State-specific messaging
+  const titles = {
+    employer_unclear: 'Employer unclear',
+    identity_uncertain: 'Identity uncertain',
+    title_confidence_low: 'Role signals weak',
+  }
+  const reasons = {
+    employer_unclear: "We found a work email but couldn't confirm the employer from the domain. The draft may be generic.",
+    identity_uncertain: "This name may be common — we can't confirm the email matches this specific person with high confidence.",
+    title_confidence_low: "We found email and employer, but no reliable non-LinkedIn signals for this person's role. Draft will be personalized by name and company only.",
+  }
+  const titleEl = document.getElementById('lc-title')
+  const reasonEl = document.getElementById('lc-reason')
+  if (titleEl) titleEl.textContent = titles[enrichment_state] || 'Low enrichment confidence'
+  if (reasonEl) reasonEl.textContent = pkg?.low_confidence_reason || reasons[enrichment_state] || 'Enrichment confidence is below threshold.'
+
+  // "Open partial draft anyway" — show ready state with confidence banner
+  document.getElementById('btn-open-partial-draft')?.addEventListener('click', () => {
+    if (pkg) {
+      _package = pkg
+      showReadyState(pkg, true /* isLowConfidence */)
+    }
+  })
+  document.getElementById('btn-retry-lc')?.addEventListener('click', () => {
+    if (_candidate) startEnrichment(_candidate)
+  })
 }
 
 // ── Job tab ───────────────────────────────────────────────────────────────────
