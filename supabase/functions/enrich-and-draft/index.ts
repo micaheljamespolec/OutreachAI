@@ -198,15 +198,15 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl   = Deno.env.get('SUPABASE_URL')!
   const serviceKey    = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const anonKey       = Deno.env.get('SUPABASE_ANON_KEY')!
   const anthropicKey  = Deno.env.get('ANTHROPIC_API_KEY') || ''
   const fullenrichKey = Deno.env.get('FULLENRICH_API_KEY') || ''
   const db = createClient(supabaseUrl, serviceKey)
 
-  // Auth
+  // Auth — validate user JWT using the service role client
   const authHeader = req.headers.get('Authorization') || ''
-  const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } })
-  const { data: { user }, error: authErr } = await userClient.auth.getUser()
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return json({ error: { code: 'AUTH_EXPIRED', message: 'Session expired — please sign in again.' } }, 401)
+  const { data: { user }, error: authErr } = await db.auth.getUser(token)
   if (authErr || !user) return json({ error: { code: 'AUTH_EXPIRED', message: 'Session expired — please sign in again.' } }, 401)
 
   try {
