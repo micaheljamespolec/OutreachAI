@@ -1,17 +1,18 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCredits } from './core/credits.js'
-import { createCheckout, bootstrapCandidate, pollJob, getOutreachPackage, extractJob } from './core/api.js'
+import { getCreditsData, enrichAndDraft, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
+
+// ── State machine ─────────────────────────────────────────────────────────────
+// States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
+let _state = 'IDLE'
+let _lastResult = null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const $ = id => document.getElementById(id)
-function showStatus(el, msg, type = 'info') { el.textContent = msg; el.className = `status ${type} show` }
-function hideStatus(el) { el.textContent = ''; el.className = 'status' }
+const $  = id => document.getElementById(id)
+const qs = sel => document.querySelector(sel)
 function getStorage(keys) { return new Promise(r => chrome.storage.local.get(keys, r)) }
 function setStorage(obj)  { return new Promise(r => chrome.storage.local.set(obj, r)) }
-function show(id) { $(id).style.display = 'block' }
-function hide(id) { $(id).style.display = 'none'  }
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 function applyTheme(pref) {
@@ -31,60 +32,284 @@ function setupTabs() {
     })
   })
 }
-const switchTab = name => document.querySelector(`.tab[data-tab="${name}"]`)?.click()
 
-// ── Login ─────────────────────────────────────────────────────────────────────
-function showLoginScreen() {
-  getStorage(['pref_theme']).then(d => applyTheme(d.pref_theme || 'system'))
-  $('login-screen').style.display = 'block'
-  $('main-app').style.display = 'none'
-  const statusEl = $('login-status')
-  $('btn-send-magic-link').addEventListener('click', async () => {
-    const email = $('login-email').value.trim()
-    if (!email) { showStatus(statusEl, 'Please enter your email.', 'error'); return }
-    showStatus(statusEl, 'Sending magic link…', 'info')
-    const { error } = await sendMagicLink(email)
-    error ? showStatus(statusEl, `Error: ${error.message}`, 'error')
-           : showStatus(statusEl, 'Check your email for the magic link!', 'success')
+// ── Status message ────────────────────────────────────────────────────────────
+function setStatus(msg, type = 'info') {
+  const el = $('statusMessage')
+  el.textContent = msg
+  el.className = type
+}
+function clearStatus() {
+  const el = $('statusMessage')
+  el.textContent = ''
+  el.className = ''
+  el.style.display = 'none'
+}
+
+// ── Progress dots ─────────────────────────────────────────────────────────────
+function setProgress(step) {
+  // step: 'enrich' | 'company' | 'draft' | 'done'
+  const steps = ['enrich', 'company', 'draft']
+  const idx = steps.indexOf(step)
+  steps.forEach((s, i) => {
+    const dot = $(`dot${s.charAt(0).toUpperCase() + s.slice(1)}`)
+    const lbl = $(`lbl${s.charAt(0).toUpperCase() + s.slice(1)}`)
+    if (!dot) return
+    if (step === 'done') { dot.className = 'progress-dot done'; if (lbl) lbl.className = 'progress-label done' }
+    else if (i < idx)   { dot.className = 'progress-dot done';  if (lbl) lbl.className = 'progress-label done' }
+    else if (i === idx) { dot.className = 'progress-dot active'; if (lbl) lbl.className = 'progress-label active' }
+    else                { dot.className = 'progress-dot';        if (lbl) lbl.className = 'progress-label' }
   })
-  $('btn-google-signin').addEventListener('click', () => signInWithGoogle())
 }
 
-// ── Main app ──────────────────────────────────────────────────────────────────
-async function showMainApp(user) {
-  const prefs = await getStorage(['pref_theme'])
-  applyTheme(prefs.pref_theme || 'system')
-  $('login-screen').style.display = 'none'
-  $('main-app').style.display = 'block'
-  setupTabs()
-  await loadCreditsUI()
-  $('credit-pill').addEventListener('click', () => createCheckout())
-
-  // Read candidate name from active LinkedIn tab (minimal capture)
-  const capture = await captureFromLinkedIn()
-  await setupOutreachTab(capture)
-  setupJobTab()
-  await setupSettingsTab(user)
+// ── UI sections ───────────────────────────────────────────────────────────────
+function showSection(id, visible = true) {
+  const el = $(id)
+  if (el) el.style.display = visible ? 'block' : 'none'
 }
 
-// ── Capture from LinkedIn (name only) ─────────────────────────────────────────
-async function captureFromLinkedIn() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  const url = tab?.url ?? ''
-  const isLinkedIn = url.includes('linkedin.com/in/') || url.includes('linkedin.com/talent/') || url.includes('linkedin.com/recruiter/')
-  if (!isLinkedIn) return null
+function resetToIdle() {
+  showSection('progressSection', false)
+  showSection('resultSummary', false)
+  showSection('draftOutput', false)
+  showSection('errorBox', false)
+  showSection('inputSection', true)
+  clearStatus()
+  $('generateDraftButton').disabled = false
+  $('generateDraftButton').textContent = '✨ Generate draft'
+}
+
+function showErrorBox(message, isAuth = false) {
+  showSection('progressSection', false)
+  showSection('resultSummary', false)
+  showSection('draftOutput', false)
+  const box = $('errorBox')
+  box.className = isAuth ? 'auth' : ''
+  box.style.display = 'block'
+  $('errorMessage').textContent = message
+  $('authRecoveryButton').style.display = isAuth ? 'block' : 'none'
+  $('generateDraftButton').disabled = false
+  $('generateDraftButton').textContent = '✨ Generate draft'
+}
+
+// ── Confidence display ────────────────────────────────────────────────────────
+function renderConfidence(draftConfidence) {
+  const pct = Math.round(draftConfidence * 100)
+  const fill = $('confFill')
+  const badge = $('confBadge')
+  const note = $('confNote')
+  if (!fill) return
+  fill.style.width = `${pct}%`
+  if (pct >= 80) {
+    fill.className = 'confidence-fill high'
+    badge.textContent = 'High confidence'
+    badge.className = 'confidence-badge high'
+    if (note) note.textContent = ''
+  } else if (pct >= 60) {
+    fill.className = 'confidence-fill mid'
+    badge.textContent = 'Medium confidence'
+    badge.className = 'confidence-badge mid'
+    if (note) note.textContent = 'Draft based on partial information — review before sending.'
+  } else {
+    fill.className = 'confidence-fill low'
+    badge.textContent = 'Low confidence'
+    badge.className = 'confidence-badge low'
+    if (note) note.textContent = 'Limited public signals available. Edit the draft carefully before sending.'
+  }
+}
+
+// ── Result rendering ──────────────────────────────────────────────────────────
+function renderResult(result) {
+  const { person, confidence, draft, status } = result
+  _lastResult = result
+
+  // Result summary
+  showSection('resultSummary', true)
+  $('resName').textContent = person.fullName || '—'
+
+  if (person.email) {
+    $('resEmail').innerHTML = `<span class="result-value email-found">${person.email}</span>`
+    $('resEmailRow').style.display = 'flex'
+  } else {
+    $('resEmail').textContent = person.emailStatus === 'not_found' ? 'Not found' : 'Uncertain'
+    $('resEmailRow').style.display = 'flex'
+  }
+
+  if (person.company) {
+    $('resCompany').textContent = person.company
+    $('resCompanyRow').style.display = 'flex'
+  }
+
+  if (person.title) {
+    $('resTitle').textContent = person.title
+    $('resTitleRow').style.display = 'flex'
+  }
+
+  renderConfidence(confidence.draftConfidence)
+
+  // Status messages for partial states
+  if (status === 'partial') {
+    if (!person.email) {
+      setStatus('No work email found — draft generated from partial info.', 'warn')
+    } else if (!person.title) {
+      setStatus('Company found, but title is uncertain — draft keeps it general.', 'warn')
+    }
+  } else if (status === 'not_enough_data') {
+    setStatus('Not enough reliable info to generate a strong draft.', 'warn')
+    return
+  }
+
+  // Draft
+  if (draft) {
+    showSection('draftOutput', true)
+    const subjectEl = $('draftSubjectLine')
+    if (draft.subject) {
+      subjectEl.innerHTML = `<strong>Subject:</strong> ${draft.subject}`
+      $('draftBody').dataset.subject = draft.subject
+    }
+    $('draftBody').value = draft.body || ''
+  }
+
+  // Wire compose buttons
+  const to = person.email || ''
+  const subject = draft?.subject || `Reaching out — ${person.fullName}`
+  const body = draft?.body || ''
+
+  $('btnOpenOutlook').onclick = () => chrome.tabs.create({
+    url: `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent($('draftBody').value)}`
+  })
+  $('btnOpenGmail').onclick = () => chrome.tabs.create({
+    url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent($('draftBody').value)}`
+  })
+}
+
+// ── Core flow ─────────────────────────────────────────────────────────────────
+async function generateDraftFlow() {
+  const fullName = $('fullNameInput').value.trim()
+  const companyHint = $('companyHintInput').value.trim() || null
+  const userContext = $('userContextInput').value.trim() || null
+
+  if (!fullName) {
+    setStatus('Enter a full name to continue.', 'error')
+    $('fullNameInput').focus()
+    return
+  }
+
+  // Get job context for draft personalization
+  const jobData = await getStorage(['job_title', 'job_company', 'job_description'])
+  const contextParts = [userContext]
+  if (jobData.job_title) contextParts.push(`Recruiting for: ${jobData.job_title}${jobData.job_company ? ' at ' + jobData.job_company : ''}`)
+  if (jobData.job_description) contextParts.push(jobData.job_description)
+  const fullContext = contextParts.filter(Boolean).join('. ') || null
+
+  // Disable input, show progress
+  _state = 'ENRICHING'
+  $('generateDraftButton').disabled = true
+  $('generateDraftButton').textContent = 'Working…'
+  clearStatus()
+  showSection('progressSection', true)
+  showSection('resultSummary', false)
+  showSection('draftOutput', false)
+  showSection('errorBox', false)
+  setProgress('enrich')
+
+  // Simulate step transitions (progress UI while async work runs)
+  const companyTimer = setTimeout(() => setProgress('company'), 3000)
+  const draftTimer   = setTimeout(() => setProgress('draft'), 7000)
+
   try {
-    const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-    if (!data?.full_name) return null
-    return { ...data, tab_url: url }
-  } catch { return null }
+    const result = await enrichAndDraft({
+      fullName,
+      companyHint,
+      userContext: fullContext,
+    })
+
+    clearTimeout(companyTimer)
+    clearTimeout(draftTimer)
+    setProgress('done')
+
+    showSection('progressSection', false)
+    _state = result.status === 'success' ? 'SUCCESS'
+           : result.status === 'partial' ? 'PARTIAL_SUCCESS'
+           : 'EMPTY_RESULT'
+
+    renderResult(result)
+
+    // Cache the result for this name
+    const cacheKey = `outreach_${fullName.toLowerCase().replace(/\s+/g, '_')}`
+    await setStorage({ [cacheKey]: { result, timestamp: Date.now() } })
+
+  } catch (e) {
+    clearTimeout(companyTimer)
+    clearTimeout(draftTimer)
+    showSection('progressSection', false)
+
+    const err = parseErrorMessage(e)
+    const auth = isAuthError(e) || isAuthError(err)
+
+    if (auth) {
+      _state = 'AUTH_ERROR'
+      showErrorBox('Your session expired. Click below to sign out and sign back in.', true)
+    } else {
+      _state = 'GENERIC_ERROR'
+      const MESSAGES: Record<string, string> = {
+        NO_PERSON_NAME:          'Enter a full name to continue.',
+        ENRICHMENT_UNAVAILABLE:  'Contact lookup is temporarily unavailable. Please try again.',
+        NO_EMAIL_FOUND:          'No work email was found. A draft can still be generated.',
+        NOT_ENOUGH_DATA:         "There isn't enough reliable public information to generate a strong draft.",
+        DRAFT_GENERATION_FAILED: 'Contact details were found, but the draft could not be generated.',
+        UNKNOWN_ERROR:           'Something went wrong. Please try again.',
+      }
+      showErrorBox(MESSAGES[err.code] || err.message || 'Something went wrong.')
+    }
+  }
 }
 
-// ── Credits ───────────────────────────────────────────────────────────────────
+// ── Name prefill strategy ─────────────────────────────────────────────────────
+async function prefillName() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    if (!tab?.url) return
+
+    let candidate = ''
+
+    // Try to get the H1 from the active tab via content script
+    try {
+      const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+      if (data?.full_name) candidate = data.full_name
+    } catch {}
+
+    // Fallback: parse from page title
+    if (!candidate) {
+      const title = tab.title || ''
+      const fromTitle = title.split(' | ')[0].split(' - ')[0].trim()
+      candidate = fromTitle
+    }
+
+    // Validate: must look like a person name
+    const isPersonName = (s) => {
+      if (!s) return false
+      const words = s.trim().split(/\s+/)
+      if (words.length < 2 || words.length > 5) return false
+      if (!/^[A-Za-z\s'-]+$/.test(s)) return false
+      if (s === s.toUpperCase() && s.length > 10) return false
+      const rejects = ['login', 'settings', 'jobs', 'search', 'apply', 'message', 'home', 'feed', 'notifications']
+      if (rejects.some(r => s.toLowerCase().includes(r))) return false
+      return true
+    }
+
+    if (isPersonName(candidate)) {
+      $('fullNameInput').value = candidate
+      _state = 'PREFILLED'
+    }
+  } catch {}
+}
+
+// ── Credits UI ────────────────────────────────────────────────────────────────
 async function loadCreditsUI() {
-  const pill = $('credit-pill')
+  const pill = $('creditPill')
   try {
-    const credits = await getCredits()
+    const credits = await getCreditsData()
     const tier = credits?.tier ?? 'free'
     const used = credits?.lookups_used ?? 0
     const max  = CONFIG.tiers[tier]?.lookups ?? 10
@@ -93,466 +318,175 @@ async function loadCreditsUI() {
     else if (left <= 2) { pill.textContent = `${left} left · Upgrade`; pill.className = 'credit-pill critical' }
     else if (left <= 5) { pill.textContent = `${left} lookups left`; pill.className = 'credit-pill low' }
     else                { pill.textContent = `${left} lookups left`; pill.className = 'credit-pill' }
-  } catch { pill.textContent = '— lookups'; pill.className = 'credit-pill' }
-}
 
-// ── Progress steps ─────────────────────────────────────────────────────────────
-const STEPS = {
-  email_lookup:        { dot: 'dot-email',    lbl: 'lbl-email',    text: 'Finding work email…' },
-  employer_resolution: { dot: 'dot-employer', lbl: 'lbl-employer', text: 'Confirming employer from email domain…' },
-  title_enrichment:    { dot: 'dot-title',    lbl: 'lbl-title',    text: 'Checking public role signals…' },
-  draft_generation:    { dot: 'dot-draft',    lbl: 'lbl-draft',    text: 'Writing outreach draft…' },
-}
-const STEP_ORDER = ['email_lookup','employer_resolution','title_enrichment','draft_generation']
-
-function updateProgressUI(currentStep) {
-  let passedCurrent = false
-  for (const key of STEP_ORDER) {
-    const s = STEPS[key]
-    if (!s) continue
-    const dot = $(s.dot), lbl = $(s.lbl)
-    if (!dot || !lbl) continue
-    if (key === currentStep) {
-      dot.className = 'progress-dot active'
-      lbl.textContent = s.text
-      lbl.className = 'progress-label active'
-      passedCurrent = true
-    } else if (!passedCurrent) {
-      dot.className = 'progress-dot done'
-      lbl.className = 'progress-label done'
-    } else {
-      dot.className = 'progress-dot'
-      lbl.className = 'progress-label'
+    // Settings tab
+    if ($('settingsEmail') && credits?.user_id) {
+      const user = await getUser()
+      if (user?.email) $('settingsEmail').textContent = user.email
     }
+    const badge = $('settingsPlanBadge')
+    if (badge) {
+      badge.textContent = CONFIG.tiers[tier]?.label ?? 'Free'
+      badge.className = `plan-badge${tier === 'free' ? ' free' : ''}`
+    }
+    if ($('settingsLookups')) $('settingsLookups').textContent = `${used} / ${max}`
+  } catch {
+    pill.textContent = '— lookups'
+    pill.className = 'credit-pill'
   }
 }
 
-// ── Outreach tab ──────────────────────────────────────────────────────────────
-let _candidate = null   // capture payload
-let _package   = null   // enriched outreach package
-let _pollTimer = null
+// ── Login screen ──────────────────────────────────────────────────────────────
+function showLoginScreen() {
+  getStorage(['pref_theme']).then(d => applyTheme(d.pref_theme || 'system'))
+  $('loginScreen').style.display = 'block'
+  $('mainApp').style.display = 'none'
 
-async function setupOutreachTab(capture) {
-  _candidate = capture
+  const statusEl = $('loginStatus')
+  $('btnSendMagicLink').addEventListener('click', async () => {
+    const email = $('loginEmail').value.trim()
+    if (!email) { statusEl.textContent = 'Enter your email first.'; statusEl.className = 'error'; return }
+    statusEl.textContent = 'Sending magic link…'
+    statusEl.className = 'info'
+    const { error } = await sendMagicLink(email)
+    if (error) { statusEl.textContent = `Error: ${error.message}`; statusEl.className = 'error' }
+    else       { statusEl.textContent = 'Check your email — link sent!'; statusEl.className = 'success' }
+  })
+  $('btnGoogleSignin').addEventListener('click', () => signInWithGoogle())
+}
 
-  // Determine if on LinkedIn
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  const url = tab?.url ?? ''
-  const isLinkedIn = url.includes('linkedin.com/in/') || url.includes('linkedin.com/talent/') || url.includes('linkedin.com/recruiter/')
+// ── Main app ──────────────────────────────────────────────────────────────────
+async function showMainApp(user) {
+  const prefs = await getStorage(['pref_theme'])
+  applyTheme(prefs.pref_theme || 'system')
+  $('loginScreen').style.display = 'none'
+  $('mainApp').style.display = 'block'
 
-  if (!isLinkedIn || !capture?.full_name) {
-    show('state-not-linkedin')
-    hide('state-main')
-    return
-  }
+  setupTabs()
+  await loadCreditsUI()
+  $('creditPill').addEventListener('click', () => openUpgradePage())
 
-  hide('state-not-linkedin')
-  show('state-main')
+  // Prefill name from page
+  await prefillName()
 
-  // Identity card
-  $('identity-name').textContent = capture.full_name
-  $('identity-sub').textContent = capture.source_surface === 'linkedin_recruiter' ? 'LinkedIn Recruiter' : 'LinkedIn'
-  if (capture.source_url) {
-    const link = $('identity-url-link')
-    link.href = capture.source_url
-    link.textContent = capture.source_url.replace('https://www.','').replace('https://','').replace(/\?.*/,'')
-    show('identity-url')
-  }
+  // ── Generate draft button ──────────────────────────────────────────────────
+  $('generateDraftButton').addEventListener('click', () => generateDraftFlow())
 
-  // Job pill
-  const jobData = await getStorage(['job_title', 'job_company'])
-  if (jobData.job_title) {
-    $('job-pill-content').innerHTML = `
-      <div class="job-pill-title">${jobData.job_title}</div>
-      ${jobData.job_company ? `<div class="job-pill-company">${jobData.job_company}</div>` : ''}
-    `
-  }
-  $('btn-edit-job').addEventListener('click', () => switchTab('job'))
+  // Enter in name field triggers generate
+  $('fullNameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); generateDraftFlow() }
+  })
 
-  // Check for existing cached result
-  const cacheKey = `outreach_${capture.source_url || capture.full_name}`
-  const cached = await getStorage([cacheKey])
-  if (cached[cacheKey]?.package) {
-    _package = cached[cacheKey].package
-    showReadyState(_package)
-    return
-  }
-
-  // Show initial state
-  hideAllStates()
-  show('state-initial')
-
-  // Wire up main CTA
-  $('btn-prepare-outreach').addEventListener('click', () => startEnrichment(capture))
+  // Clear button
+  $('clearButton').addEventListener('click', () => {
+    $('fullNameInput').value = ''
+    $('companyHintInput').value = ''
+    $('userContextInput').value = ''
+    resetToIdle()
+    $('fullNameInput').focus()
+  })
 
   // Retry buttons
-  $('btn-retry-lookup')?.addEventListener('click', () => startEnrichment(capture))
-  $('btn-retry-error')?.addEventListener('click', () => {
-    // Hide sign-out button on retry
-    const signOutBtn = document.getElementById('btn-error-signout')
-    if (signOutBtn) signOutBtn.style.display = 'none'
-    startEnrichment(capture)
+  $('retryButton')?.addEventListener('click', () => generateDraftFlow())
+  $('retryButton2')?.addEventListener('click', () => {
+    showSection('errorBox', false)
+    $('authRecoveryButton').style.display = 'none'
+    generateDraftFlow()
   })
-  // Auth failure — sign out option
-  document.getElementById('btn-error-signout')?.addEventListener('click', async () => {
-    const { signOut } = await import('./core/auth.js')
+
+  // Auth recovery
+  $('authRecoveryButton')?.addEventListener('click', async () => {
     await signOut()
     showLoginScreen()
   })
 
-  // Refresh (bypass cache)
-  $('btn-refresh')?.addEventListener('click', async () => {
-    const cKey = `outreach_${capture.source_url || capture.full_name}`
-    await setStorage({ [cKey]: null })
-    _package = null
-    hideAllStates()
-    show('state-initial')
-  })
-}
-
-function hideAllStates() {
-  for (const s of ['state-initial','state-running','state-ready','state-low-confidence','state-no-email','state-error']) hide(s)
-}
-
-async function startEnrichment(capture) {
-  hideAllStates()
-  show('state-running')
-  updateProgressUI('email_lookup')
-
-  // Get recruiter prefs for job context
-  const prefs = await getStorage(['job_title','job_company','job_description','pref_name','pref_title'])
-
-  try {
-    // Bootstrap: send name to backend, get job token
-    const bootstrap = await bootstrapCandidate({
-      full_name: capture.full_name,
-      source_surface: capture.source_surface,
-      source_url: capture.source_url || null,
-      session_id: crypto.randomUUID(),
-    })
-
-    if (bootstrap.status === 'ready' && bootstrap.cached) {
-      // Already enriched — fetch package immediately
-      const pkg = await getOutreachPackage(bootstrap.candidate_id)
-      if (pkg) {
-        _package = pkg
-        await cacheAndShowPackage(capture, pkg)
-        return
-      }
-    }
-
-    if (!bootstrap.job_id) throw new Error('No job token returned from bootstrap.')
-
-    // Poll for completion
-    await pollForCompletion(bootstrap.job_id, bootstrap.candidate_id, capture)
-
-  } catch (e) {
-    hideAllStates()
-    show('state-error')
-
-    // Parse structured error messages — never render raw JSON to the user
-    let msg = e.message || 'Something went wrong.'
-    try {
-      // If the message is itself a JSON string (from raw API error), parse it
-      const parsed = JSON.parse(msg)
-      msg = parsed.message || parsed.error || parsed.msg || msg
-    } catch {}
-
-    // Map to friendly messages
-    if (msg.toLowerCase().includes('invalid jwt') || msg.toLowerCase().includes('jwt expired') ||
-        msg.toLowerCase().includes('session expired') || e.message?.includes('401')) {
-      msg = 'Session expired — click here to sign out and sign back in.'
-      $('error-message').textContent = msg
-      // Show sign-out option in error state
-      const signOutBtn = document.getElementById('btn-error-signout')
-      if (signOutBtn) signOutBtn.style.display = 'block'
-    } else if (msg.includes('402') || msg.toLowerCase().includes('lookup limit') || msg.toLowerCase().includes('credit limit')) {
-      msg = 'Lookup limit reached. Upgrade your plan to continue.'
-      $('error-message').textContent = msg
-    } else if (msg.toLowerCase().includes('not signed in')) {
-      msg = 'Please sign in to use OutreachAI.'
-      $('error-message').textContent = msg
-    } else {
-      $('error-message').textContent = msg
-    }
-  }
-
-  await loadCreditsUI()
-}
-
-async function pollForCompletion(job_id, candidate_id, capture) {
-  const maxAttempts = 60  // 2 minutes at 2s intervals
-  let attempts = 0
-
-  return new Promise((resolve, reject) => {
-    _pollTimer = setInterval(async () => {
-      attempts++
-      if (attempts > maxAttempts) {
-        clearInterval(_pollTimer)
-        reject(new Error('Enrichment timed out. Try refreshing.'))
-        return
-      }
-
-      try {
-        const job = await pollJob(job_id)
-        if (!job) return
-
-        // Update progress UI based on job step
-        if (job.step && STEPS[job.step]) updateProgressUI(job.step)
-        else if (job.step === 'done') updateProgressUI('draft_generation')
-
-        if (job.status === 'completed' && job.step === 'done') {
-          clearInterval(_pollTimer)
-          const pkg = await getOutreachPackage(candidate_id)
-          if (pkg && pkg.enrichment_status === 'ready') {
-            _package = pkg
-            await cacheAndShowPackage(capture, pkg)
-            resolve()
-          } else {
-            reject(new Error('Package not ready after completion.'))
-          }
-        } else if (job.status === 'completed' && job.step === 'no_email_found') {
-          clearInterval(_pollTimer)
-          hideAllStates()
-          show('state-no-email')
-          resolve()
-        } else if (job.status === 'completed' && job.step === 'employer_unclear') {
-          clearInterval(_pollTimer)
-          const pkg = await getOutreachPackage(candidate_id)
-          showLowConfidenceState(pkg, 'employer_unclear')
-          resolve()
-        } else if (job.status === 'failed') {
-          clearInterval(_pollTimer)
-          reject(new Error(job.error_message || 'Enrichment failed.'))
-        }
-      } catch (e) {
-        console.error('Poll error:', e)
-      }
-    }, 2000)
-  })
-}
-
-async function cacheAndShowPackage(capture, pkg) {
-  const cacheKey = `outreach_${capture.source_url || capture.full_name}`
-  await setStorage({ [cacheKey]: { package: pkg, timestamp: Date.now() } })
-
-  // Route to the appropriate UI state based on enrichment_state
-  const state = pkg?.enrichment_state
-  if (state === 'identity_uncertain' || state === 'title_confidence_low') {
-    showLowConfidenceState(pkg, state)
-  } else {
-    showReadyState(pkg)
-  }
-}
-
-function showReadyState(pkg, isLowConfidence = false) {
-  hideAllStates()
-  show('state-ready')
-
-  // Low-confidence banner (if applicable)
-  const existingBanner = document.getElementById('ready-confidence-banner')
-  if (existingBanner) existingBanner.remove()
-  if (isLowConfidence && pkg?.enrichment_state && pkg.enrichment_state !== 'ready') {
-    const banner = document.createElement('div')
-    banner.id = 'ready-confidence-banner'
-    banner.className = 'confidence-banner'
-    banner.style.marginBottom = '8px'
-    const conf = Math.round((pkg.overall_enrichment_confidence ?? 0) * 100)
-    banner.innerHTML = `<div class="confidence-banner-icon">⚠️</div>
-      <div class="confidence-banner-text">
-        <div class="confidence-banner-title">Low confidence draft</div>
-        <div>Enrichment confidence: ${conf}%. This draft uses limited signals — review before sending.</div>
-      </div>`
-    document.getElementById('state-ready')?.prepend(banner)
-  }
-
-  // Email
-  $('res-email').textContent = pkg.work_email || '—'
-
-  // Title
-  if (pkg.inferred_title) {
-    $('res-title').textContent = pkg.inferred_title
-    $('res-title-row').style.display = 'block'
-  }
-
-  // Company
-  if (pkg.company_name) {
-    $('res-company').textContent = pkg.company_name
-    $('res-company-row').style.display = 'block'
-  }
-
-  // Personalization bullets
-  const bullets = pkg.personalization_bullets
-  if (bullets?.length) {
-    $('res-bullets').innerHTML = bullets.map(b => `<li>${b}</li>`).join('')
-    $('res-bullets-row').style.display = 'block'
-  }
-
-  // Draft
-  const draft = pkg.latest_draft_short || ''
-  $('email-draft').value = draft
-  if (pkg.latest_subject_line) {
-    $('draft-subject-line').textContent = pkg.latest_subject_line
-    $('email-draft').dataset.subject = pkg.latest_subject_line
-  }
-
-  // Compose helpers
-  function composeData(useAlt = false) {
-    const body = useAlt ? (pkg.latest_draft_medium || draft) : $('email-draft').value.trim()
-    const to = pkg.work_email || ''
-    const subject = $('email-draft').dataset?.subject || `Opportunity for ${pkg.full_name?.split(' ')[0] || 'you'}`
-    return { body, to, subject }
-  }
-
-  $('btn-open-outlook').onclick = () => {
-    const { body, to, subject } = composeData()
-    chrome.tabs.create({ url: `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(to)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` })
-  }
-  $('btn-open-gmail').onclick = () => {
-    const { body, to, subject } = composeData()
-    chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(to)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` })
-  }
-  $('btn-copy-draft').onclick = () => {
-    navigator.clipboard.writeText($('email-draft').value.trim()).then(() => {
-      const btn = $('btn-copy-draft')
+  // Copy draft
+  $('btnCopyDraft')?.addEventListener('click', () => {
+    const text = $('draftBody').value
+    if (!text) return
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = $('btnCopyDraft')
       btn.textContent = '✓ Copied'
       setTimeout(() => { btn.textContent = '📋 Copy draft' }, 2000)
     })
-  }
-  $('btn-alt-draft').onclick = () => {
-    const alt = pkg.latest_draft_medium || ''
-    if (alt) {
-      $('email-draft').value = alt
-      $('btn-alt-draft').textContent = 'Short draft'
-      $('btn-alt-draft').onclick = () => {
-        $('email-draft').value = pkg.latest_draft_short || ''
-        $('btn-alt-draft').textContent = 'Medium draft'
-      }
-    }
-  }
-}
-
-// ── Low-confidence state ─────────────────────────────────────────────────────
-function showLowConfidenceState(pkg, enrichment_state) {
-  hideAllStates()
-  show('state-low-confidence')
-
-  const conf = pkg?.overall_enrichment_confidence ?? 0
-  const pct = Math.round(conf * 100)
-  const bar = document.getElementById('lc-bar')
-  const pctEl = document.getElementById('lc-pct')
-  if (bar) {
-    bar.style.width = `${pct}%`
-    bar.className = `confidence-fill ${pct >= 60 ? 'high' : pct >= 35 ? 'mid' : 'low'}`
-  }
-  if (pctEl) pctEl.textContent = `${pct}%`
-
-  // State-specific messaging
-  const titles = {
-    employer_unclear: 'Employer unclear',
-    identity_uncertain: 'Identity uncertain',
-    title_confidence_low: 'Role signals weak',
-  }
-  const reasons = {
-    employer_unclear: "We found a work email but couldn't confirm the employer from the domain. The draft may be generic.",
-    identity_uncertain: "This name may be common — we can't confirm the email matches this specific person with high confidence.",
-    title_confidence_low: "We found email and employer, but no reliable non-LinkedIn signals for this person's role. Draft will be personalized by name and company only.",
-  }
-  const titleEl = document.getElementById('lc-title')
-  const reasonEl = document.getElementById('lc-reason')
-  if (titleEl) titleEl.textContent = titles[enrichment_state] || 'Low enrichment confidence'
-  if (reasonEl) reasonEl.textContent = pkg?.low_confidence_reason || reasons[enrichment_state] || 'Enrichment confidence is below threshold.'
-
-  // "Open partial draft anyway" — show ready state with confidence banner
-  document.getElementById('btn-open-partial-draft')?.addEventListener('click', () => {
-    if (pkg) {
-      _package = pkg
-      showReadyState(pkg, true /* isLowConfidence */)
-    }
   })
-  document.getElementById('btn-retry-lc')?.addEventListener('click', () => {
-    if (_candidate) startEnrichment(_candidate)
-  })
+
+  // Settings
+  await setupSettingsTab(user)
+  setupJobTab()
 }
 
 // ── Job tab ───────────────────────────────────────────────────────────────────
 function setupJobTab() {
   getStorage(['job_title','job_company','job_description','job_url']).then(d => {
-    if (d.job_title)       $('job-title').value       = d.job_title
-    if (d.job_company)     $('job-company').value     = d.job_company
-    if (d.job_description) $('job-description').value = d.job_description
-    if (d.job_url)         $('job-url').value         = d.job_url
+    if (d.job_title)       $('jobTitle').value       = d.job_title
+    if (d.job_company)     $('jobCompany').value     = d.job_company
+    if (d.job_description) $('jobDescription').value = d.job_description
+    if (d.job_url)         $('jobUrl').value         = d.job_url
   })
 
-  $('btn-extract-job').addEventListener('click', async () => {
-    const url = $('job-url').value.trim()
-    const statusEl = $('extract-status')
-    if (!url || !url.startsWith('http')) { showStatus(statusEl, 'Enter a valid job posting URL.', 'error'); return }
-    const btn = $('btn-extract-job')
+  $('btnExtractJob').addEventListener('click', async () => {
+    const url = $('jobUrl').value.trim()
+    const statusEl = $('extractStatus')
+    if (!url || !url.startsWith('http')) { statusEl.textContent = 'Enter a valid URL.'; return }
+    const btn = $('btnExtractJob')
     btn.disabled = true
-    showStatus(statusEl, 'Extracting job details…', 'info')
+    statusEl.textContent = 'Extracting…'
     try {
       const jobTab = await chrome.tabs.create({ url, active: false })
       await new Promise(resolve => {
-        const listener = (tabId, info) => { if (tabId === jobTab.id && info.status === 'complete') { chrome.tabs.onUpdated.removeListener(listener); resolve() } }
-        chrome.tabs.onUpdated.addListener(listener)
+        const l = (tabId, info) => { if (tabId === jobTab.id && info.status === 'complete') { chrome.tabs.onUpdated.removeListener(l); resolve(null) } }
+        chrome.tabs.onUpdated.addListener(l)
         setTimeout(resolve, 15000)
       })
       await new Promise(r => setTimeout(r, 1500))
       let pageText = ''
-      try { const res = await chrome.scripting.executeScript({ target: { tabId: jobTab.id }, func: () => document.body?.innerText ?? '' }); pageText = res?.[0]?.result ?? '' } catch {}
+      try {
+        const res = await chrome.scripting.executeScript({ target: { tabId: jobTab.id }, func: () => document.body?.innerText ?? '' })
+        pageText = res?.[0]?.result ?? ''
+      } catch {}
       chrome.tabs.remove(jobTab.id).catch(() => {})
-      if (!pageText) { showStatus(statusEl, 'Could not read that page.', 'error'); btn.disabled = false; return }
-      const jobData = await extractJob(pageText.slice(0, 12000))
-      if (jobData?.title)       $('job-title').value       = jobData.title
-      if (jobData?.company)     $('job-company').value     = jobData.company
-      if (jobData?.description) $('job-description').value = jobData.description
-      showStatus(statusEl, 'Job details extracted!', 'success')
-    } catch (e) { showStatus(statusEl, `Extraction failed: ${e.message}`, 'error') }
+      if (!pageText) { statusEl.textContent = 'Could not read that page.'; btn.disabled = false; return }
+      // Simple heuristic extraction
+      const titleMatch = pageText.match(/(?:job title|position|role)[:\s]+([^\n]{5,80})/i)
+      const compMatch  = pageText.match(/(?:company|employer|at)[:\s]+([^\n]{2,60})/i)
+      if (titleMatch?.[1]) $('jobTitle').value = titleMatch[1].trim()
+      if (compMatch?.[1])  $('jobCompany').value = compMatch[1].trim()
+      $('jobDescription').value = pageText.slice(0, 400)
+      statusEl.textContent = 'Details extracted — review and save.'
+    } catch (e) { statusEl.textContent = `Failed: ${e.message}` }
     btn.disabled = false
   })
 
-  $('btn-save-job').addEventListener('click', async () => {
-    const statusEl = $('job-status')
-    const title = $('job-title').value.trim()
-    if (!title) { showStatus(statusEl, 'Add a role title first.', 'error'); return }
-    await setStorage({ job_title: title, job_company: $('job-company').value.trim(), job_description: $('job-description').value.trim(), job_url: $('job-url').value.trim() })
-    showStatus(statusEl, 'Job saved!', 'success')
-    setTimeout(() => hideStatus(statusEl), 2000)
+  $('btnSaveJob').addEventListener('click', async () => {
+    const title = $('jobTitle').value.trim()
+    if (!title) { $('jobStatus').textContent = 'Add a role title first.'; return }
+    await setStorage({ job_title: title, job_company: $('jobCompany').value.trim(), job_description: $('jobDescription').value.trim(), job_url: $('jobUrl').value.trim() })
+    $('jobStatus').textContent = 'Saved!'
+    setTimeout(() => { $('jobStatus').textContent = '' }, 2000)
   })
 }
 
 // ── Settings tab ──────────────────────────────────────────────────────────────
 async function setupSettingsTab(user) {
-  if (user?.email) $('settings-email').textContent = user.email
-  try {
-    const credits = await getCredits()
-    const tier = credits?.tier ?? 'free'
-    const badge = $('settings-plan-badge')
-    badge.textContent = CONFIG.tiers[tier]?.label ?? 'Free'
-    badge.className = `plan-badge${tier === 'free' ? ' free' : ''}`
-    $('settings-lookups').textContent = `${credits?.lookups_used ?? 0} / ${CONFIG.tiers[tier]?.lookups ?? 10}`
-    const aiEl = $('settings-ai-runs')
-    if (aiEl) aiEl.textContent = `${credits?.ai_runs_used ?? 0} / ${CONFIG.tiers[tier]?.ai_runs ?? 20}`
-  } catch {}
-  $('btn-upgrade').addEventListener('click', () => createCheckout())
-  $('btn-sign-out').addEventListener('click', async () => { await signOut(); showLoginScreen() })
+  if (user?.email) $('settingsEmail').textContent = user.email
 
-  // Theme
-  const prefs = await getStorage(['pref_theme'])
+  $('btnUpgrade').addEventListener('click', () => openUpgradePage())
+  $('btnSignOut').addEventListener('click', async () => { await signOut(); showLoginScreen() })
+
+  const prefs = await getStorage(['pref_theme','pref_name','pref_title'])
   applyTheme(prefs.pref_theme || 'system')
+  if (prefs.pref_name)  $('prefName').value  = prefs.pref_name
+  if (prefs.pref_title) $('prefTitle').value = prefs.pref_title
+
   document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.addEventListener('click', async () => { await setStorage({ pref_theme: btn.dataset.theme }); applyTheme(btn.dataset.theme) })
   })
 
-  // Recruiter identity
-  const d = await getStorage(['pref_name','pref_title'])
-  if (d.pref_name)  $('pref-name').value  = d.pref_name
-  if (d.pref_title) $('pref-title').value = d.pref_title
-  $('btn-save-prefs').addEventListener('click', async () => {
-    await setStorage({ pref_name: $('pref-name').value.trim(), pref_title: $('pref-title').value.trim() })
-    showStatus($('prefs-status'), 'Saved!', 'success')
-    setTimeout(() => hideStatus($('prefs-status')), 2000)
+  $('btnSavePrefs').addEventListener('click', async () => {
+    await setStorage({ pref_name: $('prefName').value.trim(), pref_title: $('prefTitle').value.trim() })
+    $('prefsStatus').textContent = 'Saved!'
+    setTimeout(() => { $('prefsStatus').textContent = '' }, 2000)
   })
 }
 

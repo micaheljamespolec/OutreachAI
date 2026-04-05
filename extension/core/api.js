@@ -1,207 +1,111 @@
 // ─── core/api.js ──────────────────────────────────────────────────────────────
 import { CONFIG } from '../config.js'
-import { getAccessToken } from './auth.js'
+import { getAccessToken, refreshSession } from './auth.js'
 
 const DB = `${CONFIG.supabaseUrl}/rest/v1`
 
-// Parse a human-readable error message from a Supabase/edge function error response
-function parseErrorMessage(text, status) {
-  try {
-    const j = JSON.parse(text)
-    // Supabase gateway 401: {"code":401,"message":"Invalid JWT"}
-    if (j.message) return j.message
-    if (j.error)   return j.error
-    if (j.msg)     return j.msg
-  } catch {}
-  return text || `Request failed (${status})`
-}
-
-async function getHeaders() {
-  const token = await getAccessToken()
-  return {
-    'Content-Type':  'application/json',
-    'apikey':        CONFIG.supabaseKey,
-    'Authorization': `Bearer ${token}`,
-    'Prefer':        'return=representation',
+// ── Error normalization ───────────────────────────────────────────────────────
+// Converts any raw error (string, JSON, object) into { code, message }
+export function parseErrorMessage(raw) {
+  if (!raw) return { code: 'UNKNOWN_ERROR', message: 'Something went wrong.' }
+  if (typeof raw === 'object' && raw.code && raw.message) return raw
+  if (typeof raw === 'string') {
+    try {
+      const j = JSON.parse(raw)
+      if (j.error?.code) return j.error
+      if (j.message)     return { code: j.code || 'API_ERROR', message: j.message }
+      if (j.error)       return { code: 'API_ERROR', message: j.error }
+      if (j.msg)         return { code: 'API_ERROR', message: j.msg }
+    } catch {}
+    return { code: 'API_ERROR', message: raw }
   }
+  return { code: 'UNKNOWN_ERROR', message: String(raw) }
 }
 
-export async function dbGet(table, query = '') {
-  const headers = await getHeaders()
-  const res = await fetch(`${DB}/${table}?${query}`, { headers })
-  if (!res.ok) throw new Error(`DB GET failed: ${res.status}`)
-  return res.json()
+export function isAuthError(err) {
+  if (!err) return false
+  const msg = (err.message || err.msg || String(err)).toLowerCase()
+  const code = (err.code || '').toLowerCase()
+  return code === 'auth_expired' || msg.includes('invalid jwt') || msg.includes('jwt expired') ||
+         msg.includes('session expired') || msg.includes('unauthorized') || err.status === 401
 }
 
-export async function dbPost(table, body) {
-  const headers = await getHeaders()
-  const res = await fetch(`${DB}/${table}`, {
-    method: 'POST', headers, body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`DB POST failed: ${res.status}`)
-  return res.json()
-}
-
-export async function dbPatch(table, query, body) {
-  const headers = await getHeaders()
-  const res = await fetch(`${DB}/${table}?${query}`, {
-    method: 'PATCH', headers, body: JSON.stringify(body),
-  })
-  if (!res.ok) throw new Error(`DB PATCH failed: ${res.status}`)
-  return res.json()
-}
-
-export async function lookupEmail(firstName, lastName, linkedinUrl, company, cacheOnly = false) {
-  const token = await getAccessToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    'apikey':       CONFIG.supabaseKey,
-  }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/lookup-email`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ firstName, lastName, linkedinUrl, company, cacheOnly }),
-  })
-  if (!res.ok) {
-    const errText = await res.text()
-    console.error('lookup-email error:', res.status, errText)
-    throw new Error(errText || `lookup-email failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-export async function generateDraft(profile, job, recruiter) {
-  const token = await getAccessToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    'apikey':       CONFIG.supabaseKey,
-  }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/generate-draft`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ profile, job, recruiter }),
-  })
-  if (!res.ok) {
-    const errText = await res.text()
-    console.error('generate-draft error:', res.status, errText)
-    throw new Error(errText || `generate-draft failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-export async function extractJob(pageText) {
-  // Send already-extracted page text to the AI for parsing
-  const token = await getAccessToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    'apikey':       CONFIG.supabaseKey,
-  }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/extract-job`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ pageText }),
-  })
-  if (!res.ok) {
-    const errText = await res.text()
-    console.error('extract-job error:', res.status, errText)
-    throw new Error(errText || `extract-job failed: ${res.status}`)
-  }
-  return res.json()
-}
-
-export async function bootstrapCandidate(payload) {
-  const doRequest = async () => {
+// ── Core fetch wrapper with 401 refresh-and-retry ─────────────────────────────
+async function apiRequest(url, options = {}) {
+  const makeRequest = async () => {
     const token = await getAccessToken()
-    if (!token) throw new Error('Not signed in — please sign in again.')
-    return fetch(`${CONFIG.supabaseUrl}/functions/v1/candidate-bootstrap`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': CONFIG.supabaseKey,
-        'Authorization': `Bearer ${token}`,
-      },
-      body: JSON.stringify(payload),
-    })
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': CONFIG.supabaseKey,
+      ...(options.headers || {}),
+    }
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    return fetch(url, { ...options, headers })
   }
 
-  let res = await doRequest()
+  let res = await makeRequest()
 
-  // On 401, attempt one token refresh then retry
+  // On 401, attempt one refresh then retry
   if (res.status === 401) {
-    const { refreshSession } = await import('./auth.js')
     const session = await new Promise(r => chrome.storage.local.get('outreachai_session', d => r(d.outreachai_session ?? null)))
     if (session?.refresh_token) {
       const refreshed = await refreshSession(session.refresh_token)
       if (refreshed) {
-        res = await doRequest()
+        res = await makeRequest()
       } else {
-        throw new Error('Session expired — please sign out and sign in again.')
+        throw { code: 'AUTH_EXPIRED', message: 'Session expired — please sign out and sign in again.' }
       }
     } else {
-      throw new Error('Session expired — please sign out and sign in again.')
+      throw { code: 'AUTH_EXPIRED', message: 'Session expired — please sign out and sign in again.' }
     }
   }
 
   if (!res.ok) {
-    const t = await res.text()
-    throw new Error(parseErrorMessage(t, res.status))
+    const text = await res.text().catch(() => '')
+    throw parseErrorMessage(text)
   }
+
   return res.json()
 }
 
-export async function pollJob(job_id) {
-  const token = await getAccessToken()
-  const headers = { 'apikey': CONFIG.supabaseKey }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(
-    `${CONFIG.supabaseUrl}/rest/v1/workflow_jobs?id=eq.${job_id}&select=id,status,step,error_code,error_message`,
-    { headers }
-  )
-  if (!res.ok) throw new Error(`poll failed: ${res.status}`)
-  const rows = await res.json()
-  return rows?.[0] || null
-}
-
-export async function getOutreachPackage(candidate_id) {
-  const token = await getAccessToken()
-  const headers = { 'apikey': CONFIG.supabaseKey }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-  const res = await fetch(
-    `${CONFIG.supabaseUrl}/rest/v1/candidates?id=eq.${candidate_id}&select=*`,
-    { headers }
-  )
-  if (!res.ok) throw new Error(`getOutreachPackage failed: ${res.status}`)
-  const rows = await res.json()
-  return rows?.[0] || null
-}
-
-export async function requirementsMatch(profile, job) {
-  const token = await getAccessToken()
-  const headers = {
-    'Content-Type': 'application/json',
-    'apikey':       CONFIG.supabaseKey,
-  }
-  if (token) headers['Authorization'] = `Bearer ${token}`
-
-  const res = await fetch(`${CONFIG.supabaseUrl}/functions/v1/requirements-match`, {
+// ── Main API: enrich-and-draft ────────────────────────────────────────────────
+export async function enrichAndDraft({ fullName, companyHint, userContext }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
     method: 'POST',
-    headers,
-    body: JSON.stringify({ profile, job }),
+    body: JSON.stringify({ fullName, companyHint, userContext }),
   })
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(errText || `requirements-match failed: ${res.status}`)
-  }
-  return res.json()
 }
 
-// Opens pricing page — Stripe checkout handled via website, not extension
-export function createCheckout() {
+// ── Credits ───────────────────────────────────────────────────────────────────
+export async function getCreditsData() {
+  const token = await getAccessToken()
+  if (!token) return null
+  const res = await fetch(`${DB}/credits?select=*`, {
+    headers: { 'apikey': CONFIG.supabaseKey, 'Authorization': `Bearer ${token}` }
+  })
+  if (!res.ok) return null
+  const rows = await res.json()
+  return rows?.[0] || null
+}
+
+// ── Job context (stored locally in chrome.storage) ────────────────────────────
+export async function extractJob(pageText) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/extract-job`, {
+    method: 'POST',
+    body: JSON.stringify({ text: pageText }),
+  })
+}
+
+// ── Pricing / upgrade ─────────────────────────────────────────────────────────
+export function openUpgradePage() {
   chrome.tabs.create({ url: CONFIG.pricingUrl })
 }
+
+// ── Legacy exports (kept for backward compatibility with Job tab) ──────────────
+export const createCheckout = openUpgradePage
+export const lookupEmail = () => { throw new Error('Use enrichAndDraft instead') }
+export const generateDraft = () => { throw new Error('Use enrichAndDraft instead') }
+export const bootstrapCandidate = () => { throw new Error('Use enrichAndDraft instead') }
+export const pollJob = () => { throw new Error('Use enrichAndDraft instead') }
+export const getOutreachPackage = () => { throw new Error('Use enrichAndDraft instead') }
+export const requirementsMatch = () => { throw new Error('Analyze Fit removed') }

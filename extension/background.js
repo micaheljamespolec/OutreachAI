@@ -1,25 +1,31 @@
 // ─── background.js ────────────────────────────────────────────────────────────
 import { handleAuthCallback } from './core/auth.js'
 
+// Listen for the extension-native auth callback page (auth.html)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   const url = tab.url ?? ''
-  if (!url.includes('outreachai-auth')) return
+  const authPageUrl = chrome.runtime.getURL('auth.html')
+
+  if (!url.startsWith(authPageUrl)) return
   if (changeInfo.status !== 'complete') return
 
-  // tab.url strips the hash fragment — inject into the tab to get the full URL
   try {
+    // Get the full URL including hash from the tab's page
     const results = await chrome.scripting.executeScript({
       target: { tabId },
       func: () => window.location.href,
     })
     const fullUrl = results?.[0]?.result ?? url
-    console.log('Auth callback full URL:', fullUrl)
+    console.log('[OutreachAI] Auth callback received:', fullUrl.split('#')[0])
+
     const success = await handleAuthCallback(fullUrl)
-    console.log('Auth callback success:', success)
+    console.log('[OutreachAI] Auth callback success:', success)
+
     if (success) {
-      setTimeout(() => chrome.tabs.remove(tabId), 1500)
+      // Close the auth tab after a brief delay so user sees the success message
+      setTimeout(() => chrome.tabs.remove(tabId).catch(() => {}), 1500)
     }
   } catch (e) {
-    console.error('Auth callback error:', e)
+    console.error('[OutreachAI] Auth callback error:', e)
   }
 })

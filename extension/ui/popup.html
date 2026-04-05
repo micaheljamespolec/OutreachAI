@@ -13,16 +13,9 @@
   }
 
   /* ── Header ── */
-  .header {
-    background: #0a66c2; color: white;
-    padding: 10px 14px; display: flex; align-items: center; gap: 8px;
-  }
+  .header { background: #0a66c2; color: white; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
   .header h1 { font-size: 15px; font-weight: 700; flex: 1; }
-  .credit-pill {
-    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25);
-    color: white; border-radius: 20px; padding: 4px 10px;
-    font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap;
-  }
+  .credit-pill { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
   .credit-pill:hover { background: rgba(255,255,255,0.28); }
   .credit-pill.low { background: rgba(251,191,36,0.22); border-color: rgba(251,191,36,0.5); color: #fde68a; }
   .credit-pill.critical { background: rgba(239,68,68,0.22); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
@@ -33,107 +26,101 @@
   .tab:hover { color: #0a66c2; background: #f8fafc; }
   .tab.active { color: #0a66c2; border-bottom: 2px solid #0a66c2; font-weight: 600; }
 
-  /* ── Tab panels ── */
+  /* ── Tab content ── */
   .tab-content { display: none; padding: 12px; }
   .tab-content.active { display: block; }
 
-  /* ── Cards ── */
-  .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 11px 13px; margin-bottom: 8px; }
-  .card:last-child { margin-bottom: 0; }
-  .card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 8px; }
-
-  /* ── Candidate identity card ── */
-  .identity-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 13px; margin-bottom: 8px; }
-  .identity-name { font-size: 15px; font-weight: 700; color: #111827; }
-  .identity-sub { font-size: 12px; color: #6b7280; margin-top: 3px; }
-  .identity-url { font-size: 10.5px; color: #9ca3af; margin-top: 4px; }
-  .identity-url a { color: #0a66c2; text-decoration: none; }
-  .identity-url a:hover { text-decoration: underline; }
-
-  /* ── Progress steps ── */
-  .progress-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 13px; margin-bottom: 8px; }
-  .progress-step { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
-  .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #e5e7eb; flex-shrink: 0; }
-  .progress-dot.active { background: #0a66c2; box-shadow: 0 0 0 3px rgba(10,102,194,0.2); }
-  .progress-dot.done { background: #16a34a; }
-  .progress-dot.error { background: #dc2626; }
-  .progress-label { font-size: 12px; color: #9ca3af; }
-  .progress-label.active { color: #0a66c2; font-weight: 500; }
-  .progress-label.done { color: #16a34a; }
-  .progress-label.error { color: #dc2626; }
-
-  /* ── Result card ── */
-  .result-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; }
-  .result-field { margin-bottom: 7px; }
-  .result-field:last-child { margin-bottom: 0; }
-  .result-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin-bottom: 2px; }
-  .result-value { font-size: 13px; color: #111827; font-weight: 500; word-break: break-all; }
-  .result-value.email { color: #166534; background: #f0fdf4; padding: 3px 7px; border-radius: 4px; display: inline-block; }
-  .result-bullets { margin-top: 4px; padding-left: 0; list-style: none; }
-  .result-bullets li { font-size: 12px; color: #6b7280; padding: 2px 0; display: flex; gap: 6px; }
-  .result-bullets li::before { content: '·'; color: #9ca3af; flex-shrink: 0; }
-
-  /* ── Draft area ── */
-  .draft-card { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; overflow: hidden; }
-  .draft-card-header { padding: 8px 13px 6px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
-  .draft-card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; }
-  .draft-subject { font-size: 11px; color: #9ca3af; }
-  .draft-card textarea {
-    width: 100%; padding: 9px 13px; border: none; outline: none;
-    font-size: 12px; color: #111827; line-height: 1.6; resize: vertical;
-    min-height: 130px; background: white; font-family: inherit;
+  /* ── Form elements ── */
+  label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
+  input[type="text"], textarea {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; color: #111827; background: white; outline: none;
+    transition: border-color 0.15s; font-family: inherit;
   }
-
-  /* ── Open email row ── */
-  .open-email-row { display: flex; gap: 6px; margin-bottom: 8px; }
-  .btn-outlook { flex: 1.4; padding: 10px; border-radius: 7px; font-size: 12.5px; font-weight: 600; background: #0078d4; color: white; border: none; cursor: pointer; text-align: center; transition: background 0.15s; }
-  .btn-outlook:hover { background: #006cbf; }
-  .btn-gmail { flex: 1; padding: 10px; border-radius: 7px; font-size: 12px; font-weight: 500; background: white; color: #374151; border: 1.5px solid #d1d5db; cursor: pointer; text-align: center; transition: all 0.15s; }
-  .btn-gmail:hover { background: #f3f4f6; }
-
-  /* ── Secondary actions ── */
-  .action-row { display: flex; gap: 6px; margin-bottom: 8px; }
-  .btn-small { flex: 1; padding: 7px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 500; cursor: pointer; border: 1.5px solid #e5e7eb; background: white; color: #6b7280; transition: all 0.15s; text-align: center; white-space: nowrap; }
-  .btn-small:hover { background: #f3f4f6; color: #374151; }
+  input[type="text"]:focus, textarea:focus { border-color: #0a66c2; }
+  textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+  .form-group { margin-bottom: 10px; }
+  .form-group:last-child { margin-bottom: 0; }
+  .helper-text { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 
   /* ── Buttons ── */
-  .btn { width: 100%; padding: 10px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-align: center; }
+  .btn { width: 100%; padding: 10px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all 0.15s; text-align: center; display: block; }
   .btn + .btn { margin-top: 7px; }
   .btn-primary { background: #0a66c2; color: white; }
   .btn-primary:hover:not(:disabled) { background: #0855a5; }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
   .btn-secondary { background: white; color: #374151; border: 1.5px solid #d1d5db; }
   .btn-secondary:hover { background: #f9fafb; }
+  .btn-outlook { background: #0078d4; color: white; }
+  .btn-outlook:hover { background: #006cbf; }
+  .btn-gmail { background: white; color: #374151; border: 1.5px solid #d1d5db; }
+  .btn-gmail:hover { background: #f9fafb; }
   .btn-danger { background: #fff1f2; color: #be123c; border: 1.5px solid #fecdd3; }
   .btn-danger:hover { background: #ffe4e6; }
+  .btn-ghost { background: transparent; color: #6b7280; border: 1.5px solid #e5e7eb; }
+  .btn-ghost:hover { background: #f3f4f6; color: #374151; }
 
-  /* ── Status messages ── */
-  .status { padding: 8px 10px; border-radius: 7px; font-size: 12px; margin-bottom: 8px; display: none; }
-  .status.show { display: block; }
-  .status.info  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-  .status.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-  .status.error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
-  .status.warn  { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+  /* ── Cards ── */
+  .card { background: white; border-radius: 8px; border: 1px solid #e5e7eb; padding: 11px 13px; margin-bottom: 8px; }
+  .card:last-child { margin-bottom: 0; }
+  .card-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 8px; }
 
-  /* ── Inputs ── */
-  input[type="email"], input[type="text"] { width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px; font-size: 13px; color: #111827; background: white; outline: none; transition: border-color 0.15s; font-family: inherit; }
-  input:focus { border-color: #0a66c2; }
-  label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
-  .form-group { margin-bottom: 10px; }
-  .form-group:last-child { margin-bottom: 0; }
-  .helper-text { font-size: 11px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
-  textarea.input-field { width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px; font-size: 13px; color: #111827; background: white; outline: none; resize: vertical; min-height: 80px; line-height: 1.5; font-family: inherit; transition: border-color 0.15s; }
-  textarea.input-field:focus { border-color: #0a66c2; }
+  /* ── Status message ── */
+  #statusMessage { padding: 8px 10px; border-radius: 7px; font-size: 12px; display: none; margin-bottom: 8px; }
+  #statusMessage.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; display: block; }
+  #statusMessage.success { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; display: block; }
+  #statusMessage.warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; display: block; }
+  #statusMessage.error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; display: block; }
 
-  /* ── Job pill ── */
-  .job-pill { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .job-pill-main { min-width: 0; }
-  .job-pill-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; margin-bottom: 2px; }
-  .job-pill-title { font-size: 12.5px; font-weight: 600; color: #1e3a8a; }
-  .job-pill-company { font-size: 11px; color: #3b82f6; }
-  .job-pill-empty { font-size: 12px; color: #9ca3af; font-style: italic; }
-  .btn-link { background: none; border: none; color: #0a66c2; font-size: 11px; cursor: pointer; padding: 0; flex-shrink: 0; }
-  .btn-link:hover { text-decoration: underline; }
+  /* ── Progress ── */
+  .progress-step { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+  .progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #e5e7eb; flex-shrink: 0; }
+  .progress-dot.active { background: #0a66c2; box-shadow: 0 0 0 3px rgba(10,102,194,0.15); }
+  .progress-dot.done { background: #16a34a; }
+  .progress-dot.err { background: #dc2626; }
+  .progress-label { font-size: 12px; color: #9ca3af; }
+  .progress-label.active { color: #0a66c2; font-weight: 500; }
+  .progress-label.done { color: #16a34a; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 14px; height: 14px; border: 2px solid #bfdbfe; border-top-color: #0a66c2; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
+
+  /* ── Result summary ── */
+  #resultSummary { display: none; }
+  .result-row { display: flex; gap: 8px; align-items: baseline; margin-bottom: 5px; }
+  .result-row:last-child { margin-bottom: 0; }
+  .result-label { font-size: 10.5px; color: #9ca3af; width: 52px; flex-shrink: 0; }
+  .result-value { font-size: 13px; color: #111827; font-weight: 500; word-break: break-all; }
+  .result-value.email-found { color: #166534; background: #f0fdf4; padding: 1px 6px; border-radius: 4px; font-size: 12px; }
+
+  /* ── Confidence ── */
+  .confidence-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .confidence-label { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+  .confidence-bar-wrap { flex: 1; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; }
+  .confidence-fill { height: 100%; border-radius: 2px; }
+  .confidence-fill.high { background: #16a34a; }
+  .confidence-fill.mid  { background: #d97706; }
+  .confidence-fill.low  { background: #dc2626; }
+  .confidence-badge { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 10px; flex-shrink: 0; }
+  .confidence-badge.high { background: #dcfce7; color: #166534; }
+  .confidence-badge.mid  { background: #fef3c7; color: #92400e; }
+  .confidence-badge.low  { background: #fee2e2; color: #991b1b; }
+
+  /* ── Draft ── */
+  #draftOutput { display: none; }
+  .draft-subject { font-size: 11px; color: #9ca3af; margin-bottom: 6px; }
+  .draft-subject strong { color: #374151; }
+  #draftBody { width: 100%; min-height: 120px; padding: 9px 11px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 12px; color: #111827; line-height: 1.6; resize: vertical; outline: none; font-family: inherit; background: white; }
+  #draftBody:focus { border-color: #0a66c2; }
+  .open-email-row { display: flex; gap: 6px; margin-top: 8px; }
+  .open-email-row .btn { flex: 1; }
+  .copy-row { display: flex; gap: 6px; margin-top: 6px; }
+  .copy-row .btn { flex: 1; }
+
+  /* ── Error box ── */
+  #errorBox { display: none; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 8px; padding: 11px 13px; margin-bottom: 8px; }
+  #errorBox.auth { background: #fffbeb; border-color: #fde68a; }
+  #errorBox p { font-size: 12.5px; color: #be123c; margin-bottom: 10px; line-height: 1.5; }
+  #errorBox.auth p { color: #92400e; }
 
   /* ── Settings ── */
   .settings-group { margin-bottom: 14px; }
@@ -149,7 +136,7 @@
   .theme-btn.active { background: white; color: #111827; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
   /* ── Login ── */
-  #login-screen { padding: 28px 20px; display: none; }
+  #loginScreen { padding: 28px 20px; display: none; }
   .login-logo { text-align: center; margin-bottom: 22px; }
   .login-logo .logo-icon { font-size: 38px; }
   .login-logo h2 { font-size: 21px; font-weight: 700; color: #0a66c2; margin-top: 8px; }
@@ -161,66 +148,38 @@
   .btn-google { display: flex; align-items: center; justify-content: center; background: white; color: #374151; border: 1.5px solid #d1d5db; font-weight: 500; gap: 8px; }
   .btn-google:hover { background: #f9fafb; }
 
-  /* ── Empty state ── */
-  .empty-state { text-align: center; padding: 24px 16px; color: #9ca3af; }
-  .empty-state .icon { font-size: 28px; margin-bottom: 8px; }
-  .empty-state p { font-size: 12.5px; line-height: 1.6; }
-  .empty-state strong { color: #6b7280; }
-
-  /* ── Spinner ── */
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner { width: 14px; height: 14px; border: 2px solid #bfdbfe; border-top-color: #0a66c2; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 6px; }
-
-  /* ── Low-confidence state ── */
-  .confidence-banner {
-    background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
-    padding: 9px 12px; margin-bottom: 8px; display: flex; gap: 8px; align-items: flex-start;
-  }
-  .confidence-banner-icon { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
-  .confidence-banner-text { font-size: 12px; color: #92400e; line-height: 1.5; }
-  .confidence-banner-title { font-weight: 600; margin-bottom: 2px; }
-  .confidence-meter { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
-  .confidence-label { font-size: 10.5px; color: #9ca3af; flex-shrink: 0; }
-  .confidence-bar { flex: 1; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; }
-  .confidence-fill { height: 100%; border-radius: 2px; transition: width 0.4s; }
-  .confidence-fill.high { background: #16a34a; }
-  .confidence-fill.mid  { background: #d97706; }
-  .confidence-fill.low  { background: #dc2626; }
-  .confidence-pct { font-size: 10.5px; color: #9ca3af; width: 28px; text-align: right; flex-shrink: 0; }
-
-  /* ══════════════ DARK MODE ══════════════ */
+  /* ════════════ DARK MODE ════════════ */
   body.dark { background: #0f1117; color: #e5e7eb; }
   body.dark .header { background: #1e3a5f; }
   body.dark .tabs { background: #1a1d2e; border-color: #2d3148; }
   body.dark .tab { color: #6b7280; }
   body.dark .tab:hover { background: #1f2235; color: #93b4ef; }
   body.dark .tab.active { color: #93b4ef; border-color: #93b4ef; }
-  body.dark .card, body.dark .identity-card, body.dark .result-card, body.dark .progress-card, body.dark .draft-card { background: #1a1d2e; border-color: #2d3148; }
-  body.dark .card-label, body.dark .draft-card-label { color: #4b5563; }
-  body.dark .identity-name, body.dark .result-value { color: #e5e7eb; }
-  body.dark .identity-sub, body.dark .result-label, body.dark .result-bullets li { color: #6b7280; }
-  body.dark .draft-card textarea { background: #1a1d2e; color: #e5e7eb; }
-  body.dark .btn-small { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
-  body.dark .btn-small:hover { background: #252836; color: #d1d5db; }
-  body.dark .btn-gmail { background: #1a1d2e; border-color: #2d3148; color: #d1d5db; }
-  body.dark .btn-gmail:hover { background: #252836; }
-  body.dark .btn-secondary { background: #252836; color: #d1d5db; border-color: #3a3d52; }
-  body.dark .btn-danger { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
-  body.dark .job-pill { background: #0d1f3a; border-color: #1e3a6a; }
-  body.dark .job-pill-title { color: #93b4ef; }
-  body.dark .job-pill-empty { color: #4b5563; }
-  body.dark input[type="email"], body.dark input[type="text"], body.dark textarea.input-field { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
+  body.dark .card { background: #1a1d2e; border-color: #2d3148; }
+  body.dark .card-label { color: #4b5563; }
+  body.dark input[type="text"], body.dark textarea { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
   body.dark input:focus, body.dark textarea:focus { border-color: #93b4ef; }
   body.dark label { color: #6b7280; }
   body.dark .helper-text { color: #4b5563; }
-  body.dark .status.info { background: #1e3a5f; color: #93b4ef; border-color: #2a4d7a; }
-  body.dark .status.success { background: #0d2a1a; color: #4ade80; border-color: #166534; }
-  body.dark .status.error { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
-  body.dark .status.warn { background: #2a1f0a; color: #fbbf24; border-color: #78350f; }
+  body.dark .btn-secondary, body.dark .btn-gmail { background: #252836; color: #d1d5db; border-color: #3a3d52; }
+  body.dark .btn-ghost { background: transparent; color: #6b7280; border-color: #2d3148; }
+  body.dark .btn-ghost:hover { background: #252836; color: #d1d5db; }
+  body.dark .btn-danger { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
+  body.dark .result-value { color: #e5e7eb; }
+  body.dark #draftBody { background: #1a1d2e; border-color: #2d3148; color: #e5e7eb; }
+  body.dark #draftBody:focus { border-color: #93b4ef; }
+  body.dark #errorBox { background: #2a0f0f; border-color: #5a1a1a; }
+  body.dark #errorBox p { color: #f87171; }
+  body.dark #errorBox.auth { background: #2a1f0a; border-color: #78350f; }
+  body.dark #errorBox.auth p { color: #fbbf24; }
+  body.dark #statusMessage.info { background: #1e3a5f; color: #93b4ef; border-color: #2a4d7a; }
+  body.dark #statusMessage.success { background: #0d2a1a; color: #4ade80; border-color: #166534; }
+  body.dark #statusMessage.warn { background: #2a1f0a; color: #fbbf24; border-color: #78350f; }
+  body.dark #statusMessage.error { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
+  body.dark .progress-bar-wrap, body.dark .confidence-bar-wrap { background: #2d3148; }
+  body.dark .settings-group-label { color: #4b5563; }
   body.dark .field-label { color: #6b7280; }
   body.dark .field-value { color: #e5e7eb; }
-  body.dark .btn-link { color: #93b4ef; }
-  body.dark .settings-group-label { color: #4b5563; }
   body.dark .theme-control { background: #252836; }
   body.dark .theme-btn { color: #6b7280; }
   body.dark .theme-btn.active { background: #3a3d52; color: #e5e7eb; }
@@ -230,228 +189,157 @@
   body.dark .login-logo p, body.dark .login-hint { color: #4b5563; }
   body.dark .login-divider::before, body.dark .login-divider::after { background: #2d3148; }
   body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
-  body.dark .empty-state { color: #4b5563; }
-  body.dark .empty-state strong { color: #6b7280; }
-  body.dark .confidence-banner { background: #2a1f0a; border-color: #78350f; }
-  body.dark .confidence-banner-text { color: #fbbf24; }
-  body.dark .confidence-bar { background: #2d3148; }
   body.dark .draft-subject { color: #6b7280; }
-  body.dark .result-value.email { color: #4ade80; background: #0d2a1a; }
-  body.dark .progress-label { color: #4b5563; }
-  body.dark .progress-label.done { color: #4ade80; }
+  body.dark .draft-subject strong { color: #d1d5db; }
 </style>
 </head>
 <body>
 
 <!-- ── Login Screen ── -->
-<div id="login-screen" style="display:none;">
+<div id="loginScreen">
   <div class="login-logo">
     <div class="logo-icon">💼</div>
     <h2>OutreachAI</h2>
-    <p>AI-powered recruiter outreach</p>
+    <p>Draft outreach in seconds</p>
   </div>
   <div class="form-group">
-    <label for="login-email">Work Email</label>
-    <input type="email" id="login-email" placeholder="you@company.com" />
+    <label for="loginEmail">Work email</label>
+    <input type="text" id="loginEmail" placeholder="you@company.com" />
   </div>
-  <button class="btn btn-primary" id="btn-send-magic-link">✉️ Send Magic Link</button>
+  <button class="btn btn-primary" id="btnSendMagicLink">✉️ Send Magic Link</button>
   <div class="login-divider"><span>or</span></div>
-  <button class="btn btn-google" id="btn-google-signin">
+  <button class="btn btn-google" id="btnGoogleSignin">
     <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.9 23.9 0 000 24c0 3.77.9 7.34 2.56 10.52l7.97-5.93z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
     Sign in with Google
   </button>
   <p class="login-hint">Free — 10 lookups/month included.</p>
-  <div id="login-status" class="status" style="margin-top:10px;"></div>
+  <div id="loginStatus" style="margin-top:10px;"></div>
 </div>
 
 <!-- ── Main App ── -->
-<div id="main-app" style="display:none;">
+<div id="mainApp" style="display:none;">
 
   <div class="header">
     <span>💼</span>
     <h1>OutreachAI</h1>
-    <button class="credit-pill" id="credit-pill">— lookups</button>
+    <button class="credit-pill" id="creditPill">— lookups</button>
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="email">✉️ Outreach</div>
+    <div class="tab active" data-tab="outreach">✉️ Draft outreach</div>
     <div class="tab" data-tab="job">📋 Job</div>
     <div class="tab" data-tab="settings">⚙️ Settings</div>
   </div>
 
-  <!-- ══════════════ OUTREACH TAB ══════════════ -->
-  <div class="tab-content active" id="tab-email">
+  <!-- ════════════ OUTREACH TAB ════════════ -->
+  <div class="tab-content active" id="tab-outreach">
 
-    <!-- Not on LinkedIn -->
-    <div id="state-not-linkedin" style="display:none;">
-      <div class="empty-state">
-        <div class="icon">🔗</div>
-        <p>Open a <strong>LinkedIn profile</strong><br>and click the extension to start.</p>
+    <!-- Input section -->
+    <div class="card" id="inputSection">
+      <div class="form-group">
+        <label for="fullNameInput">Full name <span style="color:#dc2626;">*</span></label>
+        <input type="text" id="fullNameInput" placeholder="e.g. Julie Houser" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="companyHintInput">Company <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+        <input type="text" id="companyHintInput" placeholder="e.g. Bristol Myers Squibb" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="userContextInput">Context <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+        <textarea id="userContextInput" placeholder="e.g. Recruiting for senior design leadership at a growth-stage startup…" rows="2"></textarea>
+        <div class="helper-text">Helps personalize the draft.</div>
+      </div>
+      <button class="btn btn-primary" id="generateDraftButton">✨ Generate draft</button>
+      <div style="display:flex;gap:6px;margin-top:7px;">
+        <button class="btn btn-ghost" id="clearButton" style="font-size:12px;">Clear</button>
       </div>
     </div>
 
-    <!-- On LinkedIn — main workflow -->
-    <div id="state-main" style="display:none;">
+    <!-- Status / progress section -->
+    <div id="statusMessage"></div>
 
-      <!-- Candidate identity (read-only) -->
-      <div class="identity-card" id="identity-card">
-        <div class="identity-name" id="identity-name">—</div>
-        <div class="identity-sub" id="identity-sub"></div>
-        <div class="identity-url" id="identity-url" style="display:none;">
-          <a href="#" id="identity-url-link" target="_blank">—</a>
-        </div>
-        <p style="font-size:10.5px;color:#9ca3af;margin-top:5px;">Name read from LinkedIn. Email + role enriched off-platform.</p>
-      </div>
+    <div id="progressSection" style="display:none;" class="card">
+      <div class="progress-step"><div class="progress-dot" id="dotEnrich"></div><div class="progress-label" id="lblEnrich">Looking up contact details…</div></div>
+      <div class="progress-step"><div class="progress-dot" id="dotCompany"></div><div class="progress-label" id="lblCompany">Checking company signals…</div></div>
+      <div class="progress-step"><div class="progress-dot" id="dotDraft"></div><div class="progress-label" id="lblDraft">Writing draft…</div></div>
+    </div>
 
-      <!-- Job context pill -->
-      <div class="job-pill">
-        <div class="job-pill-main">
-          <div class="job-pill-label">Recruiting for</div>
-          <div id="job-pill-content"><span class="job-pill-empty">No job set</span></div>
-        </div>
-        <button class="btn-link" id="btn-edit-job">Edit →</button>
-      </div>
-
-      <!-- ── State: initial — ready to start ── -->
-      <div id="state-initial" style="display:none;">
-        <button class="btn btn-primary" id="btn-prepare-outreach">✨ Prepare Outreach · uses 1 lookup</button>
-        <div id="prepare-status" class="status" style="margin-top:8px;"></div>
-      </div>
-
-      <!-- ── State: running — progressive steps ── -->
-      <div id="state-running" style="display:none;">
-        <div class="progress-card">
-          <div class="progress-step"><div class="progress-dot" id="dot-email"></div><div class="progress-label" id="lbl-email">Finding work email…</div></div>
-          <div class="progress-step"><div class="progress-dot" id="dot-employer"></div><div class="progress-label" id="lbl-employer">Confirming employer…</div></div>
-          <div class="progress-step"><div class="progress-dot" id="dot-title"></div><div class="progress-label" id="lbl-title">Checking public role signals…</div></div>
-          <div class="progress-step"><div class="progress-dot" id="dot-draft"></div><div class="progress-label" id="lbl-draft">Writing draft…</div></div>
-        </div>
-        <div id="running-status" class="status info show"><span class="spinner"></span> Enriching candidate…</div>
-      </div>
-
-      <!-- ── State: ready — outreach package ── -->
-      <div id="state-ready" style="display:none;">
-
-        <!-- Enriched result card -->
-        <div class="result-card">
-          <div class="result-field">
-            <div class="result-label">Work Email</div>
-            <div class="result-value email" id="res-email">—</div>
-          </div>
-          <div class="result-field" id="res-title-row" style="display:none;">
-            <div class="result-label">Inferred Title</div>
-            <div class="result-value" id="res-title">—</div>
-          </div>
-          <div class="result-field" id="res-company-row" style="display:none;">
-            <div class="result-label">Company</div>
-            <div class="result-value" id="res-company">—</div>
-          </div>
-          <div class="result-field" id="res-bullets-row" style="display:none;">
-            <div class="result-label">Messaging angles</div>
-            <ul class="result-bullets" id="res-bullets"></ul>
-          </div>
-        </div>
-
-        <!-- Draft card -->
-        <div class="draft-card" id="draft-card">
-          <div class="draft-card-header">
-            <span class="draft-card-label">✍️ Draft</span>
-            <span class="draft-subject" id="draft-subject-line"></span>
-          </div>
-          <textarea id="email-draft" rows="7"></textarea>
-        </div>
-
-        <!-- Open email — Outlook primary, Gmail secondary -->
-        <div class="open-email-row">
-          <button class="btn-outlook" id="btn-open-outlook">📧 Open in Outlook</button>
-          <button class="btn-gmail" id="btn-open-gmail">Gmail</button>
-        </div>
-
-        <!-- Secondary actions -->
-        <div class="action-row">
-          <button class="btn-small" id="btn-copy-draft">📋 Copy draft</button>
-          <button class="btn-small" id="btn-refresh">↻ Refresh</button>
-          <button class="btn-small" id="btn-alt-draft">Medium draft</button>
-        </div>
-        <div id="ready-status" class="status" style="margin-top:4px;"></div>
-      </div>
-
-      <!-- ── State: low confidence ── -->
-      <div id="state-low-confidence" style="display:none;">
-        <div class="confidence-banner">
-          <div class="confidence-banner-icon">⚠️</div>
-          <div class="confidence-banner-text">
-            <div class="confidence-banner-title" id="lc-title">Low enrichment confidence</div>
-            <div id="lc-reason">We couldn't verify this candidate's details with high confidence.</div>
-          </div>
-        </div>
-        <div class="confidence-meter">
+    <!-- Result summary section -->
+    <div id="resultSummary" class="card">
+      <div class="card-label" style="margin-bottom:10px;">Contact found</div>
+      <div class="result-row"><span class="result-label">Name</span><span class="result-value" id="resName">—</span></div>
+      <div class="result-row" id="resEmailRow"><span class="result-label">Email</span><span class="result-value" id="resEmail">—</span></div>
+      <div class="result-row" id="resCompanyRow" style="display:none;"><span class="result-label">Company</span><span class="result-value" id="resCompany">—</span></div>
+      <div class="result-row" id="resTitleRow" style="display:none;"><span class="result-label">Title</span><span class="result-value" id="resTitle">—</span></div>
+      <div style="margin-top:10px;">
+        <div class="confidence-row">
           <span class="confidence-label">Confidence</span>
-          <div class="confidence-bar"><div class="confidence-fill low" id="lc-bar" style="width:0%"></div></div>
-          <span class="confidence-pct" id="lc-pct">0%</span>
+          <div class="confidence-bar-wrap"><div class="confidence-fill" id="confFill" style="width:0%"></div></div>
+          <span class="confidence-badge" id="confBadge">—</span>
         </div>
-        <button class="btn btn-secondary" id="btn-open-partial-draft" style="margin-bottom:7px;">Open partial draft anyway</button>
-        <button class="btn btn-secondary" id="btn-retry-lc">↻ Retry enrichment · uses 1 lookup</button>
+        <div id="confNote" style="font-size:11px;color:#9ca3af;margin-top:3px;"></div>
       </div>
-
-      <!-- ── State: no email found ── -->
-      <div id="state-no-email" style="display:none;">
-        <div class="status error show" style="margin-bottom:8px;">No work email found for this candidate.</div>
-        <button class="btn btn-secondary" id="btn-retry-lookup">↻ Retry email lookup · uses 1 lookup</button>
-      </div>
-
-      <!-- ── State: error ── -->
-      <div id="state-error" style="display:none;">
-        <div class="status error show" id="error-message" style="margin-bottom:8px;">Something went wrong.</div>
-        <button class="btn btn-secondary" id="btn-retry-error" style="margin-bottom:7px;">↻ Try again</button>
-        <button class="btn btn-danger" id="btn-error-signout" style="display:none;">Sign out and sign in again</button>
-      </div>
-
     </div>
+
+    <!-- Draft section -->
+    <div id="draftOutput" class="card">
+      <div class="card-label" style="margin-bottom:6px;">Draft</div>
+      <div class="draft-subject" id="draftSubjectLine"></div>
+      <textarea id="draftBody" rows="7" spellcheck="true"></textarea>
+      <div class="open-email-row">
+        <button class="btn btn-outlook" id="btnOpenOutlook">📧 Outlook</button>
+        <button class="btn btn-gmail" id="btnOpenGmail">Gmail</button>
+      </div>
+      <div class="copy-row">
+        <button class="btn btn-ghost" id="btnCopyDraft" style="font-size:12px;">📋 Copy draft</button>
+        <button class="btn btn-ghost" id="retryButton" style="font-size:12px;">↻ Try again</button>
+      </div>
+    </div>
+
+    <!-- Error box -->
+    <div id="errorBox">
+      <p id="errorMessage">Something went wrong.</p>
+      <button class="btn btn-secondary" id="retryButton2" style="margin-bottom:7px;">↻ Try again</button>
+      <button class="btn btn-danger" id="authRecoveryButton" style="display:none;">Sign out and sign in again</button>
+    </div>
+
   </div>
 
-  <!-- ══════════════ JOB TAB ══════════════ -->
+  <!-- ════════════ JOB TAB ════════════ -->
   <div class="tab-content" id="tab-job">
     <div class="card">
       <div class="card-label">🔗 Import from URL</div>
       <div class="form-group">
-        <label for="job-url">Job posting URL</label>
-        <input type="text" id="job-url" placeholder="Paste a job posting link…" />
+        <label for="jobUrl">Job posting URL</label>
+        <input type="text" id="jobUrl" placeholder="Paste a job posting link…" />
       </div>
-      <button class="btn btn-primary" id="btn-extract-job">Extract job details</button>
-      <div id="extract-status" class="status" style="margin-top:8px;"></div>
+      <button class="btn btn-primary" id="btnExtractJob">Extract details</button>
+      <div id="extractStatus" style="margin-top:8px;"></div>
     </div>
     <div class="card">
-      <div class="card-label">📋 Job Details <span style="font-size:10px;font-weight:400;color:#9ca3af;text-transform:none;letter-spacing:0;">&nbsp;— edit as needed</span></div>
+      <div class="card-label">📋 Role details <span style="font-size:10px;font-weight:400;color:#9ca3af;text-transform:none;letter-spacing:0;">&nbsp;— used in draft context</span></div>
+      <div class="form-group"><label for="jobTitle">Role title</label><input type="text" id="jobTitle" placeholder="e.g. Senior Software Engineer" /></div>
+      <div class="form-group"><label for="jobCompany">Hiring company</label><input type="text" id="jobCompany" placeholder="e.g. Acme Corp" /></div>
       <div class="form-group">
-        <label for="job-title">Role title</label>
-        <input type="text" id="job-title" placeholder="e.g. Senior Software Engineer" />
+        <label for="jobDescription">Role highlights</label>
+        <textarea id="jobDescription" rows="4" placeholder="e.g. Remote-first, $180k–$220k, mission-driven…"></textarea>
+        <div class="helper-text">Key selling points for outreach.</div>
       </div>
-      <div class="form-group">
-        <label for="job-company">Hiring company</label>
-        <input type="text" id="job-company" placeholder="e.g. Acme Corp" />
-      </div>
-      <div class="form-group">
-        <label for="job-description">Role highlights for outreach</label>
-        <textarea class="input-field" id="job-description" rows="4" placeholder="e.g. Remote-first, $180k–$220k, Series B…"></textarea>
-        <div class="helper-text">Examples: remote, salary range, mission, team stage, why this role is exciting.</div>
-      </div>
-      <button class="btn btn-primary" id="btn-save-job">Save job</button>
-      <div id="job-status" class="status" style="margin-top:8px;"></div>
+      <button class="btn btn-primary" id="btnSaveJob">Save job context</button>
+      <div id="jobStatus" style="margin-top:8px;"></div>
     </div>
   </div>
 
-  <!-- ══════════════ SETTINGS TAB ══════════════ -->
+  <!-- ════════════ SETTINGS TAB ════════════ -->
   <div class="tab-content" id="tab-settings">
     <div class="settings-group">
       <div class="settings-group-label">Account</div>
       <div class="card">
-        <div class="field"><div class="field-label">Email</div><div class="field-value" id="settings-email">—</div></div>
-        <div class="field"><div class="field-label">Plan</div><div class="field-value"><span class="plan-badge free" id="settings-plan-badge">Free</span></div></div>
-        <div class="field"><div class="field-label">Email lookups used</div><div class="field-value" id="settings-lookups">—</div></div>
-        <div class="field"><div class="field-label">AI runs used</div><div class="field-value" id="settings-ai-runs">—</div></div>
-        <button class="btn btn-secondary" id="btn-upgrade" style="margin-top:10px;">⬆️ Upgrade plan</button>
-        <button class="btn btn-danger" id="btn-sign-out" style="margin-top:7px;">Sign out</button>
+        <div class="field"><div class="field-label">Email</div><div class="field-value" id="settingsEmail">—</div></div>
+        <div class="field"><div class="field-label">Plan</div><div class="field-value"><span class="plan-badge free" id="settingsPlanBadge">Free</span></div></div>
+        <div class="field"><div class="field-label">Lookups used</div><div class="field-value" id="settingsLookups">—</div></div>
+        <button class="btn btn-secondary" id="btnUpgrade" style="margin-top:10px;">⬆️ Upgrade plan</button>
+        <button class="btn btn-danger" id="btnSignOut" style="margin-top:7px;">Sign out</button>
       </div>
     </div>
     <div class="settings-group">
@@ -466,18 +354,12 @@
       </div>
     </div>
     <div class="settings-group">
-      <div class="settings-group-label">Recruiter identity <span style="font-size:10px;font-weight:400;text-transform:none;color:#9ca3af;">(used in outreach drafts)</span></div>
+      <div class="settings-group-label">Recruiter identity <span style="font-size:10px;font-weight:400;text-transform:none;color:#9ca3af;">(used in drafts)</span></div>
       <div class="card">
-        <div class="form-group">
-          <label for="pref-name">Your name</label>
-          <input type="text" id="pref-name" placeholder="e.g. Sarah Johnson" />
-        </div>
-        <div class="form-group">
-          <label for="pref-title">Your title</label>
-          <input type="text" id="pref-title" placeholder="e.g. Technical Recruiter at Acme" />
-        </div>
-        <button class="btn btn-secondary" id="btn-save-prefs">Save</button>
-        <div id="prefs-status" class="status" style="margin-top:8px;"></div>
+        <div class="form-group"><label for="prefName">Your name</label><input type="text" id="prefName" placeholder="e.g. Sarah Johnson" /></div>
+        <div class="form-group"><label for="prefTitle">Your title</label><input type="text" id="prefTitle" placeholder="e.g. Technical Recruiter at Acme" /></div>
+        <button class="btn btn-secondary" id="btnSavePrefs">Save</button>
+        <div id="prefsStatus" style="margin-top:8px;"></div>
       </div>
     </div>
   </div>

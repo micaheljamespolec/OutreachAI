@@ -18,8 +18,14 @@
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/in/*", "https://www.linkedin.com/talent/*", "https://www.linkedin.com/recruiter/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.linkedin.com/in/*",
+        "https://www.linkedin.com/talent/*",
+        "https://www.linkedin.com/recruiter/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -38,5 +44,16 @@
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "auth.html",
+        "icons/*"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
