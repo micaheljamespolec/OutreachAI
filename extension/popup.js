@@ -1,13 +1,14 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCreditsData, enrichAndDraft, summarizeJob, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
+import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
 // States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
 let _state = 'IDLE'
 let _lastResult = null
 let _linkedinUrl = null
+let _isBookmarked = false
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id)
@@ -191,6 +192,148 @@ function renderResult(result) {
   })
 }
 
+// ── Profile tab: populate after enrichment ────────────────────────────────────
+function populateProfileTab(result) {
+  const { person, fromCache, isBookmarked } = result
+  _isBookmarked = isBookmarked ?? false
+
+  // Hide empty state, show card
+  showSection('profileEmpty', false)
+  $('profileCard').style.display = 'block'
+
+  // Cache badge
+  const cacheBadge = $('profileCacheBadge')
+  if (cacheBadge) cacheBadge.style.display = fromCache ? 'inline-block' : 'none'
+
+  // Name
+  $('profName').textContent = person.fullName || '—'
+
+  // Email with work / personal badge
+  const emailEl = $('profEmail')
+  if (person.email) {
+    const isWork = !!person.workEmail
+    emailEl.innerHTML = `<span class="result-value email-found">${person.email}</span>` +
+      `<span style="font-size:10px;margin-left:5px;padding:1px 5px;border-radius:10px;font-weight:600;background:${isWork ? '#dcfce7' : '#fef3c7'};color:${isWork ? '#166534' : '#92400e'};">${isWork ? 'work' : 'personal'}</span>`
+    $('profEmailRow').style.display = 'flex'
+  } else {
+    emailEl.textContent = 'Not found'
+    $('profEmailRow').style.display = 'flex'
+  }
+
+  // Title with verified/unverified badge
+  if (person.title) {
+    const titleEl = $('profTitle')
+    titleEl.textContent = person.title
+    if (person.titleVerified === false) {
+      const badge = document.createElement('span')
+      badge.textContent = 'unverified'
+      badge.style.cssText = 'font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
+      titleEl.appendChild(badge)
+    }
+    $('profTitleRow').style.display = 'flex'
+  } else {
+    $('profTitleRow').style.display = 'none'
+  }
+
+  // Company
+  if (person.company) {
+    $('profCompany').textContent = person.company
+    $('profCompanyRow').style.display = 'flex'
+  } else {
+    $('profCompanyRow').style.display = 'none'
+  }
+
+  // LinkedIn URL (truncated for display)
+  const urlEl = $('profUrl')
+  if (_linkedinUrl) {
+    urlEl.textContent = _linkedinUrl.replace('https://www.linkedin.com/', 'linkedin.com/').replace('https://linkedin.com/', 'linkedin.com/')
+    urlEl.title = _linkedinUrl
+  }
+
+  // Bookmark button state
+  updateBookmarkButton()
+}
+
+function updateBookmarkButton() {
+  const btn = $('btnBookmark')
+  if (!btn) return
+  btn.textContent = _isBookmarked ? '✅ Saved' : '🔖 Save profile'
+  btn.className = _isBookmarked ? 'btn btn-ghost' : 'btn btn-ghost'
+  btn.style.cssText = _isBookmarked
+    ? 'font-size:11px;padding:4px 9px;width:auto;background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;'
+    : 'font-size:11px;padding:4px 9px;width:auto;'
+}
+
+// ── Profile tab: saved profiles list ─────────────────────────────────────────
+async function loadSavedProfiles() {
+  const listEl = $('savedProfilesList')
+  if (!listEl) return
+  try {
+    const { profiles } = await getSavedProfiles()
+    const emptyEl = $('savedProfilesEmpty')
+
+    if (!profiles || profiles.length === 0) {
+      if (emptyEl) emptyEl.style.display = 'block'
+      return
+    }
+    if (emptyEl) emptyEl.style.display = 'none'
+
+    // Remove old rows (keep the empty message el)
+    listEl.querySelectorAll('.saved-profile-row').forEach(el => el.remove())
+
+    for (const p of profiles) {
+      const row = document.createElement('div')
+      row.className = 'saved-profile-row'
+      const meta = p.company ? `${p.company}` : (p.work_email || p.personal_email || '')
+      row.innerHTML = `<span class="saved-profile-name">${p.full_name || '—'}</span><span class="saved-profile-meta">${meta}</span>`
+      row.addEventListener('click', () => {
+        // Load this saved profile into the outreach tab ready to generate
+        _linkedinUrl = p.linkedin_url
+        if ($('fullNameInput'))    $('fullNameInput').value    = p.full_name    || ''
+        if ($('companyHintInput')) $('companyHintInput').value = p.company      || ''
+        setStatus(`Loaded ${p.full_name} — click Generate draft to use cached data.`, 'info')
+        // Switch to outreach tab
+        document.querySelector('.tab[data-tab="outreach"]')?.click()
+      })
+      listEl.appendChild(row)
+    }
+  } catch (e) {
+    console.warn('loadSavedProfiles failed:', e)
+  }
+}
+
+// ── Profile tab setup ─────────────────────────────────────────────────────────
+function setupProfileTab() {
+  // Bookmark toggle
+  $('btnBookmark')?.addEventListener('click', async () => {
+    if (!_linkedinUrl) return
+    const newState = !_isBookmarked
+    const btn = $('btnBookmark')
+    btn.disabled = true
+    try {
+      await bookmarkProfile({ linkedinUrl: _linkedinUrl, save: newState })
+      _isBookmarked = newState
+      updateBookmarkButton()
+      const statusEl = $('bookmarkStatus')
+      if (statusEl) {
+        statusEl.textContent = newState ? 'Profile saved to your list.' : 'Profile removed from saved list.'
+        statusEl.style.color = newState ? '#16a34a' : '#9ca3af'
+        setTimeout(() => { statusEl.textContent = '' }, 2500)
+      }
+      // Refresh saved list
+      await loadSavedProfiles()
+    } catch (e) {
+      const statusEl = $('bookmarkStatus')
+      if (statusEl) { statusEl.textContent = 'Could not save — try again.'; statusEl.style.color = '#dc2626' }
+    } finally {
+      btn.disabled = false
+    }
+  })
+
+  // Load bookmarked profiles on init
+  loadSavedProfiles()
+}
+
 // ── Core flow ─────────────────────────────────────────────────────────────────
 async function generateDraftFlow() {
   const companyHint    = $('companyHintInput').value.trim() || null
@@ -250,6 +393,7 @@ async function generateDraftFlow() {
     }
 
     renderResult(result)
+    populateProfileTab(result)
 
     // Cache result by LinkedIn URL
     const cacheKey = `outreach_${_linkedinUrl.replace(/[^a-z0-9]/gi, '_').slice(-60)}`
@@ -412,6 +556,7 @@ async function showMainApp(user) {
   // Settings
   await setupSettingsTab(user)
   setupJobTab()
+  setupProfileTab()
 }
 
 // ── Job tab ───────────────────────────────────────────────────────────────────

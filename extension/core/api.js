@@ -84,6 +84,22 @@ export async function summarizeJob({ rawText, jobTitle, company }) {
   })
 }
 
+// ── Bookmark (or un-bookmark) a saved profile ─────────────────────────────────
+export async function bookmarkProfile({ linkedinUrl, save = true }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'bookmark-profile', linkedinUrl, save }),
+  })
+}
+
+// ── Fetch all bookmarked profiles for the current user ────────────────────────
+export async function getSavedProfiles() {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'get-saved-profiles' }),
+  })
+}
+
 // ── Credits ───────────────────────────────────────────────────────────────────
 export async function getCreditsData() {
   const token = await getAccessToken()

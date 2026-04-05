@@ -191,6 +191,17 @@
   body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
   body.dark .draft-subject { color: #6b7280; }
   body.dark .draft-subject strong { color: #d1d5db; }
+
+  /* ── Profile tab ── */
+  .saved-profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 6px; cursor: pointer; transition: background 0.12s; }
+  .saved-profile-row:hover { background: #f0f7ff; border-color: #bfdbfe; }
+  .saved-profile-row:last-child { margin-bottom: 0; }
+  .saved-profile-name { font-size: 12.5px; font-weight: 600; color: #111827; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-profile-meta { font-size: 11px; color: #9ca3af; flex-shrink: 0; }
+  body.dark .saved-profile-row { background: #1a1d2e; border-color: #2d3148; }
+  body.dark .saved-profile-row:hover { background: #1e2a40; border-color: #3b5a8a; }
+  body.dark .saved-profile-name { color: #e5e7eb; }
+  body.dark #profileCacheBadge { background: #1e3a5f; color: #93b4ef; }
 </style>
 </head>
 <body>
@@ -226,7 +237,8 @@
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="outreach">✉️ Draft outreach</div>
+    <div class="tab active" data-tab="outreach">✉️ Draft</div>
+    <div class="tab" data-tab="profile">👤 Profile</div>
     <div class="tab" data-tab="job">📋 Job</div>
     <div class="tab" data-tab="settings">⚙️ Settings</div>
   </div>
@@ -301,6 +313,42 @@
       <p id="errorMessage">Something went wrong.</p>
       <button class="btn btn-secondary" id="retryButton2" style="margin-bottom:7px;">↻ Try again</button>
       <button class="btn btn-danger" id="authRecoveryButton" style="display:none;">Sign out and sign in again</button>
+    </div>
+
+  </div>
+
+  <!-- ════════════ PROFILE TAB ════════════ -->
+  <div class="tab-content" id="tab-profile">
+
+    <!-- Empty state: shown before any enrichment -->
+    <div id="profileEmpty" class="card" style="text-align:center;padding:20px 13px;">
+      <div style="font-size:28px;margin-bottom:8px;">👤</div>
+      <div style="font-size:13px;color:#6b7280;line-height:1.5;">Open a LinkedIn profile and click <strong>Generate draft</strong> to see candidate details here.</div>
+    </div>
+
+    <!-- Populated profile card: shown after enrichment -->
+    <div id="profileCard" class="card" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="card-label" style="margin-bottom:0;">Candidate</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="profileCacheBadge" style="display:none;font-size:10px;background:#eff6ff;color:#1d4ed8;padding:2px 7px;border-radius:10px;font-weight:600;">From cache</span>
+          <button id="btnBookmark" class="btn btn-ghost" style="font-size:11px;padding:4px 9px;width:auto;">🔖 Save profile</button>
+        </div>
+      </div>
+      <div class="result-row"><span class="result-label">Name</span><span class="result-value" id="profName">—</span></div>
+      <div class="result-row" id="profEmailRow"><span class="result-label">Email</span><span class="result-value" id="profEmail">—</span></div>
+      <div class="result-row" id="profTitleRow" style="display:none;"><span class="result-label">Title</span><span class="result-value" id="profTitle">—</span></div>
+      <div class="result-row" id="profCompanyRow" style="display:none;"><span class="result-label">Company</span><span class="result-value" id="profCompany">—</span></div>
+      <div class="result-row" style="margin-top:6px;"><span class="result-label" style="color:#c4b5fd;">LinkedIn</span><span style="font-size:11px;color:#6b7280;word-break:break-all;" id="profUrl">—</span></div>
+      <div id="bookmarkStatus" style="margin-top:8px;font-size:11px;color:#16a34a;"></div>
+    </div>
+
+    <!-- Saved profiles list -->
+    <div id="savedProfilesSection">
+      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#9ca3af;margin:10px 0 6px;padding:0 2px;">Saved profiles</div>
+      <div id="savedProfilesList">
+        <div style="font-size:12px;color:#9ca3af;text-align:center;padding:12px 0;" id="savedProfilesEmpty">No saved profiles yet.</div>
+      </div>
     </div>
 
   </div>

@@ -245,11 +245,46 @@ Format as short bullet points starting with "•", max 15 words each.
 Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.`
 
       const summary = await callAnthropic(anthropicKey, 'claude-haiku-4-5', 400, prompt)
-      // callAnthropic returns '{}' on failure — surface a clear error in that case
       if (!summary || summary === '{}') return json({ error: { code: 'SUMMARY_FAILED', message: 'Could not summarize job posting.' } }, 500)
       return json({ summary })
     }
 
+    // ── Bookmark-profile action ────────────────────────────────────────────────
+    if (action === 'bookmark-profile') {
+      const linkedinUrl = (body.linkedinUrl || '').trim()
+      const save        = body.save !== false  // default true
+      if (!linkedinUrl) return json({ error: { code: 'MISSING_INPUT', message: 'linkedinUrl is required.' } }, 400)
+
+      const { error: upsertErr } = await db.from('saved_profiles')
+        .upsert(
+          { user_id: user.id, linkedin_url: linkedinUrl, is_bookmarked: save, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false }
+        )
+
+      if (upsertErr) {
+        console.error('bookmark-profile upsert failed:', upsertErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not update bookmark.' } }, 500)
+      }
+      return json({ bookmarked: save })
+    }
+
+    // ── Get-saved-profiles action ──────────────────────────────────────────────
+    if (action === 'get-saved-profiles') {
+      const { data: profiles, error: fetchErr } = await db.from('saved_profiles')
+        .select('id, linkedin_url, full_name, work_email, personal_email, title, company, title_verified, email_status, enriched_at, is_bookmarked')
+        .eq('user_id', user.id)
+        .eq('is_bookmarked', true)
+        .order('updated_at', { ascending: false })
+        .limit(20)
+
+      if (fetchErr) {
+        console.error('get-saved-profiles fetch failed:', fetchErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not load saved profiles.' } }, 500)
+      }
+      return json({ profiles: profiles || [] })
+    }
+
+    // ── Enrich-and-draft action ────────────────────────────────────────────────
     const linkedinUrl = body.linkedinUrl?.trim() || null
     const companyHint = body.companyHint?.trim() || null
     const userContext = body.userContext?.trim() || null
@@ -257,14 +292,88 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
 
     if (!linkedinUrl) return json({ error: { code: 'NO_LINKEDIN_URL', message: 'Open a LinkedIn profile to generate a draft.' } }, 400)
 
+    // ── Cache lookup: check saved_profiles before hitting FullEnrich ──────────
+    const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    const { data: cached } = await db.from('saved_profiles')
+      .select('full_name, work_email, personal_email, title, company, title_verified, email_status, is_bookmarked, enriched_at')
+      .eq('user_id', user.id)
+      .eq('linkedin_url', linkedinUrl)
+      .or(`is_bookmarked.eq.true,enriched_at.gte.${cacheWindow}`)
+      .limit(1)
+      .maybeSingle()
+
+    if (cached && cached.full_name) {
+      // Serve from cache — skip FullEnrich entirely
+      const fullName     = cached.full_name
+      const work_email   = cached.work_email || null
+      const personal_email = cached.personal_email || null
+      const selectedEmail  = work_email || personal_email || null
+      const company        = companyHint || cached.company || null
+      const title          = cached.title || null
+      const titleVerified  = cached.title_verified ?? false
+      const emailStatus    = (cached.email_status as 'found' | 'not_found' | 'uncertain') || 'not_found'
+
+      const personConfidence  = 0.95
+      const companyConfidence = company ? 0.90 : 0.3
+      const titleConfidence   = title ? (titleVerified ? 0.90 : 0.40) : 0
+
+      const draftConfidence = computeDraftConfidence(
+        personConfidence, companyConfidence, titleConfidence,
+        emailStatus, (userContext || '').length
+      )
+
+      let status: 'success' | 'partial' | 'not_enough_data' = 'success'
+      if (!selectedEmail && !company) status = 'not_enough_data'
+      else if (!selectedEmail || titleConfidence < 0.3) status = 'partial'
+
+      let draft: { subject: string; body: string } | null = null
+      if (status !== 'not_enough_data' && anthropicKey) {
+        try {
+          draft = await generateDraft(
+            fullName, company, title, titleVerified,
+            selectedEmail, userContext,
+            draftConfidence, anthropicKey
+          )
+        } catch (e) { console.error('Draft generation (cache) failed:', e) }
+      }
+
+      if (!draft && status !== 'not_enough_data') {
+        return json({ error: { code: 'DRAFT_GENERATION_FAILED', message: 'Contact details were found, but the draft could not be generated.' } }, 500)
+      }
+
+      return json({
+        status,
+        fromCache: true,
+        isBookmarked: cached.is_bookmarked ?? false,
+        person: {
+          fullName,
+          company,
+          title,
+          titleVerified,
+          email:         selectedEmail,
+          workEmail:     work_email,
+          personalEmail: personal_email,
+          emailStatus,
+        },
+        confidence: {
+          personConfidence,
+          companyConfidence,
+          titleConfidence,
+          draftConfidence,
+        },
+        sources: [{ type: 'saved_profile', label: 'From saved profile (cached)', confidence: 0.95 }],
+        draft: draft || null,
+      })
+    }
+
+    // ── Fresh enrichment ──────────────────────────────────────────────────────
     const sources: any[] = []
     let personConfidence = 0.5
 
-    // ── Stage 1: FullEnrich v2 — LinkedIn URL → email, name, title, company ──
     let fullName: string = fullNameHint || ''
     let work_email: string | null = null
     let personal_email: string | null = null
-    let selectedEmail: string | null = null   // work_email first, personal_email fallback
+    let selectedEmail: string | null = null
     let company: string | null = companyHint || null
     let companyDomain: string | null = null
     let providerTitle: string | null = null
@@ -281,7 +390,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         enrichRaw    = enrichResult.raw
         enrichStatus = 200
 
-        // Name: prefer FullEnrich result; fall back to hint
         if (enrichResult.full_name) {
           fullName = enrichResult.full_name
           personConfidence = 0.95
@@ -291,12 +399,9 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         personal_email = enrichResult.personal_email
         selectedEmail  = work_email || personal_email || null
         emailStatus    = work_email ? 'found' : personal_email ? 'uncertain' : 'not_found'
-        // Use work email domain first for company resolution — it's the definitive employer signal
-        // Fall back to personal email domain only if no work email exists
         if (work_email) emailDomain = work_email.split('@')[1] || null
         else if (personal_email) emailDomain = personal_email.split('@')[1] || null
 
-        // Company: prefer FullEnrich result, then domain, then hint
         if (enrichResult.company) {
           company = enrichResult.company
           companyDomain = enrichResult.company_domain
@@ -305,7 +410,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
           companyDomain = enrichResult.company_domain
         }
 
-        // Title from FullEnrich (most reliable — their own data)
         if (enrichResult.title) {
           providerTitle = enrichResult.title
           titleVerified = true
@@ -331,10 +435,9 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       console.warn('FULLENRICH_API_KEY not set — skipping enrichment')
     }
 
-    // Require at least a name to continue
     if (!fullName) return json({ error: { code: 'NOT_ENOUGH_DATA', message: 'Could not identify this person. Try again or check the LinkedIn profile URL.' } }, 422)
 
-    // ── Stage 2: Company resolution from work email domain (if needed) ────────
+    // ── Stage 2: Company resolution ────────────────────────────────────────────
     if (emailDomain && !company) {
       try {
         const emp = await resolveEmployer(emailDomain, db, anthropicKey)
@@ -344,7 +447,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       } catch (e) { console.error('Employer resolution failed:', e) }
     }
 
-    // Also resolve from FullEnrich company_domain if we still have no company
     if (companyDomain && !company) {
       try {
         const emp = await resolveEmployer(companyDomain, db, anthropicKey)
@@ -354,7 +456,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       } catch (e) { console.error('Company domain resolution failed:', e) }
     }
 
-    // ── Stage 3: Title — use FullEnrich result or fall back to Claude ─────────
+    // ── Stage 3: Title ─────────────────────────────────────────────────────────
     let title: string | null = providerTitle
     let titleConfidence = providerTitle ? 0.90 : 0
 
@@ -370,7 +472,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       } catch (e) { console.error('Title fallback failed:', e) }
     }
 
-    // ── Stage 4: Confidence ───────────────────────────────────────────────────
+    // ── Stage 4: Confidence ────────────────────────────────────────────────────
     const draftConfidence = computeDraftConfidence(
       personConfidence, companyConfidence, titleConfidence,
       emailStatus, (userContext || '').length
@@ -380,7 +482,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     if (!selectedEmail && !company) status = 'not_enough_data'
     else if (!selectedEmail || titleConfidence < 0.3) status = 'partial'
 
-    // ── Stage 5: Draft ────────────────────────────────────────────────────────
+    // ── Stage 5: Draft ─────────────────────────────────────────────────────────
     let draft: { subject: string; body: string } | null = null
     if (status !== 'not_enough_data' && anthropicKey) {
       try {
@@ -396,7 +498,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ error: { code: 'DRAFT_GENERATION_FAILED', message: 'Contact details were found, but the draft could not be generated.' } }, 500)
     }
 
-    // ── Stage 6: Persist (non-fatal) ──────────────────────────────────────────
+    // ── Stage 6: Persist outreach_runs ─────────────────────────────────────────
     let runId: string | null = null
     try {
       const { data: run } = await db.from('outreach_runs').insert({
@@ -420,17 +522,37 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       runId = run?.id ?? null
     } catch (e) { console.error('outreach_runs insert failed (non-fatal):', e) }
 
-    // ── Response ──────────────────────────────────────────────────────────────
+    // ── Stage 7: Upsert into saved_profiles cache ──────────────────────────────
+    try {
+      await db.from('saved_profiles').upsert({
+        user_id:        user.id,
+        linkedin_url:   linkedinUrl,
+        full_name:      fullName,
+        work_email:     work_email || null,
+        personal_email: personal_email || null,
+        title:          title || null,
+        company:        company || null,
+        title_verified: titleVerified,
+        email_status:   emailStatus,
+        enriched_at:    new Date().toISOString(),
+        updated_at:     new Date().toISOString(),
+        // Do NOT reset is_bookmarked — preserve any existing bookmark state
+      }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
+    } catch (e) { console.error('saved_profiles upsert failed (non-fatal):', e) }
+
+    // ── Response ───────────────────────────────────────────────────────────────
     return json({
       status,
+      fromCache: false,
+      isBookmarked: false,
       runId,
       person: {
         fullName,
-        company:      company || null,
-        title:        title || null,
+        company:       company || null,
+        title:         title || null,
         titleVerified,
-        email:        selectedEmail || null,   // work email first, personal email fallback
-        workEmail:    work_email || null,
+        email:         selectedEmail || null,
+        workEmail:     work_email || null,
         personalEmail: personal_email || null,
         emailStatus,
       },
