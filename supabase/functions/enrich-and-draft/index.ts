@@ -285,12 +285,14 @@ Deno.serve(async (req: Request) => {
         enrichStatus = 500
         sources.push({ type: 'fullenrich_v2', label: 'Enrichment unavailable', confidence: 0 })
       } finally {
-        await db.from('enrichment_debug_logs').insert({
-          user_id: user.id, provider: 'fullenrich_v2',
-          request_payload: { linkedin_url: linkedinUrl, company_hint: companyHint },
-          response_payload: enrichRaw,
-          status_code: enrichStatus,
-        }).catch(() => {})
+        try {
+          await db.from('enrichment_debug_logs').insert({
+            user_id: user.id, provider: 'fullenrich_v2',
+            request_payload: { linkedin_url: linkedinUrl, company_hint: companyHint },
+            response_payload: enrichRaw,
+            status_code: enrichStatus,
+          })
+        } catch {}
       }
     } else {
       console.warn('FULLENRICH_API_KEY not set — skipping enrichment')
@@ -410,8 +412,7 @@ Deno.serve(async (req: Request) => {
     })
 
   } catch (e: any) {
-    const msg = String(e?.message || e || 'unknown')
-    console.error('enrich-and-draft error:', msg, e?.stack || '')
-    return json({ error: { code: 'UNKNOWN_ERROR', message: `Debug: ${msg}` } }, 500)
+    console.error('enrich-and-draft error:', String(e?.message || e), e?.stack || '')
+    return json({ error: { code: 'UNKNOWN_ERROR', message: 'Something went wrong. Please try again.' } }, 500)
   }
 })
