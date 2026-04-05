@@ -448,29 +448,45 @@ function setupJobTab() {
         const res = await chrome.scripting.executeScript({
           target: { tabId: jobTab.id },
           func: () => {
-            // Structured extraction — prefer semantic elements over raw body text
-            const h1 = document.querySelector('h1')?.innerText?.trim() || ''
+            // ── 1. JSON-LD structured data (most reliable — used by Google Careers, Greenhouse, Lever, etc.)
+            let ldTitle = '', ldCompany = '', ldDescription = ''
+            try {
+              const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
+              for (const s of scripts) {
+                let data
+                try { data = JSON.parse(s.textContent) } catch { continue }
+                // Handle both direct objects and @graph arrays
+                const nodes = data?.['@graph'] ? data['@graph'] : [data]
+                const job = nodes.find(n => n?.['@type'] === 'JobPosting')
+                if (job) {
+                  ldTitle   = job.title || ''
+                  ldCompany = job.hiringOrganization?.name || ''
+                  // Strip HTML tags from description
+                  const raw = job.description || ''
+                  const tmp = document.createElement('div')
+                  tmp.innerHTML = raw
+                  ldDescription = (tmp.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 500)
+                  break
+                }
+              }
+            } catch {}
+
+            // ── 2. Fallback meta signals
             const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || ''
+            const ogSite  = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
             const pageTitle = document.title?.trim() || ''
 
-            // Company from og:site_name or meta author
-            const ogSite = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
-
-            // Prefer main content area over full body (avoids sidebars with other job listings)
-            const mainEl = document.querySelector('main, article, [role="main"], #main-content, .job-description, .job-details, [class*="jobDescription"], [class*="job-description"]')
+            // ── 3. Fallback body text (main content area only)
+            const mainEl = document.querySelector('main, article, [role="main"], #main-content')
             const sourceEl = mainEl || document.body
+            const NAV = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4}|related jobs?|more jobs?|similar jobs?|you may also)$/i
+            const bodyLines = (sourceEl?.innerText || '').split('\n')
+              .map(l => l.trim()).filter(l => l.length > 30 && !NAV.test(l))
+            const bodyText = bodyLines.join('\n')
+            const descAnchor = bodyText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|the role|job summary/i)
+            const bodyDesc = (descAnchor > -1 ? bodyText.slice(descAnchor) : bodyText).slice(0, 500)
 
-            const NAV_WORDS = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4}|related jobs?|more jobs?|similar jobs?|you may also)$/i
-            const lines = (sourceEl?.innerText || '').split('\n')
-              .map(l => l.trim())
-              .filter(l => l.length > 30 && !NAV_WORDS.test(l))
-            const cleanText = lines.join('\n')
-
-            // Also look for a description-start anchor (common in structured job pages)
-            const descStart = cleanText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|the role|job summary|overview/i)
-            const focused = descStart > -1 ? cleanText.slice(descStart) : cleanText
-
-            return { h1, ogTitle, pageTitle, ogSite, cleanText: focused.slice(0, 2000), url: location.href }
+            return { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, bodyDesc, url: location.href }
           }
         })
         scraped = res?.[0]?.result ?? null
@@ -479,60 +495,37 @@ function setupJobTab() {
 
       if (!scraped) { statusEl.textContent = 'Could not read that page.'; btn.disabled = false; return }
 
-      const { h1, ogTitle, pageTitle, ogSite, cleanText, url: pageUrl } = scraped
+      const { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, bodyDesc, url: pageUrl } = scraped
 
-      // Generic h1 values that are page chrome, not actual job titles
-      const GENERIC_HEADINGS = /^(job details?|job description|apply( now)?|about this role|overview|position|open role|career opportunity|careers|current opening|job posting|view job|this role|the role|the position)$/i
-
-      // ── Title: ranked by reliability ──────────────────────────────────────
+      // ── Title priority: JSON-LD → og:title → page title → URL slug ────────
+      const GENERIC = /^(job details?|job description|apply( now)?|about this role|overview|position|open role|career opportunity|careers|current opening|job posting|view job)$/i
       let jobTitle = ''
-      // 1. h1 — only if it's a real title, not a generic page header
-      if (h1 && h1.length > 3 && h1.length < 120 && !/^\$/.test(h1) && !GENERIC_HEADINGS.test(h1)) jobTitle = h1
-      // 2. og:title (strip " | Company" and " - Site" suffixes)
+      if (ldTitle && !GENERIC.test(ldTitle.trim())) jobTitle = ldTitle.trim()
       if (!jobTitle && ogTitle) jobTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      // 3. Page title (strip " - Google Careers" etc.)
       if (!jobTitle && pageTitle) jobTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      // 4. Slug from URL (e.g. software-engineer-cloud-platforms-infrastructure)
       if (!jobTitle) {
-        const parts = pageUrl.split('/')
-        // Find the last non-numeric path segment that looks like a slug
-        const slug = [...parts].reverse().find(p => /[a-z]/.test(p) && p.includes('-'))
-        if (slug) jobTitle = slug.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim()
-          .replace(/\b\w/g, c => c.toUpperCase())
+        const slug = [...pageUrl.split('/')].reverse().find(p => /[a-z]/.test(p) && p.includes('-'))
+        if (slug) jobTitle = slug.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim().replace(/\b\w/g, c => c.toUpperCase())
       }
 
-      // ── Company: ranked by reliability ────────────────────────────────────
+      // ── Company priority: JSON-LD → og:site_name → hostname map ───────────
+      const BOARDS = { 'greenhouse.io': '', 'lever.co': '', 'workday.com': '', 'myworkdayjobs.com': '', 'jobvite.com': '', 'smartrecruiters.com': '', 'linkedin.com': '' }
+      const DIRECTS = { 'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft', 'apple.com': 'Apple', 'meta.com': 'Meta' }
       let company = ''
-      // 1. og:site_name
-      if (ogSite && ogSite.length < 60) company = ogSite
-      // 2. Known job board hostnames
+      if (ldCompany) company = ldCompany
+      if (!company && ogSite) company = ogSite
       if (!company) {
-        const hostname = new URL(pageUrl).hostname.replace(/^www\./, '')
-        const KNOWN = {
-          'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft',
-          'apple.com': 'Apple', 'meta.com': 'Meta', 'linkedin.com': '',
-          'greenhouse.io': '', 'lever.co': '', 'workday.com': '',
-          'myworkdayjobs.com': '', 'jobvite.com': '', 'smartrecruiters.com': '',
-        }
-        for (const [domain, name] of Object.entries(KNOWN)) {
-          if (hostname.includes(domain)) { company = name; break }
-        }
-        // If no match in known list, use the root domain capitalized
-        if (company === undefined) {
-          company = hostname.split('.')[0].replace(/\b\w/g, c => c.toUpperCase())
-        }
-      }
-      // 3. Title suffix " at Company"
-      if (!company) {
-        const atMatch = (ogTitle || pageTitle).match(/\bat\s+([A-Z][A-Za-z0-9 &,.'()-]{2,50})(?:\s*[|\-–]|$)/)
-        if (atMatch) company = atMatch[1].trim()
+        const host = new URL(pageUrl).hostname.replace(/^www\./, '')
+        for (const [d, n] of Object.entries(DIRECTS)) { if (host.includes(d)) { company = n; break } }
+        if (!company) for (const [d] of Object.entries(BOARDS)) { if (host.includes(d)) { company = ''; break } }
+        if (!company) company = host.split('.')[0].replace(/\b\w/g, c => c.toUpperCase())
       }
 
-      // ── Description: first substantive block of clean text ────────────────
-      const description = cleanText.slice(0, 500)
+      // ── Description: JSON-LD best, then body ──────────────────────────────
+      const description = ldDescription || bodyDesc
 
-      if (jobTitle) $('jobTitle').value = jobTitle
-      if (company)  $('jobCompany').value = company
+      if (jobTitle)   $('jobTitle').value = jobTitle
+      if (company)    $('jobCompany').value = company
       $('jobDescription').value = description
 
       statusEl.textContent = 'Details extracted — review and save.'
