@@ -456,14 +456,21 @@ function setupJobTab() {
             // Company from og:site_name or meta author
             const ogSite = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
 
-            // Clean body text: remove lines that look like navigation (very short or all-caps nav words)
-            const NAV_WORDS = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4})$/i
-            const lines = (document.body?.innerText || '').split('\n')
+            // Prefer main content area over full body (avoids sidebars with other job listings)
+            const mainEl = document.querySelector('main, article, [role="main"], #main-content, .job-description, .job-details, [class*="jobDescription"], [class*="job-description"]')
+            const sourceEl = mainEl || document.body
+
+            const NAV_WORDS = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4}|related jobs?|more jobs?|similar jobs?|you may also)$/i
+            const lines = (sourceEl?.innerText || '').split('\n')
               .map(l => l.trim())
-              .filter(l => l.length > 20 && !NAV_WORDS.test(l))
+              .filter(l => l.length > 30 && !NAV_WORDS.test(l))
             const cleanText = lines.join('\n')
 
-            return { h1, ogTitle, pageTitle, ogSite, cleanText: cleanText.slice(0, 2000), url: location.href }
+            // Also look for a description-start anchor (common in structured job pages)
+            const descStart = cleanText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|the role|job summary|overview/i)
+            const focused = descStart > -1 ? cleanText.slice(descStart) : cleanText
+
+            return { h1, ogTitle, pageTitle, ogSite, cleanText: focused.slice(0, 2000), url: location.href }
           }
         })
         scraped = res?.[0]?.result ?? null
@@ -474,18 +481,24 @@ function setupJobTab() {
 
       const { h1, ogTitle, pageTitle, ogSite, cleanText, url: pageUrl } = scraped
 
+      // Generic h1 values that are page chrome, not actual job titles
+      const GENERIC_HEADINGS = /^(job details?|job description|apply( now)?|about this role|overview|position|open role|career opportunity|careers|current opening|job posting|view job|this role|the role|the position)$/i
+
       // ── Title: ranked by reliability ──────────────────────────────────────
       let jobTitle = ''
-      // 1. h1 on the page (most reliable for job pages)
-      if (h1 && h1.length > 3 && h1.length < 120 && !/^\$/.test(h1)) jobTitle = h1
-      // 2. og:title (strip " | Company" suffix common in meta tags)
+      // 1. h1 — only if it's a real title, not a generic page header
+      if (h1 && h1.length > 3 && h1.length < 120 && !/^\$/.test(h1) && !GENERIC_HEADINGS.test(h1)) jobTitle = h1
+      // 2. og:title (strip " | Company" and " - Site" suffixes)
       if (!jobTitle && ogTitle) jobTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
       // 3. Page title (strip " - Google Careers" etc.)
       if (!jobTitle && pageTitle) jobTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      // 4. Slug from URL as last resort
+      // 4. Slug from URL (e.g. software-engineer-cloud-platforms-infrastructure)
       if (!jobTitle) {
-        const slug = pageUrl.split('/').pop()?.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim()
-        if (slug && slug.length > 4) jobTitle = slug.replace(/\b\w/g, c => c.toUpperCase())
+        const parts = pageUrl.split('/')
+        // Find the last non-numeric path segment that looks like a slug
+        const slug = [...parts].reverse().find(p => /[a-z]/.test(p) && p.includes('-'))
+        if (slug) jobTitle = slug.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim()
+          .replace(/\b\w/g, c => c.toUpperCase())
       }
 
       // ── Company: ranked by reliability ────────────────────────────────────
