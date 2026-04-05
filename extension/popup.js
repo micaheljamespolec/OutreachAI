@@ -272,14 +272,14 @@ async function loadSavedProfiles() {
     const { profiles } = await getSavedProfiles()
     const emptyEl = $('savedProfilesEmpty')
 
+    // Always clear stale rows first
+    listEl.querySelectorAll('.saved-profile-row').forEach(el => el.remove())
+
     if (!profiles || profiles.length === 0) {
       if (emptyEl) emptyEl.style.display = 'block'
       return
     }
     if (emptyEl) emptyEl.style.display = 'none'
-
-    // Remove old rows (keep the empty message el)
-    listEl.querySelectorAll('.saved-profile-row').forEach(el => el.remove())
 
     for (const p of profiles) {
       const row = document.createElement('div')
