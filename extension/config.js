@@ -7,7 +7,7 @@ export const CONFIG = {
 
   appName:    'OutreachAI',
   version:    '1.0.0',
-  pricingUrl: 'https://placeholder.com/pricing',
+  pricingUrl: 'https://placeholder.com/pricing', // TODO: replace with real Stripe checkout URL
 
   stripe: {
     sourcer: {

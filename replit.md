@@ -36,6 +36,22 @@ OutreachAI is a Chrome browser extension for recruiters and talent sourcers. It 
 - **Workflow**: "Start application" runs `node server.js` on port 5000
 - `server.js` — Simple Node.js HTTP static file server serving project files
 - The server serves the `docs/index.html` auth page and all extension assets
+- Supabase CLI is available via `npx supabase` (linked to project `szxjcitbjcpkhxtjztay`)
+- Secrets: `SUPABASE_ACCESS_TOKEN` (CLI auth), `SUPABASE_SERVICE_ROLE_KEY` (admin DB access)
+
+## Changelog
+### v1.1.0 (April 2026)
+- Fixed TypeScript annotation bug in `popup.js` (`Record<string, string>` removed — syntax error in Chrome)
+- Bumped `manifest.json` version from 1.0.0 → 1.1.0
+- Deleted dead Edge Functions: `candidate-bootstrap`, `enrichment-pipeline`, `requirements-match`
+- Enabled RLS on `outreach_sources` (user-scoped policies) and `enrichment_debug_logs` (service-role only)
+
+## Outstanding Tasks
+- **Auth end-to-end test**: Load extension in Chrome, sign in with Google, confirm auth.html tab opens/closes
+  - Note: Supabase Auth must have `chrome-extension://[EXTENSION_ID]/auth.html` in the allowed redirect URLs list
+- **enrich-and-draft end-to-end test**: Open Julie Houser's LinkedIn, run a draft generation, verify credits recorded
+- **Pricing URL**: Replace placeholder in `config.js` with real Stripe checkout URL
+- **Real web search for title inference**: Integrate Serper/Brave/SerpAPI instead of Claude training data only
 
 ## External Services
 - **Supabase**: `https://szxjcitbjcpkhxtjztay.supabase.co`

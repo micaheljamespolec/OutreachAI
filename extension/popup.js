@@ -252,7 +252,7 @@ async function generateDraftFlow() {
       showErrorBox('Your session expired. Click below to sign out and sign back in.', true)
     } else {
       _state = 'GENERIC_ERROR'
-      const MESSAGES: Record<string, string> = {
+      const MESSAGES = {
         NO_PERSON_NAME:          'Enter a full name to continue.',
         ENRICHMENT_UNAVAILABLE:  'Contact lookup is temporarily unavailable. Please try again.',
         NO_EMAIL_FOUND:          'No work email was found. A draft can still be generated.',
