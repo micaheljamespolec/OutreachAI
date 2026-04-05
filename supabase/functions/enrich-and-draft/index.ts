@@ -230,16 +230,12 @@ Deno.serve(async (req: Request) => {
     let companyConfidence = companyHint ? 0.7 : 0.3
 
     if (fullenrichKey) {
+      let enrichRaw: any = null
+      let enrichStatus = 0
       try {
         const enrichResult = await enrichEmail(fullName, companyHint, fullenrichKey)
-
-        // Log to debug table (never exposed to UI)
-        await db.from('enrichment_debug_logs').insert({
-          user_id: user.id, provider: 'fullenrich',
-          request_payload: { full_name: fullName, company_hint: companyHint },
-          response_payload: enrichResult.raw,
-          status_code: 200,
-        }).catch(() => {})
+        enrichRaw = enrichResult.raw
+        enrichStatus = 200
 
         work_email = enrichResult.work_email
         personal_email = enrichResult.personal_email
@@ -248,17 +244,27 @@ Deno.serve(async (req: Request) => {
         emailStatus = work_email ? 'found' : 'not_found'
         if (work_email) emailDomain = work_email.split('@')[1] || null
 
-        // If provider returned company, use it (higher confidence than hint)
         if (enrichResult.company) {
           company = enrichResult.company
           companyConfidence = enrichResult.confidence
         }
 
         sources.push({ type: 'fullenrich', label: 'Email & employer enrichment', confidence: enrichResult.confidence })
-      } catch (e) {
+      } catch (e: any) {
         console.error('FullEnrich failed:', e)
+        enrichRaw = { error: String(e?.message || e) }
+        enrichStatus = 500
         sources.push({ type: 'fullenrich', label: 'Enrichment unavailable', confidence: 0 })
+      } finally {
+        await db.from('enrichment_debug_logs').insert({
+          user_id: user.id, provider: 'fullenrich',
+          request_payload: { full_name: fullName, company_hint: companyHint },
+          response_payload: enrichRaw,
+          status_code: enrichStatus,
+        }).catch(() => {})
       }
+    } else {
+      console.warn('FULLENRICH_API_KEY not set — skipping enrichment')
     }
 
     // ── Stage 2: Employer resolution from email domain ────────────────────────
