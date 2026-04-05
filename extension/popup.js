@@ -430,28 +430,98 @@ function setupJobTab() {
     if (!url || !url.startsWith('http')) { statusEl.textContent = 'Enter a valid URL.'; return }
     const btn = $('btnExtractJob')
     btn.disabled = true
-    statusEl.textContent = 'Extracting…'
+    statusEl.textContent = 'Loading job page…'
     try {
       const jobTab = await chrome.tabs.create({ url, active: false })
+      // Wait for page load
       await new Promise(resolve => {
         const l = (tabId, info) => { if (tabId === jobTab.id && info.status === 'complete') { chrome.tabs.onUpdated.removeListener(l); resolve(null) } }
         chrome.tabs.onUpdated.addListener(l)
         setTimeout(resolve, 15000)
       })
-      await new Promise(r => setTimeout(r, 1500))
-      let pageText = ''
+      // Extra wait for JS-rendered content (Google Careers, Greenhouse, Lever, etc.)
+      await new Promise(r => setTimeout(r, 3000))
+      statusEl.textContent = 'Reading job details…'
+
+      let scraped = null
       try {
-        const res = await chrome.scripting.executeScript({ target: { tabId: jobTab.id }, func: () => document.body?.innerText ?? '' })
-        pageText = res?.[0]?.result ?? ''
+        const res = await chrome.scripting.executeScript({
+          target: { tabId: jobTab.id },
+          func: () => {
+            // Structured extraction — prefer semantic elements over raw body text
+            const h1 = document.querySelector('h1')?.innerText?.trim() || ''
+            const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || ''
+            const pageTitle = document.title?.trim() || ''
+
+            // Company from og:site_name or meta author
+            const ogSite = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
+
+            // Clean body text: remove lines that look like navigation (very short or all-caps nav words)
+            const NAV_WORDS = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4})$/i
+            const lines = (document.body?.innerText || '').split('\n')
+              .map(l => l.trim())
+              .filter(l => l.length > 20 && !NAV_WORDS.test(l))
+            const cleanText = lines.join('\n')
+
+            return { h1, ogTitle, pageTitle, ogSite, cleanText: cleanText.slice(0, 2000), url: location.href }
+          }
+        })
+        scraped = res?.[0]?.result ?? null
       } catch {}
       chrome.tabs.remove(jobTab.id).catch(() => {})
-      if (!pageText) { statusEl.textContent = 'Could not read that page.'; btn.disabled = false; return }
-      // Simple heuristic extraction
-      const titleMatch = pageText.match(/(?:job title|position|role)[:\s]+([^\n]{5,80})/i)
-      const compMatch  = pageText.match(/(?:company|employer|at)[:\s]+([^\n]{2,60})/i)
-      if (titleMatch?.[1]) $('jobTitle').value = titleMatch[1].trim()
-      if (compMatch?.[1])  $('jobCompany').value = compMatch[1].trim()
-      $('jobDescription').value = pageText.slice(0, 400)
+
+      if (!scraped) { statusEl.textContent = 'Could not read that page.'; btn.disabled = false; return }
+
+      const { h1, ogTitle, pageTitle, ogSite, cleanText, url: pageUrl } = scraped
+
+      // ── Title: ranked by reliability ──────────────────────────────────────
+      let jobTitle = ''
+      // 1. h1 on the page (most reliable for job pages)
+      if (h1 && h1.length > 3 && h1.length < 120 && !/^\$/.test(h1)) jobTitle = h1
+      // 2. og:title (strip " | Company" suffix common in meta tags)
+      if (!jobTitle && ogTitle) jobTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
+      // 3. Page title (strip " - Google Careers" etc.)
+      if (!jobTitle && pageTitle) jobTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
+      // 4. Slug from URL as last resort
+      if (!jobTitle) {
+        const slug = pageUrl.split('/').pop()?.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim()
+        if (slug && slug.length > 4) jobTitle = slug.replace(/\b\w/g, c => c.toUpperCase())
+      }
+
+      // ── Company: ranked by reliability ────────────────────────────────────
+      let company = ''
+      // 1. og:site_name
+      if (ogSite && ogSite.length < 60) company = ogSite
+      // 2. Known job board hostnames
+      if (!company) {
+        const hostname = new URL(pageUrl).hostname.replace(/^www\./, '')
+        const KNOWN = {
+          'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft',
+          'apple.com': 'Apple', 'meta.com': 'Meta', 'linkedin.com': '',
+          'greenhouse.io': '', 'lever.co': '', 'workday.com': '',
+          'myworkdayjobs.com': '', 'jobvite.com': '', 'smartrecruiters.com': '',
+        }
+        for (const [domain, name] of Object.entries(KNOWN)) {
+          if (hostname.includes(domain)) { company = name; break }
+        }
+        // If no match in known list, use the root domain capitalized
+        if (company === undefined) {
+          company = hostname.split('.')[0].replace(/\b\w/g, c => c.toUpperCase())
+        }
+      }
+      // 3. Title suffix " at Company"
+      if (!company) {
+        const atMatch = (ogTitle || pageTitle).match(/\bat\s+([A-Z][A-Za-z0-9 &,.'()-]{2,50})(?:\s*[|\-–]|$)/)
+        if (atMatch) company = atMatch[1].trim()
+      }
+
+      // ── Description: first substantive block of clean text ────────────────
+      const description = cleanText.slice(0, 500)
+
+      if (jobTitle) $('jobTitle').value = jobTitle
+      if (company)  $('jobCompany').value = company
+      $('jobDescription').value = description
+
       statusEl.textContent = 'Details extracted — review and save.'
     } catch (e) { statusEl.textContent = `Failed: ${e.message}` }
     btn.disabled = false
