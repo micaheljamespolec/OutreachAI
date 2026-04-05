@@ -409,8 +409,9 @@ Deno.serve(async (req: Request) => {
       draft: draft || null,
     })
 
-  } catch (e) {
-    console.error('enrich-and-draft error:', e)
-    return json({ error: { code: 'UNKNOWN_ERROR', message: 'Something went wrong. Please try again.' } }, 500)
+  } catch (e: any) {
+    const msg = String(e?.message || e || 'unknown')
+    console.error('enrich-and-draft error:', msg, e?.stack || '')
+    return json({ error: { code: 'UNKNOWN_ERROR', message: `Debug: ${msg}` } }, 500)
   }
 })
