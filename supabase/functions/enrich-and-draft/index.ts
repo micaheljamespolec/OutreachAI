@@ -522,7 +522,8 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       runId = run?.id ?? null
     } catch (e) { console.error('outreach_runs insert failed (non-fatal):', e) }
 
-    // ── Stage 7: Upsert into saved_profiles cache ──────────────────────────────
+    // ── Stage 7: Upsert into saved_profiles cache, read back bookmark state ────
+    let isBookmarked = false
     try {
       await db.from('saved_profiles').upsert({
         user_id:        user.id,
@@ -536,15 +537,23 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         email_status:   emailStatus,
         enriched_at:    new Date().toISOString(),
         updated_at:     new Date().toISOString(),
-        // Do NOT reset is_bookmarked — preserve any existing bookmark state
+        // Do NOT include is_bookmarked — preserve existing bookmark state on conflict
       }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
+
+      // Read back the actual is_bookmarked value so the UI is authoritative
+      const { data: savedRow } = await db.from('saved_profiles')
+        .select('is_bookmarked')
+        .eq('user_id', user.id)
+        .eq('linkedin_url', linkedinUrl)
+        .maybeSingle()
+      isBookmarked = savedRow?.is_bookmarked ?? false
     } catch (e) { console.error('saved_profiles upsert failed (non-fatal):', e) }
 
     // ── Response ───────────────────────────────────────────────────────────────
     return json({
       status,
       fromCache: false,
-      isBookmarked: false,
+      isBookmarked,
       runId,
       person: {
         fullName,

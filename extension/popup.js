@@ -224,12 +224,15 @@ function populateProfileTab(result) {
   if (person.title) {
     const titleEl = $('profTitle')
     titleEl.textContent = person.title
+    const badge = document.createElement('span')
     if (person.titleVerified === false) {
-      const badge = document.createElement('span')
       badge.textContent = 'unverified'
       badge.style.cssText = 'font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
-      titleEl.appendChild(badge)
+    } else {
+      badge.textContent = 'verified'
+      badge.style.cssText = 'font-size:10px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
     }
+    titleEl.appendChild(badge)
     $('profTitleRow').style.display = 'flex'
   } else {
     $('profTitleRow').style.display = 'none'
