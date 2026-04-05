@@ -488,11 +488,14 @@ function setupJobTab() {
       const anchor    = bodyText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|job summary/i)
       const bodyDesc  = (anchor > -1 ? bodyText.slice(anchor) : bodyText).slice(0, 600)
 
+      // Strip trailing " | Site" or " — Site" but NOT hyphens within the title (e.g. "Fixed-Term")
+      const stripSuffix = s => s.replace(/\s+[|–—]\s+[^|–—]+$/, '').replace(/\s+-\s+\S.*$/, '').trim()
+
       // ── Resolve best title ─────────────────────────────────────────────────
       let bestTitle = ''
       if (ldTitle && !GENERIC.test(ldTitle)) bestTitle = ldTitle
-      if (!bestTitle && ogTitle) bestTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      if (!bestTitle && pageTitle) bestTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
+      if (!bestTitle && ogTitle) bestTitle = stripSuffix(ogTitle)
+      if (!bestTitle && pageTitle) bestTitle = stripSuffix(pageTitle)
       if (bestTitle && !GENERIC.test(bestTitle)) $('jobTitle').value = bestTitle
 
       // ── Resolve best company ───────────────────────────────────────────────
