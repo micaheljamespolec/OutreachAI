@@ -76,6 +76,14 @@ export async function enrichAndDraft({ linkedinUrl, companyHint, userContext, fu
   })
 }
 
+// ── Summarize raw job posting text into recruiter-friendly bullet points ──────
+export async function summarizeJob({ rawText, jobTitle, company }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'summarize-job', rawText, jobTitle, company }),
+  })
+}
+
 // ── Credits ───────────────────────────────────────────────────────────────────
 export async function getCreditsData() {
   const token = await getAccessToken()

@@ -1,7 +1,7 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCreditsData, enrichAndDraft, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
+import { getCreditsData, enrichAndDraft, summarizeJob, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
 // States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
@@ -501,10 +501,33 @@ function setupJobTab() {
       if (ldCompany) $('jobCompany').value = ldCompany
       else if (ogSite && !BOARDS.some(b => url.includes(b))) $('jobCompany').value = ogSite
 
-      // ── Description ───────────────────────────────────────────────────────
-      $('jobDescription').value = ldDescription || bodyDesc
+      // ── Description: set raw first, then summarize via Claude ────────────
+      const rawDesc = ldDescription || bodyDesc
+      $('jobDescription').value = rawDesc
+
+      const titleForSummary   = $('jobTitle').value.trim()
+      const companyForSummary = $('jobCompany').value.trim()
 
       statusEl.textContent = 'Details extracted — review and save.'
+      btn.disabled = false
+
+      // Kick off summarization in background — don't block the UI
+      if (rawDesc || titleForSummary) {
+        statusEl.textContent = 'Summarizing highlights…'
+        try {
+          const { summary } = await summarizeJob({
+            rawText:  rawDesc,
+            jobTitle: titleForSummary,
+            company:  companyForSummary,
+          })
+          if (summary) $('jobDescription').value = summary
+          statusEl.textContent = 'Details extracted — review and save.'
+        } catch {
+          statusEl.textContent = 'Details extracted — review and save.'
+        }
+      }
+
+      return  // btn already re-enabled above
     } catch (e) {
       statusEl.textContent = preTitle ? 'Details extracted from URL — review and save.' : `Failed: ${e.message}`
     }

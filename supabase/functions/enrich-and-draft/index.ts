@@ -216,7 +216,40 @@ Deno.serve(async (req: Request) => {
   if (authErr || !user) return json({ error: { code: 'AUTH_EXPIRED', message: 'Session expired — please sign in again.' } }, 401)
 
   try {
-    const body        = await req.json()
+    const body   = await req.json()
+    const action = body.action || 'enrich-and-draft'
+
+    // ── Summarize-job action ───────────────────────────────────────────────────
+    if (action === 'summarize-job') {
+      const rawText  = (body.rawText  || '').slice(0, 3000)
+      const jobTitle = (body.jobTitle || '').trim()
+      const company  = (body.company  || '').trim()
+      if (!rawText && !jobTitle) return json({ error: { code: 'MISSING_INPUT', message: 'No job text provided.' } }, 400)
+      if (!anthropicKey)         return json({ error: { code: 'NO_API_KEY',    message: 'AI not configured.'     } }, 500)
+
+      const prompt = `You are helping a recruiter understand a job posting so they can write personalized outreach emails.
+
+Job title: ${jobTitle || 'not specified'}
+Company: ${company || 'not specified'}
+
+Raw job posting text:
+${rawText}
+
+Extract the 3–5 most useful selling points a recruiter would reference in an outreach email. Focus on:
+- What the role actually does day-to-day (skip generic boilerplate)
+- The seniority level and key skills required
+- Anything distinctive: compensation range, tech stack, team size, company stage, notable impact
+- Why a strong candidate would find this role interesting
+
+Format as short bullet points starting with "•", max 15 words each.
+Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.`
+
+      const summary = await callAnthropic(anthropicKey, 'claude-haiku-4-5', 400, prompt)
+      // callAnthropic returns '{}' on failure — surface a clear error in that case
+      if (!summary || summary === '{}') return json({ error: { code: 'SUMMARY_FAILED', message: 'Could not summarize job posting.' } }, 500)
+      return json({ summary })
+    }
+
     const linkedinUrl = body.linkedinUrl?.trim() || null
     const companyHint = body.companyHint?.trim() || null
     const userContext = body.userContext?.trim() || null
