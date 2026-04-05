@@ -241,9 +241,12 @@ async function generateDraftFlow() {
            : result.status === 'partial' ? 'PARTIAL_SUCCESS'
            : 'EMPTY_RESULT'
 
-    // Populate name field from FullEnrich result for recruiter reference
+    // Populate name and company fields from FullEnrich result for recruiter reference
     if (result.person?.fullName) {
       $('fullNameInput').value = result.person.fullName
+    }
+    if (result.person?.company && !$('companyHintInput').value.trim()) {
+      $('companyHintInput').value = result.person.company
     }
 
     renderResult(result)
@@ -286,7 +289,8 @@ async function prefillFromPage() {
 
     try {
       const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-      if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/in/')) {
+      // Accept any LinkedIn profile URL: standard (/in/), Recruiter (/talent/, /recruiter/), etc.
+      if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/')) {
         _linkedinUrl = data.linkedin_url
         _state = 'PREFILLED'
         setStatus('LinkedIn profile detected — ready to generate draft.', 'info')

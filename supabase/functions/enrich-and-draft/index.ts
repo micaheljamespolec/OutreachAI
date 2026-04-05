@@ -55,8 +55,8 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
   const enrichmentId = startData.enrichment_id
   if (!enrichmentId) throw new Error('FullEnrich did not return enrichment_id')
 
-  // Step 2: poll GET endpoint until FINISHED (2s intervals, max 13 attempts = 26s)
-  for (let i = 0; i < 13; i++) {
+  // Step 2: poll GET endpoint until FINISHED (2s intervals, max 15 attempts = 30s)
+  for (let i = 0; i < 15; i++) {
     await new Promise(r => setTimeout(r, 2000))
 
     const pollRes = await fetch(`https://app.fullenrich.com/api/v2/contact/enrich/bulk/${enrichmentId}`, {
@@ -256,10 +256,12 @@ Deno.serve(async (req: Request) => {
 
         work_email     = enrichResult.work_email
         personal_email = enrichResult.personal_email
-        // Work email is primary; personal email is fallback for domain resolution and draft
-        selectedEmail = work_email || personal_email || null
-        emailStatus = work_email ? 'found' : personal_email ? 'uncertain' : 'not_found'
-        if (selectedEmail) emailDomain = selectedEmail.split('@')[1] || null
+        selectedEmail  = work_email || personal_email || null
+        emailStatus    = work_email ? 'found' : personal_email ? 'uncertain' : 'not_found'
+        // Use work email domain first for company resolution — it's the definitive employer signal
+        // Fall back to personal email domain only if no work email exists
+        if (work_email) emailDomain = work_email.split('@')[1] || null
+        else if (personal_email) emailDomain = personal_email.split('@')[1] || null
 
         // Company: prefer FullEnrich result, then domain, then hint
         if (enrichResult.company) {
