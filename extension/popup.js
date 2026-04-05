@@ -208,12 +208,19 @@ function populateProfileTab(result) {
   // Name
   $('profName').textContent = person.fullName || '—'
 
-  // Email with work / personal badge
+  // Email with work / personal badge (safe DOM — no innerHTML)
   const emailEl = $('profEmail')
+  emailEl.textContent = ''
   if (person.email) {
     const isWork = !!person.workEmail
-    emailEl.innerHTML = `<span class="result-value email-found">${person.email}</span>` +
-      `<span style="font-size:10px;margin-left:5px;padding:1px 5px;border-radius:10px;font-weight:600;background:${isWork ? '#dcfce7' : '#fef3c7'};color:${isWork ? '#166534' : '#92400e'};">${isWork ? 'work' : 'personal'}</span>`
+    const emailSpan = document.createElement('span')
+    emailSpan.className = 'result-value email-found'
+    emailSpan.textContent = person.email
+    const typeBadge = document.createElement('span')
+    typeBadge.textContent = isWork ? 'work' : 'personal'
+    typeBadge.style.cssText = `font-size:10px;margin-left:5px;padding:1px 5px;border-radius:10px;font-weight:600;background:${isWork ? '#dcfce7' : '#fef3c7'};color:${isWork ? '#166534' : '#92400e'};`
+    emailEl.appendChild(emailSpan)
+    emailEl.appendChild(typeBadge)
     $('profEmailRow').style.display = 'flex'
   } else {
     emailEl.textContent = 'Not found'
@@ -287,8 +294,15 @@ async function loadSavedProfiles() {
     for (const p of profiles) {
       const row = document.createElement('div')
       row.className = 'saved-profile-row'
-      const meta = p.company ? `${p.company}` : (p.work_email || p.personal_email || '')
-      row.innerHTML = `<span class="saved-profile-name">${p.full_name || '—'}</span><span class="saved-profile-meta">${meta}</span>`
+      const meta = p.company || p.work_email || p.personal_email || ''
+      const nameSpan = document.createElement('span')
+      nameSpan.className = 'saved-profile-name'
+      nameSpan.textContent = p.full_name || '—'
+      const metaSpan = document.createElement('span')
+      metaSpan.className = 'saved-profile-meta'
+      metaSpan.textContent = meta
+      row.appendChild(nameSpan)
+      row.appendChild(metaSpan)
       row.addEventListener('click', () => {
         // Load this saved profile into the outreach tab ready to generate
         _linkedinUrl = p.linkedin_url

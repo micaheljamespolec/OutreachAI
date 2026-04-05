@@ -255,15 +255,24 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       const save        = body.save !== false  // default true
       if (!linkedinUrl) return json({ error: { code: 'MISSING_INPUT', message: 'linkedinUrl is required.' } }, 400)
 
-      const { error: upsertErr } = await db.from('saved_profiles')
-        .upsert(
-          { user_id: user.id, linkedin_url: linkedinUrl, is_bookmarked: save, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false }
-        )
+      // Prefer explicit UPDATE to avoid nulling non-specified columns
+      const { error: updateErr, count } = await db.from('saved_profiles')
+        .update({ is_bookmarked: save, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .eq('linkedin_url', linkedinUrl)
 
-      if (upsertErr) {
-        console.error('bookmark-profile upsert failed:', upsertErr)
+      if (updateErr) {
+        console.error('bookmark-profile update failed:', updateErr)
         return json({ error: { code: 'DB_ERROR', message: 'Could not update bookmark.' } }, 500)
+      }
+      // If no existing row (first-time bookmark before any enrichment), insert a stub
+      if (count === 0) {
+        const { error: insertErr } = await db.from('saved_profiles')
+          .insert({ user_id: user.id, linkedin_url: linkedinUrl, is_bookmarked: save })
+        if (insertErr) {
+          console.error('bookmark-profile insert failed:', insertErr)
+          return json({ error: { code: 'DB_ERROR', message: 'Could not create bookmark.' } }, 500)
+        }
       }
       return json({ bookmarked: save })
     }
