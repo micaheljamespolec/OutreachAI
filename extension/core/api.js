@@ -69,10 +69,10 @@ async function apiRequest(url, options = {}) {
 }
 
 // ── Main API: enrich-and-draft ────────────────────────────────────────────────
-export async function enrichAndDraft({ fullName, companyHint, userContext }) {
+export async function enrichAndDraft({ linkedinUrl, companyHint, userContext, fullNameHint }) {
   return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
     method: 'POST',
-    body: JSON.stringify({ fullName, companyHint, userContext }),
+    body: JSON.stringify({ linkedinUrl, companyHint, userContext, fullNameHint }),
   })
 }
 

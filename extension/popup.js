@@ -7,6 +7,7 @@ import { getCreditsData, enrichAndDraft, openUpgradePage, parseErrorMessage, isA
 // States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
 let _state = 'IDLE'
 let _lastResult = null
+let _linkedinUrl = null
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id)
@@ -141,7 +142,11 @@ function renderResult(result) {
   }
 
   if (person.title) {
-    $('resTitle').textContent = person.title
+    if (person.titleVerified === false) {
+      $('resTitle').innerHTML = `${person.title} <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;">unverified</span>`
+    } else {
+      $('resTitle').textContent = person.title
+    }
     $('resTitleRow').style.display = 'flex'
   }
 
@@ -185,13 +190,12 @@ function renderResult(result) {
 
 // ── Core flow ─────────────────────────────────────────────────────────────────
 async function generateDraftFlow() {
-  const fullName = $('fullNameInput').value.trim()
-  const companyHint = $('companyHintInput').value.trim() || null
-  const userContext = $('userContextInput').value.trim() || null
+  const companyHint    = $('companyHintInput').value.trim() || null
+  const userContext    = $('userContextInput').value.trim() || null
+  const fullNameHint   = $('fullNameInput').value.trim() || null
 
-  if (!fullName) {
-    setStatus('Enter a full name to continue.', 'error')
-    $('fullNameInput').focus()
+  if (!_linkedinUrl) {
+    setStatus('Open a LinkedIn profile page first, then click Generate draft.', 'error')
     return
   }
 
@@ -214,14 +218,15 @@ async function generateDraftFlow() {
   setProgress('enrich')
 
   // Simulate step transitions (progress UI while async work runs)
-  const companyTimer = setTimeout(() => setProgress('company'), 3000)
-  const draftTimer   = setTimeout(() => setProgress('draft'), 7000)
+  const companyTimer = setTimeout(() => setProgress('company'), 5000)
+  const draftTimer   = setTimeout(() => setProgress('draft'), 12000)
 
   try {
     const result = await enrichAndDraft({
-      fullName,
+      linkedinUrl: _linkedinUrl,
       companyHint,
       userContext: fullContext,
+      fullNameHint,
     })
 
     clearTimeout(companyTimer)
@@ -233,10 +238,15 @@ async function generateDraftFlow() {
            : result.status === 'partial' ? 'PARTIAL_SUCCESS'
            : 'EMPTY_RESULT'
 
+    // Populate name field from FullEnrich result for recruiter reference
+    if (result.person?.fullName) {
+      $('fullNameInput').value = result.person.fullName
+    }
+
     renderResult(result)
 
-    // Cache the result for this name
-    const cacheKey = `outreach_${fullName.toLowerCase().replace(/\s+/g, '_')}`
+    // Cache result by LinkedIn URL
+    const cacheKey = `outreach_${_linkedinUrl.replace(/[^a-z0-9]/gi, '_').slice(-60)}`
     await setStorage({ [cacheKey]: { result, timestamp: Date.now() } })
 
   } catch (e) {
@@ -253,7 +263,7 @@ async function generateDraftFlow() {
     } else {
       _state = 'GENERIC_ERROR'
       const MESSAGES = {
-        NO_PERSON_NAME:          'Enter a full name to continue.',
+        NO_LINKEDIN_URL:         'Open a LinkedIn profile page to generate a draft.',
         ENRICHMENT_UNAVAILABLE:  'Contact lookup is temporarily unavailable. Please try again.',
         NO_EMAIL_FOUND:          'No work email was found. A draft can still be generated.',
         NOT_ENOUGH_DATA:         "There isn't enough reliable public information to generate a strong draft.",
@@ -271,42 +281,17 @@ async function prefillFromPage() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab?.url) return
 
-    let name = ''
-    let company = ''
-
-    // Try to get data from content script
     try {
       const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-      if (data?.full_name) name = data.full_name
-      if (data?.company)   company = data.company
-    } catch {}
-
-    // Name fallback: parse from page title
-    if (!name) {
-      const title = tab.title || ''
-      name = title.split(' | ')[0].split(' - ')[0].trim()
-    }
-
-    // Validate name: must look like a person name
-    const isPersonName = (s) => {
-      if (!s) return false
-      const words = s.trim().split(/\s+/)
-      if (words.length < 2 || words.length > 5) return false
-      if (!/^[A-Za-z\s'-]+$/.test(s)) return false
-      if (s === s.toUpperCase() && s.length > 10) return false
-      const rejects = ['login', 'settings', 'jobs', 'search', 'apply', 'message', 'home', 'feed', 'notifications']
-      if (rejects.some(r => s.toLowerCase().includes(r))) return false
-      return true
-    }
-
-    if (isPersonName(name)) {
-      $('fullNameInput').value = name
-      _state = 'PREFILLED'
-    }
-
-    // Auto-fill company if scraped and field is empty
-    if (company && !$('companyHintInput').value.trim()) {
-      $('companyHintInput').value = company
+      if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/in/')) {
+        _linkedinUrl = data.linkedin_url
+        _state = 'PREFILLED'
+        setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+      } else {
+        setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
+      }
+    } catch {
+      setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
     }
   } catch {}
 }
@@ -384,12 +369,13 @@ async function showMainApp(user) {
   })
 
   // Clear button
-  $('clearButton').addEventListener('click', () => {
+  $('clearButton').addEventListener('click', async () => {
     $('fullNameInput').value = ''
     $('companyHintInput').value = ''
     $('userContextInput').value = ''
+    _linkedinUrl = null
     resetToIdle()
-    $('fullNameInput').focus()
+    await prefillFromPage()
   })
 
   // Retry buttons
