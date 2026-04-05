@@ -231,6 +231,7 @@ Deno.serve(async (req: Request) => {
     let fullName: string = fullNameHint || ''
     let work_email: string | null = null
     let personal_email: string | null = null
+    let selectedEmail: string | null = null   // work_email first, personal_email fallback
     let company: string | null = companyHint || null
     let companyDomain: string | null = null
     let providerTitle: string | null = null
@@ -255,8 +256,10 @@ Deno.serve(async (req: Request) => {
 
         work_email     = enrichResult.work_email
         personal_email = enrichResult.personal_email
-        emailStatus    = work_email ? 'found' : 'not_found'
-        if (work_email) emailDomain = work_email.split('@')[1] || null
+        // Work email is primary; personal email is fallback for domain resolution and draft
+        selectedEmail = work_email || personal_email || null
+        emailStatus = work_email ? 'found' : personal_email ? 'uncertain' : 'not_found'
+        if (selectedEmail) emailDomain = selectedEmail.split('@')[1] || null
 
         // Company: prefer FullEnrich result, then domain, then hint
         if (enrichResult.company) {
@@ -337,8 +340,8 @@ Deno.serve(async (req: Request) => {
     )
 
     let status: 'success' | 'partial' | 'not_enough_data' = 'success'
-    if (!work_email && !company) status = 'not_enough_data'
-    else if (!work_email || titleConfidence < 0.3) status = 'partial'
+    if (!selectedEmail && !company) status = 'not_enough_data'
+    else if (!selectedEmail || titleConfidence < 0.3) status = 'partial'
 
     // ── Stage 5: Draft ────────────────────────────────────────────────────────
     let draft: { subject: string; body: string } | null = null
@@ -346,7 +349,7 @@ Deno.serve(async (req: Request) => {
       try {
         draft = await generateDraft(
           fullName, company, title, titleVerified,
-          work_email, userContext,
+          selectedEmail, userContext,
           draftConfidence, anthropicKey
         )
       } catch (e) { console.error('Draft generation failed:', e) }
@@ -386,10 +389,12 @@ Deno.serve(async (req: Request) => {
       runId,
       person: {
         fullName,
-        company:     company || null,
-        title:       title || null,
+        company:      company || null,
+        title:        title || null,
         titleVerified,
-        email:       work_email || null,
+        email:        selectedEmail || null,   // work email first, personal email fallback
+        workEmail:    work_email || null,
+        personalEmail: personal_email || null,
         emailStatus,
       },
       confidence: {

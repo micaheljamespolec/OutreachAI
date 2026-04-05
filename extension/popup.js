@@ -142,10 +142,13 @@ function renderResult(result) {
   }
 
   if (person.title) {
+    const titleEl = $('resTitle')
+    titleEl.textContent = person.title
     if (person.titleVerified === false) {
-      $('resTitle').innerHTML = `${person.title} <span style="font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;">unverified</span>`
-    } else {
-      $('resTitle').textContent = person.title
+      const badge = document.createElement('span')
+      badge.textContent = 'unverified'
+      badge.style.cssText = 'font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
+      titleEl.appendChild(badge)
     }
     $('resTitleRow').style.display = 'flex'
   }
