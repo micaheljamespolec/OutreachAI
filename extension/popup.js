@@ -274,7 +274,6 @@ async function generateDraftFlow() {
         NO_EMAIL_FOUND:          'No work email was found. A draft can still be generated.',
         NOT_ENOUGH_DATA:         "There isn't enough reliable public information to generate a strong draft.",
         DRAFT_GENERATION_FAILED: 'Contact details were found, but the draft could not be generated.',
-        UNKNOWN_ERROR:           'Something went wrong. Please try again.',
       }
       showErrorBox(MESSAGES[err.code] || err.message || 'Something went wrong.')
     }
