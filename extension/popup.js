@@ -265,28 +265,29 @@ async function generateDraftFlow() {
   }
 }
 
-// ── Name prefill strategy ─────────────────────────────────────────────────────
-async function prefillName() {
+// ── Page prefill strategy ─────────────────────────────────────────────────────
+async function prefillFromPage() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab?.url) return
 
-    let candidate = ''
+    let name = ''
+    let company = ''
 
-    // Try to get the H1 from the active tab via content script
+    // Try to get data from content script
     try {
       const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-      if (data?.full_name) candidate = data.full_name
+      if (data?.full_name) name = data.full_name
+      if (data?.company)   company = data.company
     } catch {}
 
-    // Fallback: parse from page title
-    if (!candidate) {
+    // Name fallback: parse from page title
+    if (!name) {
       const title = tab.title || ''
-      const fromTitle = title.split(' | ')[0].split(' - ')[0].trim()
-      candidate = fromTitle
+      name = title.split(' | ')[0].split(' - ')[0].trim()
     }
 
-    // Validate: must look like a person name
+    // Validate name: must look like a person name
     const isPersonName = (s) => {
       if (!s) return false
       const words = s.trim().split(/\s+/)
@@ -298,9 +299,14 @@ async function prefillName() {
       return true
     }
 
-    if (isPersonName(candidate)) {
-      $('fullNameInput').value = candidate
+    if (isPersonName(name)) {
+      $('fullNameInput').value = name
       _state = 'PREFILLED'
+    }
+
+    // Auto-fill company if scraped and field is empty
+    if (company && !$('companyHintInput').value.trim()) {
+      $('companyHintInput').value = company
     }
   } catch {}
 }
@@ -366,8 +372,8 @@ async function showMainApp(user) {
   await loadCreditsUI()
   $('creditPill').addEventListener('click', () => openUpgradePage())
 
-  // Prefill name from page
-  await prefillName()
+  // Prefill name and company from page
+  await prefillFromPage()
 
   // ── Generate draft button ──────────────────────────────────────────────────
   $('generateDraftButton').addEventListener('click', () => generateDraftFlow())

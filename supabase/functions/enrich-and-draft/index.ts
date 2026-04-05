@@ -318,27 +318,31 @@ Deno.serve(async (req: Request) => {
       return json({ error: { code: 'DRAFT_GENERATION_FAILED', message: 'Contact details were found, but the draft could not be generated.' } }, 500)
     }
 
-    // ── Stage 6: Persist to outreach_runs ────────────────────────────────────
-    const { data: run } = await db.from('outreach_runs').insert({
-      user_id: user.id,
-      full_name: fullName,
-      company: company || null,
-      title: title || null,
-      email: work_email || null,
-      email_status: emailStatus,
-      person_confidence: personConfidence,
-      company_confidence: companyConfidence,
-      title_confidence: titleConfidence,
-      draft_confidence: draftConfidence,
-      user_context: userContext,
-      company_hint: companyHint,
-      draft_subject: draft?.subject || null,
-      draft_body: draft?.body || null,
-      status,
-      sources,
-    }).select('id').single()
-
-    const runId = run?.id
+    // ── Stage 6: Persist to outreach_runs (non-fatal) ────────────────────────
+    let runId: string | null = null
+    try {
+      const { data: run } = await db.from('outreach_runs').insert({
+        user_id: user.id,
+        full_name: fullName,
+        company: company || null,
+        title: title || null,
+        email: work_email || null,
+        email_status: emailStatus,
+        person_confidence: personConfidence,
+        company_confidence: companyConfidence,
+        title_confidence: titleConfidence,
+        draft_confidence: draftConfidence,
+        user_context: userContext,
+        company_hint: companyHint,
+        draft_subject: draft?.subject || null,
+        draft_body: draft?.body || null,
+        status,
+        sources,
+      }).select('id').single()
+      runId = run?.id ?? null
+    } catch (e) {
+      console.error('outreach_runs insert failed (non-fatal):', e)
+    }
 
     // ── Response ──────────────────────────────────────────────────────────────
     return json({
