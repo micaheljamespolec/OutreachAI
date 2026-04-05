@@ -25,7 +25,7 @@ export function parseErrorMessage(raw) {
 export function isAuthError(err) {
   if (!err) return false
   const msg = (err.message || err.msg || String(err)).toLowerCase()
-  const code = (err.code || '').toLowerCase()
+  const code = String(err.code || '').toLowerCase()
   return code === 'auth_expired' || msg.includes('invalid jwt') || msg.includes('jwt expired') ||
          msg.includes('session expired') || msg.includes('unauthorized') || err.status === 401
 }

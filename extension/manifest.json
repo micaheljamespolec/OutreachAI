@@ -49,6 +49,7 @@
     {
       "resources": [
         "auth.html",
+        "auth-callback.js",
         "icons/*"
       ],
       "matches": [
