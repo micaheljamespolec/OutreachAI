@@ -431,16 +431,32 @@ function setupJobTab() {
     const btn = $('btnExtractJob')
     btn.disabled = true
     statusEl.textContent = 'Loading job page…'
+
+    // ── Step 1: Pre-fill from URL immediately (reliable for slug-based URLs) ─
+    const DIRECTS = { 'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft', 'apple.com': 'Apple', 'meta.com': 'Meta', 'netflix.com': 'Netflix', 'stripe.com': 'Stripe', 'openai.com': 'OpenAI' }
+    const BOARDS  = ['greenhouse.io','lever.co','workday.com','myworkdayjobs.com','jobvite.com','smartrecruiters.com','ashbyhq.com','linkedin.com']
     try {
-      const jobTab = await chrome.tabs.create({ url, active: false })
-      // Wait for page load
+      const parsedHost = new URL(url).hostname.replace(/^www\./, '')
+      for (const [d, n] of Object.entries(DIRECTS)) { if (parsedHost.includes(d)) { $('jobCompany').value = n; break } }
+      // Slug: last path segment containing letters and hyphens, strip leading numbers
+      const slugPart = [...url.split('/')].reverse().find(p => /[a-zA-Z]/.test(p) && p.includes('-'))
+      if (slugPart) {
+        const title = slugPart.replace(/^\d+-/, '').replace(/[-_]/g, ' ').trim()
+          .replace(/\b\w/g, c => c.toUpperCase())
+        if (title.length > 3) $('jobTitle').value = title
+      }
+    } catch {}
+
+    try {
+      const jobTab = await chrome.tabs.create({ url, active: true })
+      // Wait for page load (active tab ensures JS renders fully)
       await new Promise(resolve => {
         const l = (tabId, info) => { if (tabId === jobTab.id && info.status === 'complete') { chrome.tabs.onUpdated.removeListener(l); resolve(null) } }
         chrome.tabs.onUpdated.addListener(l)
         setTimeout(resolve, 15000)
       })
-      // Extra wait for JS-rendered content (Google Careers, Greenhouse, Lever, etc.)
-      await new Promise(r => setTimeout(r, 3000))
+      // Extra pause for JS-heavy pages
+      await new Promise(r => setTimeout(r, 4000))
       statusEl.textContent = 'Reading job details…'
 
       let scraped = null
@@ -448,85 +464,77 @@ function setupJobTab() {
         const res = await chrome.scripting.executeScript({
           target: { tabId: jobTab.id },
           func: () => {
-            // ── 1. JSON-LD structured data (most reliable — used by Google Careers, Greenhouse, Lever, etc.)
+            // ── Priority 1: JSON-LD structured data ──────────────────────────
             let ldTitle = '', ldCompany = '', ldDescription = ''
             try {
-              const scripts = Array.from(document.querySelectorAll('script[type="application/ld+json"]'))
-              for (const s of scripts) {
-                let data
-                try { data = JSON.parse(s.textContent) } catch { continue }
-                // Handle both direct objects and @graph arrays
+              for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+                let data; try { data = JSON.parse(s.textContent) } catch { continue }
                 const nodes = data?.['@graph'] ? data['@graph'] : [data]
                 const job = nodes.find(n => n?.['@type'] === 'JobPosting')
                 if (job) {
-                  ldTitle   = job.title || ''
-                  ldCompany = job.hiringOrganization?.name || ''
-                  // Strip HTML tags from description
-                  const raw = job.description || ''
+                  ldTitle   = (job.title || '').trim()
+                  ldCompany = (job.hiringOrganization?.name || '').trim()
                   const tmp = document.createElement('div')
-                  tmp.innerHTML = raw
-                  ldDescription = (tmp.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 500)
+                  tmp.innerHTML = job.description || ''
+                  ldDescription = tmp.innerText.replace(/\s+/g, ' ').trim().slice(0, 600)
                   break
                 }
               }
             } catch {}
 
-            // ── 2. Fallback meta signals
-            const ogTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || ''
-            const ogSite  = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
+            // ── Priority 2: Meta tags ─────────────────────────────────────────
+            const ogTitle   = document.querySelector('meta[property="og:title"]')?.getAttribute('content')?.trim() || ''
+            const ogSite    = document.querySelector('meta[property="og:site_name"]')?.getAttribute('content')?.trim() || ''
             const pageTitle = document.title?.trim() || ''
 
-            // ── 3. Fallback body text (main content area only)
-            const mainEl = document.querySelector('main, article, [role="main"], #main-content')
-            const sourceEl = mainEl || document.body
-            const NAV = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4}|related jobs?|more jobs?|similar jobs?|you may also)$/i
-            const bodyLines = (sourceEl?.innerText || '').split('\n')
-              .map(l => l.trim()).filter(l => l.length > 30 && !NAV.test(l))
-            const bodyText = bodyLines.join('\n')
-            const descAnchor = bodyText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|the role|job summary/i)
-            const bodyDesc = (descAnchor > -1 ? bodyText.slice(descAnchor) : bodyText).slice(0, 500)
+            // ── Priority 3: Visible headings (h1 then h2 — job pages vary) ───
+            const GENERIC = /^(job details?|job description|apply|about this role|overview|open role|career opportunity|current opening|job posting|view job|find your dream job)$/i
+            const allHeadings = [...document.querySelectorAll('h1, h2')]
+            const heading = allHeadings.find(el => {
+              const t = el.innerText?.trim()
+              return t && t.length > 3 && t.length < 120 && !GENERIC.test(t) && !/^\$/.test(t)
+            })
+            const headingText = heading?.innerText?.trim() || ''
 
-            return { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, bodyDesc, url: location.href }
+            // ── Priority 4: Body description ─────────────────────────────────
+            const mainEl = document.querySelector('main, article, [role="main"], #main-content')
+            const src = mainEl || document.body
+            const NAV = /^(home|menu|skip|search|sign in|sign up|login|log in|careers|jobs|apply|share|back|next|prev|navigation|cookie|privacy|terms|©|\d{4}|related jobs?|more jobs?|similar jobs?|you may also)$/i
+            const bodyLines = (src?.innerText || '').split('\n').map(l => l.trim()).filter(l => l.length > 30 && !NAV.test(l))
+            const bodyText = bodyLines.join('\n')
+            const anchor = bodyText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|the role|job summary/i)
+            const bodyDesc = (anchor > -1 ? bodyText.slice(anchor) : bodyText).slice(0, 600)
+
+            return { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, headingText, bodyDesc, url: location.href }
           }
         })
         scraped = res?.[0]?.result ?? null
       } catch {}
+
+      // Close the tab (user can see it briefly while active, now close it)
       chrome.tabs.remove(jobTab.id).catch(() => {})
 
-      if (!scraped) { statusEl.textContent = 'Could not read that page.'; btn.disabled = false; return }
+      if (scraped) {
+        const { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, headingText, bodyDesc, url: pageUrl } = scraped
+        const GENERIC = /^(job details?|job description|apply( now)?|about this role|overview|open role|career opportunity|careers|current opening|job posting|view job)$/i
 
-      const { ldTitle, ldCompany, ldDescription, ogTitle, ogSite, pageTitle, bodyDesc, url: pageUrl } = scraped
+        // Title: JSON-LD → heading → og:title → page title (already pre-filled from slug as fallback)
+        let bestTitle = ''
+        if (ldTitle && !GENERIC.test(ldTitle)) bestTitle = ldTitle
+        if (!bestTitle && headingText && !GENERIC.test(headingText)) bestTitle = headingText
+        if (!bestTitle && ogTitle) bestTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
+        if (!bestTitle && pageTitle) bestTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
+        if (bestTitle) $('jobTitle').value = bestTitle
 
-      // ── Title priority: JSON-LD → og:title → page title → URL slug ────────
-      const GENERIC = /^(job details?|job description|apply( now)?|about this role|overview|position|open role|career opportunity|careers|current opening|job posting|view job)$/i
-      let jobTitle = ''
-      if (ldTitle && !GENERIC.test(ldTitle.trim())) jobTitle = ldTitle.trim()
-      if (!jobTitle && ogTitle) jobTitle = ogTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      if (!jobTitle && pageTitle) jobTitle = pageTitle.split(/\s*[|\-–—]\s*/)[0].trim()
-      if (!jobTitle) {
-        const slug = [...pageUrl.split('/')].reverse().find(p => /[a-z]/.test(p) && p.includes('-'))
-        if (slug) jobTitle = slug.replace(/[-_]/g, ' ').replace(/\d+/g, '').trim().replace(/\b\w/g, c => c.toUpperCase())
+        // Company: JSON-LD → og:site_name → hostname (already pre-filled above)
+        let bestCompany = ''
+        if (ldCompany) bestCompany = ldCompany
+        if (!bestCompany && ogSite && !BOARDS.some(b => pageUrl.includes(b))) bestCompany = ogSite
+        if (bestCompany) $('jobCompany').value = bestCompany
+
+        // Description: JSON-LD → body
+        $('jobDescription').value = ldDescription || bodyDesc
       }
-
-      // ── Company priority: JSON-LD → og:site_name → hostname map ───────────
-      const BOARDS = { 'greenhouse.io': '', 'lever.co': '', 'workday.com': '', 'myworkdayjobs.com': '', 'jobvite.com': '', 'smartrecruiters.com': '', 'linkedin.com': '' }
-      const DIRECTS = { 'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft', 'apple.com': 'Apple', 'meta.com': 'Meta' }
-      let company = ''
-      if (ldCompany) company = ldCompany
-      if (!company && ogSite) company = ogSite
-      if (!company) {
-        const host = new URL(pageUrl).hostname.replace(/^www\./, '')
-        for (const [d, n] of Object.entries(DIRECTS)) { if (host.includes(d)) { company = n; break } }
-        if (!company) for (const [d] of Object.entries(BOARDS)) { if (host.includes(d)) { company = ''; break } }
-        if (!company) company = host.split('.')[0].replace(/\b\w/g, c => c.toUpperCase())
-      }
-
-      // ── Description: JSON-LD best, then body ──────────────────────────────
-      const description = ldDescription || bodyDesc
-
-      if (jobTitle)   $('jobTitle').value = jobTitle
-      if (company)    $('jobCompany').value = company
-      $('jobDescription').value = description
 
       statusEl.textContent = 'Details extracted — review and save.'
     } catch (e) { statusEl.textContent = `Failed: ${e.message}` }
