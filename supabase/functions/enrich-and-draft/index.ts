@@ -257,7 +257,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
 
       // Prefer explicit UPDATE to avoid nulling non-specified columns
       const { error: updateErr, count } = await db.from('saved_profiles')
-        .update({ is_bookmarked: save, updated_at: new Date().toISOString() })
+        .update({ is_bookmarked: save, updated_at: new Date().toISOString() }, { count: 'exact' })
         .eq('user_id', user.id)
         .eq('linkedin_url', linkedinUrl)
 
