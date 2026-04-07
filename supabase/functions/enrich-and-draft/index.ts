@@ -277,6 +277,38 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ bookmarked: save })
     }
 
+    // ── Check-saved-profile action (lightweight — no FullEnrich/Claude) ───────
+    if (action === 'check-saved-profile') {
+      const linkedinUrl = (body.linkedinUrl || '').trim()
+      if (!linkedinUrl) return json({ found: false })
+
+      const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: cached } = await db.from('saved_profiles')
+        .select('full_name, work_email, personal_email, title, company, title_verified, email_status, is_bookmarked, enriched_at')
+        .eq('user_id', user.id)
+        .eq('linkedin_url', linkedinUrl)
+        .or(`is_bookmarked.eq.true,enriched_at.gte.${cacheWindow}`)
+        .limit(1)
+        .maybeSingle()
+
+      if (!cached || !cached.full_name) return json({ found: false })
+
+      return json({
+        found: true,
+        profile: {
+          fullName:      cached.full_name,
+          workEmail:     cached.work_email     || null,
+          personalEmail: cached.personal_email || null,
+          email:         cached.work_email || cached.personal_email || null,
+          title:         cached.title          || null,
+          titleVerified: cached.title_verified ?? false,
+          company:       cached.company        || null,
+          emailStatus:   cached.email_status   || 'not_found',
+          isBookmarked:  cached.is_bookmarked  ?? false,
+        },
+      })
+    }
+
     // ── Get-saved-profiles action ──────────────────────────────────────────────
     if (action === 'get-saved-profiles') {
       const { data: profiles, error: fetchErr } = await db.from('saved_profiles')
@@ -390,13 +422,15 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     let emailDomain: string | null = null
     let companyConfidence = companyHint ? 0.7 : 0.3
     let titleVerified = false
+    let rawDataPayload: any = null
 
     if (fullenrichKey) {
       let enrichRaw: any = null
       let enrichStatus = 0
       try {
         const enrichResult = await enrichWithLinkedInV2(linkedinUrl, fullenrichKey)
-        enrichRaw    = enrichResult.raw
+        enrichRaw       = enrichResult.raw
+        rawDataPayload  = enrichResult.raw
         enrichStatus = 200
 
         if (enrichResult.full_name) {
@@ -546,6 +580,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         email_status:   emailStatus,
         enriched_at:    new Date().toISOString(),
         updated_at:     new Date().toISOString(),
+        raw_data:       rawDataPayload || null,
         // Do NOT include is_bookmarked — preserve existing bookmark state on conflict
       }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
 

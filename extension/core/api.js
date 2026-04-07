@@ -100,6 +100,14 @@ export async function getSavedProfiles() {
   })
 }
 
+// ── Check if a LinkedIn URL is already in the saved-profiles cache ────────────
+export async function checkSavedProfile({ linkedinUrl }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'check-saved-profile', linkedinUrl }),
+  })
+}
+
 // ── Credits ───────────────────────────────────────────────────────────────────
 export async function getCreditsData() {
   const token = await getAccessToken()

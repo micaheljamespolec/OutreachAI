@@ -1,7 +1,7 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
+import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, checkSavedProfile, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
 // States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
@@ -304,13 +304,25 @@ async function loadSavedProfiles() {
       row.appendChild(nameSpan)
       row.appendChild(metaSpan)
       row.addEventListener('click', () => {
-        // Load this saved profile into the outreach tab ready to generate
         _linkedinUrl = p.linkedin_url
-        if ($('fullNameInput'))    $('fullNameInput').value    = p.full_name    || ''
-        if ($('companyHintInput')) $('companyHintInput').value = p.company      || ''
-        setStatus(`Loaded ${p.full_name} — click Generate draft to use cached data.`, 'info')
-        // Switch to outreach tab
-        document.querySelector('.tab[data-tab="outreach"]')?.click()
+        // Pre-fill Draft tab inputs for when user navigates there
+        if ($('fullNameInput'))    $('fullNameInput').value    = p.full_name || ''
+        if ($('companyHintInput')) $('companyHintInput').value = p.company   || ''
+        // Populate profile card and STAY on the Profile tab
+        populateProfileTab({
+          person: {
+            fullName:      p.full_name      || '',
+            email:         p.work_email || p.personal_email || null,
+            workEmail:     p.work_email     || null,
+            personalEmail: p.personal_email || null,
+            title:         p.title          || null,
+            titleVerified: p.title_verified ?? false,
+            company:       p.company        || null,
+            emailStatus:   p.email_status   || 'not_found',
+          },
+          fromCache: true,
+          isBookmarked: p.is_bookmarked ?? false,
+        })
       })
       listEl.appendChild(row)
     }
@@ -321,6 +333,11 @@ async function loadSavedProfiles() {
 
 // ── Profile tab setup ─────────────────────────────────────────────────────────
 function setupProfileTab() {
+  // "Generate draft →" button — switches to Draft tab (user then clicks Generate)
+  $('btnGoToDraft')?.addEventListener('click', () => {
+    document.querySelector('.tab[data-tab="outreach"]')?.click()
+  })
+
   // Bookmark toggle
   $('btnBookmark')?.addEventListener('click', async () => {
     if (!_linkedinUrl) return
@@ -453,7 +470,33 @@ async function prefillFromPage() {
       if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/')) {
         _linkedinUrl = data.linkedin_url
         _state = 'PREFILLED'
-        setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+
+        // Check saved-profile cache immediately — no credit needed
+        try {
+          const check = await checkSavedProfile({ linkedinUrl: _linkedinUrl })
+          if (check.found) {
+            const p = check.profile
+            setStatus('Saved profile detected — draft is free.', 'success')
+            // Pre-fill Draft tab inputs
+            if (p.fullName) $('fullNameInput').value = p.fullName
+            if (p.company && !$('companyHintInput').value.trim()) $('companyHintInput').value = p.company
+            // Auto-populate Profile tab card
+            populateProfileTab({
+              person: {
+                fullName: p.fullName, email: p.email,
+                workEmail: p.workEmail, personalEmail: p.personalEmail,
+                title: p.title, titleVerified: p.titleVerified,
+                company: p.company, emailStatus: p.emailStatus,
+              },
+              fromCache: true,
+              isBookmarked: p.isBookmarked,
+            })
+          } else {
+            setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+          }
+        } catch {
+          setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+        }
       } else {
         setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
       }
