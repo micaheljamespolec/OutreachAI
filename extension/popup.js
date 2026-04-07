@@ -620,11 +620,34 @@ async function showMainApp(user) {
 }
 
 // ── Job tab: saved jobs list ───────────────────────────────────────────────────
+// Activate a saved-job row and populate fields (shared by auto-restore and row click)
+function _activateSavedJobRow(row, j, allRows, showStatus = false) {
+  allRows.forEach(r => r.classList.remove('active'))
+  row.classList.add('active')
+  if ($('jobTitle'))       $('jobTitle').value       = j.role_title || ''
+  if ($('jobCompany'))     $('jobCompany').value     = j.company    || ''
+  if ($('jobDescription')) $('jobDescription').value = j.highlights || ''
+  if ($('jobUrl'))         $('jobUrl').value         = j.job_url    || ''
+  if ($('jobLabel'))       $('jobLabel').value       = j.label
+  if (showStatus) {
+    const statusEl = $('jobStatus')
+    if (statusEl) {
+      statusEl.textContent = `"${j.label}" loaded.`
+      statusEl.style.color = '#16a34a'
+      setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = '' }, 2000)
+    }
+  }
+}
+
 async function loadSavedJobs() {
   const listEl = $('savedJobsList')
   if (!listEl) return
   try {
-    const { jobs } = await getSavedJobs()
+    const [{ jobs }, stored] = await Promise.all([
+      getSavedJobs(),
+      getStorage(['saved_job_last_id']),
+    ])
+    const lastId = stored.saved_job_last_id || null
     const emptyEl = $('savedJobsEmpty')
 
     // Clear stale rows
@@ -636,9 +659,12 @@ async function loadSavedJobs() {
     }
     if (emptyEl) emptyEl.style.display = 'none'
 
+    const renderedRows = []
+
     for (const j of jobs) {
       const row = document.createElement('div')
       row.className = 'saved-job-row'
+      row.dataset.jobId = j.id
 
       const labelSpan = document.createElement('span')
       labelSpan.className = 'saved-job-label'
@@ -657,9 +683,7 @@ async function loadSavedJobs() {
         delBtn.disabled = true
         try {
           await deleteJob({ jobId: j.id })
-          // If this was the active job, clear the last-used pointer
-          const stored = await getStorage(['saved_job_last_id'])
-          if (stored.saved_job_last_id === j.id) await setStorage({ saved_job_last_id: null })
+          if (lastId === j.id) await setStorage({ saved_job_last_id: null })
           await loadSavedJobs()
         } catch {
           delBtn.disabled = false
@@ -670,31 +694,27 @@ async function loadSavedJobs() {
       row.appendChild(companySpan)
       row.appendChild(delBtn)
 
-      // Click row: load into fields, persist to chrome.storage, mark as last-used
       row.addEventListener('click', async () => {
-        if ($('jobTitle'))       $('jobTitle').value       = j.role_title  || ''
-        if ($('jobCompany'))     $('jobCompany').value     = j.company     || ''
-        if ($('jobDescription')) $('jobDescription').value = j.highlights  || ''
-        if ($('jobUrl'))         $('jobUrl').value         = j.job_url     || ''
-        if ($('jobLabel'))       $('jobLabel').value       = j.label
-
+        _activateSavedJobRow(row, j, renderedRows, true)
         await setStorage({
-          job_title:       j.role_title  || '',
-          job_company:     j.company     || '',
-          job_description: j.highlights  || '',
-          job_url:         j.job_url     || '',
+          job_title:         j.role_title || '',
+          job_company:       j.company    || '',
+          job_description:   j.highlights || '',
+          job_url:           j.job_url    || '',
           saved_job_last_id: j.id,
         })
-
-        const statusEl = $('jobStatus')
-        if (statusEl) {
-          statusEl.textContent = `"${j.label}" loaded.`
-          statusEl.style.color = '#16a34a'
-          setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = '' }, 2000)
-        }
       })
 
       listEl.appendChild(row)
+      renderedRows.push(row)
+    }
+
+    // Auto-restore: if we have a last-used ID that matches a fetched job, activate it silently
+    if (lastId) {
+      const idx = jobs.findIndex(j => j.id === lastId)
+      if (idx !== -1) {
+        _activateSavedJobRow(renderedRows[idx], jobs[idx], renderedRows, false)
+      }
     }
   } catch (e) {
     console.warn('loadSavedJobs failed:', e)
@@ -839,14 +859,15 @@ function setupJobTab() {
     $('jobStatus').style.color = '#6b7280'
 
     try {
-      await saveJob({ label, jobUrl: jobUrl || null, roleTitle: title || null, company: company || null, highlights: highlights || null })
+      const { job } = await saveJob({ label, jobUrl: jobUrl || null, roleTitle: title || null, company: company || null, highlights: highlights || null })
 
-      // Also persist locally so draft flow picks it up
+      // Persist locally so draft flow picks it up, and mark as last-used
       await setStorage({
-        job_title:         title,
-        job_company:       company,
-        job_description:   highlights,
-        job_url:           jobUrl,
+        job_title:           title,
+        job_company:         company,
+        job_description:     highlights,
+        job_url:             jobUrl,
+        saved_job_last_id:   job?.id || null,
       })
 
       $('jobStatus').textContent = 'Job saved!'
