@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS saved_profiles (
   email_status  TEXT DEFAULT 'not_found',
   enriched_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   is_bookmarked BOOLEAN NOT NULL DEFAULT false,
-  raw_data      JSONB,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, linkedin_url)
