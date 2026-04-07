@@ -148,7 +148,7 @@ function renderResult(result) {
     if (person.titleVerified === false) {
       const badge = document.createElement('span')
       badge.textContent = 'unverified'
-      badge.style.cssText = 'font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
+      badge.className = 'title-badge unverified'
       titleEl.appendChild(badge)
     }
     $('resTitleRow').style.display = 'flex'
@@ -218,7 +218,7 @@ function populateProfileTab(result) {
     emailSpan.textContent = person.email
     const typeBadge = document.createElement('span')
     typeBadge.textContent = isWork ? 'work' : 'personal'
-    typeBadge.style.cssText = `font-size:10px;margin-left:5px;padding:1px 5px;border-radius:10px;font-weight:600;background:${isWork ? '#dcfce7' : '#fef3c7'};color:${isWork ? '#166534' : '#92400e'};`
+    typeBadge.className = `email-type-badge ${isWork ? 'work' : 'personal'}`
     emailEl.appendChild(emailSpan)
     emailEl.appendChild(typeBadge)
     $('profEmailRow').style.display = 'flex'
@@ -234,10 +234,10 @@ function populateProfileTab(result) {
     const badge = document.createElement('span')
     if (person.titleVerified === false) {
       badge.textContent = 'unverified'
-      badge.style.cssText = 'font-size:10px;background:#fef3c7;color:#92400e;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
+      badge.className = 'title-badge unverified'
     } else {
       badge.textContent = 'verified'
-      badge.style.cssText = 'font-size:10px;background:#dcfce7;color:#166534;padding:1px 5px;border-radius:10px;font-weight:600;margin-left:5px;'
+      badge.className = 'title-badge verified'
     }
     titleEl.appendChild(badge)
     $('profTitleRow').style.display = 'flex'
@@ -268,10 +268,8 @@ function updateBookmarkButton() {
   const btn = $('btnBookmark')
   if (!btn) return
   btn.textContent = _isBookmarked ? '✅ Saved' : '🔖 Save profile'
-  btn.className = _isBookmarked ? 'btn btn-ghost' : 'btn btn-ghost'
-  btn.style.cssText = _isBookmarked
-    ? 'font-size:11px;padding:4px 9px;width:auto;background:#f0fdf4;color:#16a34a;border-color:#bbf7d0;'
-    : 'font-size:11px;padding:4px 9px;width:auto;'
+  btn.className = `btn btn-ghost${_isBookmarked ? ' btn-bookmark-saved' : ''}`
+  btn.style.cssText = 'font-size:11px;padding:4px 9px;width:auto;'
 }
 
 // ── Profile tab: saved profiles list ─────────────────────────────────────────

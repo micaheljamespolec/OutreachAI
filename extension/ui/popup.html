@@ -191,6 +191,8 @@
   body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
   body.dark .draft-subject { color: #6b7280; }
   body.dark .draft-subject strong { color: #d1d5db; }
+  body.dark .result-value.email-found { background: #0d2a1a; color: #4ade80; }
+  body.dark .result-label { color: #6b7280; }
 
   /* ── Profile tab ── */
   .saved-profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 6px; cursor: pointer; transition: background 0.12s; }
@@ -201,7 +203,6 @@
   body.dark .saved-profile-row { background: #1a1d2e; border-color: #2d3148; }
   body.dark .saved-profile-row:hover { background: #1e2a40; border-color: #3b5a8a; }
   body.dark .saved-profile-name { color: #e5e7eb; }
-  body.dark #profileCacheBadge { background: #1e3a5f; color: #93b4ef; }
 
   /* ── Saved jobs list ── */
   .saved-job-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 5px; cursor: pointer; transition: background 0.12s; }
@@ -220,6 +221,37 @@
   body.dark .saved-job-label { color: #e5e7eb; }
   body.dark .saved-job-delete { color: #4b5563; }
   body.dark .saved-job-delete:hover { color: #f87171; }
+
+  /* ── Profile tab: dark-mode-safe classes (replaces inline styles) ── */
+  .profile-cache-badge { font-size:10px; background:#eff6ff; color:#1d4ed8; padding:2px 7px; border-radius:10px; font-weight:600; }
+  body.dark .profile-cache-badge { background:#1e3a5f; color:#93b4ef; }
+
+  .btn-bookmark-saved { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
+  body.dark .btn-bookmark-saved { background:#0d2a1a; color:#4ade80; border-color:#166534; }
+
+  .prof-url-text { font-size:11px; color:#9ca3af; word-break:break-all; }
+  body.dark .prof-url-text { color:#6b7280; }
+
+  .linkedin-label { color:#c4b5fd; }
+  body.dark .linkedin-label { color:#a78bfa; }
+
+  .email-type-badge { font-size:10px; margin-left:5px; padding:1px 5px; border-radius:10px; font-weight:600; }
+  .email-type-badge.work     { background:#dcfce7; color:#166534; }
+  .email-type-badge.personal { background:#fef3c7; color:#92400e; }
+  body.dark .email-type-badge.work     { background:#0d2a1a; color:#4ade80; }
+  body.dark .email-type-badge.personal { background:#2a1f0a; color:#fbbf24; }
+
+  .title-badge { font-size:10px; padding:1px 5px; border-radius:10px; font-weight:600; margin-left:5px; }
+  .title-badge.verified   { background:#dcfce7; color:#166534; }
+  .title-badge.unverified { background:#fef3c7; color:#92400e; }
+  body.dark .title-badge.verified   { background:#0d2a1a; color:#4ade80; }
+  body.dark .title-badge.unverified { background:#2a1f0a; color:#fbbf24; }
+
+  .profile-empty-text { font-size:13px; color:#6b7280; line-height:1.5; }
+  body.dark .profile-empty-text { color:#9ca3af; }
+
+  .section-heading { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:#9ca3af; margin:10px 0 6px; padding:0 2px; }
+  body.dark .section-heading { color:#4b5563; }
 </style>
 </head>
 <body>
@@ -341,7 +373,7 @@
     <!-- Empty state: shown before any enrichment -->
     <div id="profileEmpty" class="card" style="text-align:center;padding:20px 13px;">
       <div style="font-size:28px;margin-bottom:8px;">👤</div>
-      <div style="font-size:13px;color:#6b7280;line-height:1.5;">Open a LinkedIn profile and click <strong>Generate draft</strong> to see candidate details here.</div>
+      <div class="profile-empty-text">Open a LinkedIn profile and click <strong>Generate draft</strong> to see candidate details here.</div>
     </div>
 
     <!-- Populated profile card: shown after enrichment -->
@@ -349,7 +381,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
         <div class="card-label" style="margin-bottom:0;">Candidate</div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <span id="profileCacheBadge" style="display:none;font-size:10px;background:#eff6ff;color:#1d4ed8;padding:2px 7px;border-radius:10px;font-weight:600;">From saved profile</span>
+          <span id="profileCacheBadge" class="profile-cache-badge" style="display:none;">From saved profile</span>
           <button id="btnBookmark" class="btn btn-ghost" style="font-size:11px;padding:4px 9px;width:auto;">🔖 Save profile</button>
         </div>
       </div>
@@ -357,14 +389,14 @@
       <div class="result-row" id="profEmailRow"><span class="result-label">Email</span><span class="result-value" id="profEmail">—</span></div>
       <div class="result-row" id="profTitleRow" style="display:none;"><span class="result-label">Title</span><span class="result-value" id="profTitle">—</span></div>
       <div class="result-row" id="profCompanyRow" style="display:none;"><span class="result-label">Company</span><span class="result-value" id="profCompany">—</span></div>
-      <div class="result-row" style="margin-top:6px;"><span class="result-label" style="color:#c4b5fd;">LinkedIn</span><span style="font-size:11px;color:#6b7280;word-break:break-all;" id="profUrl">—</span></div>
-      <div id="bookmarkStatus" style="margin-top:8px;font-size:11px;color:#16a34a;"></div>
+      <div class="result-row" style="margin-top:6px;"><span class="result-label linkedin-label">LinkedIn</span><span class="prof-url-text" id="profUrl">—</span></div>
+      <div id="bookmarkStatus" style="margin-top:8px;font-size:11px;"></div>
       <button id="btnGoToDraft" class="btn btn-primary" style="margin-top:10px;font-size:12px;">✨ Generate draft →</button>
     </div>
 
     <!-- Saved profiles list -->
     <div id="savedProfilesSection">
-      <div style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:#9ca3af;margin:10px 0 6px;padding:0 2px;">Saved profiles</div>
+      <div class="section-heading">Saved profiles</div>
       <div id="savedProfilesList" style="max-height:180px;overflow-y:auto;">
         <div style="font-size:12px;color:#9ca3af;text-align:center;padding:12px 0;" id="savedProfilesEmpty">No saved profiles yet.</div>
       </div>
