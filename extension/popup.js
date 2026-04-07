@@ -683,7 +683,9 @@ async function loadSavedJobs() {
         delBtn.disabled = true
         try {
           await deleteJob({ jobId: j.id })
-          if (lastId === j.id) await setStorage({ saved_job_last_id: null })
+          // Re-read current last-used ID at delete time (not stale captured value)
+          const cur = await getStorage(['saved_job_last_id'])
+          if (cur.saved_job_last_id === j.id) await setStorage({ saved_job_last_id: null })
           await loadSavedJobs()
         } catch {
           delBtn.disabled = false
@@ -710,10 +712,18 @@ async function loadSavedJobs() {
     }
 
     // Auto-restore: if we have a last-used ID that matches a fetched job, activate it silently
+    // Also re-write job_* to local storage to guard against stale state across devices/sessions
     if (lastId) {
       const idx = jobs.findIndex(j => j.id === lastId)
       if (idx !== -1) {
-        _activateSavedJobRow(renderedRows[idx], jobs[idx], renderedRows, false)
+        const j = jobs[idx]
+        _activateSavedJobRow(renderedRows[idx], j, renderedRows, false)
+        await setStorage({
+          job_title:         j.role_title || '',
+          job_company:       j.company    || '',
+          job_description:   j.highlights || '',
+          job_url:           j.job_url    || '',
+        })
       }
     }
   } catch (e) {
