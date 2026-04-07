@@ -202,6 +202,20 @@
   body.dark .saved-profile-row:hover { background: #1e2a40; border-color: #3b5a8a; }
   body.dark .saved-profile-name { color: #e5e7eb; }
   body.dark #profileCacheBadge { background: #1e3a5f; color: #93b4ef; }
+
+  /* ── Saved jobs list ── */
+  .saved-job-row { display: flex; align-items: center; gap: 8px; padding: 7px 10px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 5px; cursor: pointer; transition: background 0.12s; }
+  .saved-job-row:hover { background: #f0f7ff; border-color: #bfdbfe; }
+  .saved-job-row:last-child { margin-bottom: 0; }
+  .saved-job-label { font-size: 12.5px; font-weight: 600; color: #111827; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-job-company { font-size: 11px; color: #9ca3af; flex-shrink: 0; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-job-delete { background: none; border: none; cursor: pointer; color: #d1d5db; font-size: 13px; padding: 2px 4px; line-height: 1; border-radius: 4px; flex-shrink: 0; transition: color 0.12s; }
+  .saved-job-delete:hover { color: #dc2626; }
+  body.dark .saved-job-row { background: #1a1d2e; border-color: #2d3148; }
+  body.dark .saved-job-row:hover { background: #1e2a40; border-color: #3b5a8a; }
+  body.dark .saved-job-label { color: #e5e7eb; }
+  body.dark .saved-job-delete { color: #4b5563; }
+  body.dark .saved-job-delete:hover { color: #f87171; }
 </style>
 </head>
 <body>
@@ -356,6 +370,17 @@
 
   <!-- ════════════ JOB TAB ════════════ -->
   <div class="tab-content" id="tab-job">
+
+    <!-- Saved jobs list -->
+    <div class="card" id="savedJobsCard">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="card-label" style="margin-bottom:0;">💼 Saved jobs</div>
+      </div>
+      <div id="savedJobsList" style="max-height:160px;overflow-y:auto;">
+        <div id="savedJobsEmpty" style="font-size:12px;color:#9ca3af;text-align:center;padding:8px 0;">No saved jobs yet — save a role below.</div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-label">🔗 Import from URL</div>
       <div class="form-group">
@@ -374,8 +399,12 @@
         <textarea id="jobDescription" rows="4" placeholder="e.g. Remote-first, $180k–$220k, mission-driven…"></textarea>
         <div class="helper-text">Key selling points for outreach.</div>
       </div>
-      <button class="btn btn-primary" id="btnSaveJob">Save job context</button>
-      <div id="jobStatus" style="margin-top:8px;"></div>
+      <div class="form-group">
+        <label for="jobLabel">Save as <span style="color:#9ca3af;font-weight:400;">(give this role a name)</span></label>
+        <input type="text" id="jobLabel" placeholder="e.g. Google Recruiter — Contract" autocomplete="off" />
+      </div>
+      <button class="btn btn-primary" id="btnSaveJob">Save job</button>
+      <div id="jobStatus" style="margin-top:8px;font-size:12px;"></div>
     </div>
   </div>
 

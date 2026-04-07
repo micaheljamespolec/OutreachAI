@@ -309,6 +309,62 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       })
     }
 
+    // ── Save-job action ────────────────────────────────────────────────────────
+    if (action === 'save-job') {
+      const label      = (body.label      || '').trim()
+      const jobUrl     = (body.jobUrl     || '').trim() || null
+      const roleTitle  = (body.roleTitle  || '').trim() || null
+      const jobCompany = (body.company    || '').trim() || null
+      const highlights = (body.highlights || '').trim() || null
+      if (!label) return json({ error: { code: 'MISSING_INPUT', message: 'A job label is required.' } }, 400)
+
+      const { data: job, error: upsertErr } = await db.from('saved_jobs')
+        .upsert({
+          user_id: user.id, label, job_url: jobUrl, role_title: roleTitle,
+          company: jobCompany, highlights, updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,label' })
+        .select('id, label, job_url, role_title, company, highlights')
+        .single()
+
+      if (upsertErr) {
+        console.error('save-job upsert failed:', upsertErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not save job.' } }, 500)
+      }
+      return json({ job })
+    }
+
+    // ── Get-saved-jobs action ──────────────────────────────────────────────────
+    if (action === 'get-saved-jobs') {
+      const { data: jobs, error: fetchErr } = await db.from('saved_jobs')
+        .select('id, label, job_url, role_title, company, highlights, updated_at')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false })
+        .limit(30)
+
+      if (fetchErr) {
+        console.error('get-saved-jobs failed:', fetchErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not load saved jobs.' } }, 500)
+      }
+      return json({ jobs: jobs || [] })
+    }
+
+    // ── Delete-job action ──────────────────────────────────────────────────────
+    if (action === 'delete-job') {
+      const jobId = (body.jobId || '').trim()
+      if (!jobId) return json({ error: { code: 'MISSING_INPUT', message: 'jobId is required.' } }, 400)
+
+      const { error: deleteErr } = await db.from('saved_jobs')
+        .delete()
+        .eq('id', jobId)
+        .eq('user_id', user.id)
+
+      if (deleteErr) {
+        console.error('delete-job failed:', deleteErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not delete job.' } }, 500)
+      }
+      return json({ deleted: true })
+    }
+
     // ── Get-saved-profiles action ──────────────────────────────────────────────
     if (action === 'get-saved-profiles') {
       const { data: profiles, error: fetchErr } = await db.from('saved_profiles')

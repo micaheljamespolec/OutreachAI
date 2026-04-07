@@ -100,6 +100,28 @@ export async function getSavedProfiles() {
   })
 }
 
+// ── Saved jobs CRUD ───────────────────────────────────────────────────────────
+export async function saveJob({ label, jobUrl, roleTitle, company, highlights }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'save-job', label, jobUrl, roleTitle, company, highlights }),
+  })
+}
+
+export async function getSavedJobs() {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'get-saved-jobs' }),
+  })
+}
+
+export async function deleteJob({ jobId }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'delete-job', jobId }),
+  })
+}
+
 // ── Check if a LinkedIn URL is already in the saved-profiles cache ────────────
 export async function checkSavedProfile({ linkedinUrl }) {
   return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {

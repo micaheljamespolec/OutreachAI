@@ -1,7 +1,7 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
 import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
-import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, checkSavedProfile, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
+import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, checkSavedProfile, saveJob, getSavedJobs, deleteJob, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
 // States: IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR
@@ -619,6 +619,88 @@ async function showMainApp(user) {
   setupProfileTab()
 }
 
+// ── Job tab: saved jobs list ───────────────────────────────────────────────────
+async function loadSavedJobs() {
+  const listEl = $('savedJobsList')
+  if (!listEl) return
+  try {
+    const { jobs } = await getSavedJobs()
+    const emptyEl = $('savedJobsEmpty')
+
+    // Clear stale rows
+    listEl.querySelectorAll('.saved-job-row').forEach(el => el.remove())
+
+    if (!jobs || jobs.length === 0) {
+      if (emptyEl) emptyEl.style.display = 'block'
+      return
+    }
+    if (emptyEl) emptyEl.style.display = 'none'
+
+    for (const j of jobs) {
+      const row = document.createElement('div')
+      row.className = 'saved-job-row'
+
+      const labelSpan = document.createElement('span')
+      labelSpan.className = 'saved-job-label'
+      labelSpan.textContent = j.label
+
+      const companySpan = document.createElement('span')
+      companySpan.className = 'saved-job-company'
+      companySpan.textContent = j.company || ''
+
+      const delBtn = document.createElement('button')
+      delBtn.className = 'saved-job-delete'
+      delBtn.title = 'Delete this saved job'
+      delBtn.textContent = '✕'
+      delBtn.addEventListener('click', async e => {
+        e.stopPropagation()
+        delBtn.disabled = true
+        try {
+          await deleteJob({ jobId: j.id })
+          // If this was the active job, clear the last-used pointer
+          const stored = await getStorage(['saved_job_last_id'])
+          if (stored.saved_job_last_id === j.id) await setStorage({ saved_job_last_id: null })
+          await loadSavedJobs()
+        } catch {
+          delBtn.disabled = false
+        }
+      })
+
+      row.appendChild(labelSpan)
+      row.appendChild(companySpan)
+      row.appendChild(delBtn)
+
+      // Click row: load into fields, persist to chrome.storage, mark as last-used
+      row.addEventListener('click', async () => {
+        if ($('jobTitle'))       $('jobTitle').value       = j.role_title  || ''
+        if ($('jobCompany'))     $('jobCompany').value     = j.company     || ''
+        if ($('jobDescription')) $('jobDescription').value = j.highlights  || ''
+        if ($('jobUrl'))         $('jobUrl').value         = j.job_url     || ''
+        if ($('jobLabel'))       $('jobLabel').value       = j.label
+
+        await setStorage({
+          job_title:       j.role_title  || '',
+          job_company:     j.company     || '',
+          job_description: j.highlights  || '',
+          job_url:         j.job_url     || '',
+          saved_job_last_id: j.id,
+        })
+
+        const statusEl = $('jobStatus')
+        if (statusEl) {
+          statusEl.textContent = `"${j.label}" loaded.`
+          statusEl.style.color = '#16a34a'
+          setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = '' }, 2000)
+        }
+      })
+
+      listEl.appendChild(row)
+    }
+  } catch (e) {
+    console.warn('loadSavedJobs failed:', e)
+  }
+}
+
 // ── Job tab ───────────────────────────────────────────────────────────────────
 function setupJobTab() {
   getStorage(['job_title','job_company','job_description','job_url']).then(d => {
@@ -627,6 +709,9 @@ function setupJobTab() {
     if (d.job_description) $('jobDescription').value = d.job_description
     if (d.job_url)         $('jobUrl').value         = d.job_url
   })
+
+  // Load saved jobs list on init
+  loadSavedJobs()
 
   $('btnExtractJob').addEventListener('click', async () => {
     const url = $('jobUrl').value.trim()
@@ -740,11 +825,40 @@ function setupJobTab() {
   })
 
   $('btnSaveJob').addEventListener('click', async () => {
-    const title = $('jobTitle').value.trim()
-    if (!title) { $('jobStatus').textContent = 'Add a role title first.'; return }
-    await setStorage({ job_title: title, job_company: $('jobCompany').value.trim(), job_description: $('jobDescription').value.trim(), job_url: $('jobUrl').value.trim() })
-    $('jobStatus').textContent = 'Saved!'
-    setTimeout(() => { $('jobStatus').textContent = '' }, 2000)
+    const title      = $('jobTitle').value.trim()
+    const company    = $('jobCompany').value.trim()
+    const highlights = $('jobDescription').value.trim()
+    const jobUrl     = $('jobUrl').value.trim()
+    const label      = $('jobLabel').value.trim() || (title ? `${title}${company ? ' — ' + company : ''}` : '')
+
+    if (!label) { $('jobStatus').textContent = 'Add a role title or label first.'; $('jobStatus').style.color = '#dc2626'; return }
+
+    const btn = $('btnSaveJob')
+    btn.disabled = true
+    $('jobStatus').textContent = 'Saving…'
+    $('jobStatus').style.color = '#6b7280'
+
+    try {
+      await saveJob({ label, jobUrl: jobUrl || null, roleTitle: title || null, company: company || null, highlights: highlights || null })
+
+      // Also persist locally so draft flow picks it up
+      await setStorage({
+        job_title:         title,
+        job_company:       company,
+        job_description:   highlights,
+        job_url:           jobUrl,
+      })
+
+      $('jobStatus').textContent = 'Job saved!'
+      $('jobStatus').style.color = '#16a34a'
+      setTimeout(() => { $('jobStatus').textContent = ''; $('jobStatus').style.color = '' }, 2500)
+      await loadSavedJobs()
+    } catch (e) {
+      $('jobStatus').textContent = 'Could not save — try again.'
+      $('jobStatus').style.color = '#dc2626'
+    } finally {
+      btn.disabled = false
+    }
   })
 }
 
