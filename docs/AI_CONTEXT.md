@@ -1,7 +1,7 @@
 # AI Context — OutreachAI
 
 > NOT user-facing. For AI assistants and code reviewers only.
-> Last validated against commit: `task6-harden` (2026-04-09).
+> Last validated against commit: `debfdee` (2026-04-09).
 > Self-update rule: after any critical change (schema, RLS, auth, main flow, cache/bookmark logic, provider, pricing, new risk), update the relevant section, update the "last validated" commit above, and prepend an entry under "Latest critical updates". Ignore UI tweaks, styling, and minor refactors.
 
 ---
