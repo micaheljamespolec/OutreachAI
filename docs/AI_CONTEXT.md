@@ -1,7 +1,8 @@
 # AI Context — OutreachAI
 
 > NOT user-facing. For AI assistants and code reviewers only.
-> Self-update rule: after any critical change (schema, RLS, auth, main flow, cache/bookmark logic, provider, pricing, new risk), update the relevant section and prepend an entry under "Latest critical updates". Ignore UI tweaks, styling, and minor refactors.
+> Last validated against commit: `663ad38` (2026-04-09).
+> Self-update rule: after any critical change (schema, RLS, auth, main flow, cache/bookmark logic, provider, pricing, new risk), update the relevant section, update the "last validated" commit above, and prepend an entry under "Latest critical updates". Ignore UI tweaks, styling, and minor refactors.
 
 ---
 
@@ -44,11 +45,11 @@ Action router also handles: `summarize-job` (Haiku), `bookmark-profile`, `check-
 ---
 
 ## Critical files
-- `extension/content.js` — 3 lines: reads `window.location.href` only. Do NOT add DOM selectors.
+- `extension/content.js` — 5 lines: reads `window.location.href` (strips query string) only. The scraping rule is specific to this file: do NOT add any DOM selectors here; this is what keeps the extension LinkedIn ToS-safe.
 - `extension/manifest.json` — MV3, permissions: activeTab/storage/tabs/scripting. Content script matches `/in/`, `/talent/`, `/recruiter/`.
 - `extension/core/auth.js` — session management (magic link + Google OAuth). Stores in `chrome.storage.local`. Do not touch.
 - `extension/core/api.js` — all API exports. Single `apiRequest` wrapper with 401 refresh-and-retry.
-- `extension/popup.js` — 4-tab UI (Draft/Profile/Job/Settings). State machine: IDLE→PREFILLED→ENRICHING→SUCCESS/PARTIAL/EMPTY/ERROR. `setupProfileTab`, `setupJobTab`, `populateProfileTab`, `updateBookmarkButton`.
+- `extension/popup.js` — 4-tab UI (Draft/Profile/Job/Settings). State machine: `IDLE | PREFILLED | SUBMITTING | ENRICHING | DRAFTING | SUCCESS | PARTIAL_SUCCESS | EMPTY_RESULT | AUTH_ERROR | GENERIC_ERROR`. Key functions: `setupProfileTab`, `setupJobTab`, `populateProfileTab`, `updateBookmarkButton`, `generateDraftFlow`.
 - `extension/ui/popup.html` — CSS dark mode classes (do not use inline styles for themeable elements).
 - `supabase/functions/enrich-and-draft/index.ts` — monolithic edge function: all 9 steps + all secondary actions in one file.
 - `supabase/migrations/20260405010000_saved_profiles.sql` — saved_profiles DDL + RLS.
