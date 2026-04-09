@@ -307,6 +307,12 @@ async function loadSavedProfiles() {
         // Pre-fill Draft tab inputs for when user navigates there
         if ($('fullNameInput'))    $('fullNameInput').value    = p.full_name || ''
         if ($('companyHintInput')) $('companyHintInput').value = p.company   || ''
+        // Update profile pill and open customize section if data is present
+        updateProfilePill(p.full_name || 'LinkedIn profile detected')
+        if (p.full_name || p.company) {
+          const fields = $('customizeFields'); const toggle = $('customizeToggle')
+          if (fields && toggle) { fields.style.display = 'block'; toggle.textContent = '▾ Customize draft' }
+        }
         // Populate profile card and STAY on the Profile tab
         populateProfileTab({
           person: {
@@ -544,9 +550,11 @@ async function prefillFromPage() {
           setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
         }
       } else {
+        updateProfilePill(null)
         setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
       }
     } catch {
+      updateProfilePill(null)
       setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
     }
   } catch {}
@@ -631,6 +639,10 @@ async function showMainApp(user) {
     $('companyHintInput').value = ''
     $('userContextInput').value = ''
     _linkedinUrl = null
+    // Reset pill and collapse customize section
+    updateProfilePill(null)
+    const fields = $('customizeFields'); const toggle = $('customizeToggle')
+    if (fields && toggle) { fields.style.display = 'none'; toggle.textContent = '▸ Customize draft' }
     resetToIdle()
     await prefillFromPage()
   })
