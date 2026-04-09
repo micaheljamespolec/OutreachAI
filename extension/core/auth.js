@@ -102,6 +102,62 @@ export async function signInWithGoogle() {
   })
 }
 
+export async function signInWithMicrosoft() {
+  const redirectTo = encodeURIComponent(getRedirectUrl())
+  await chrome.tabs.create({
+    url: `${BASE}/authorize?provider=azure&redirect_to=${redirectTo}`
+  })
+}
+
+export async function signInWithEmailPassword(email, password) {
+  try {
+    const res = await fetch(`${BASE}/token?grant_type=password`, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      return { error: { message: data.error_description ?? data.msg ?? data.message ?? 'Sign-in failed' } }
+    }
+    if (data.access_token) {
+      const session = {
+        access_token:  data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at:    Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+        user:          data.user,
+      }
+      await saveSession(session)
+      return { session, error: null }
+    }
+    return { error: { message: 'Sign-in failed — no token returned' } }
+  } catch (e) { return { error: { message: e.message } } }
+}
+
+export async function signUpWithEmailPassword(email, password) {
+  try {
+    const res = await fetch(`${BASE}/signup`, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ email, password }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      return { error: { message: data.msg ?? data.message ?? 'Sign-up failed' } }
+    }
+    if (data.access_token) {
+      const session = {
+        access_token:  data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at:    Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+        user:          data.user,
+      }
+      await saveSession(session)
+      return { session, error: null }
+    }
+    // Email confirmation required
+    return { session: null, error: null, confirmEmail: true }
+  } catch (e) { return { error: { message: e.message } } }
+}
+
 export async function handleAuthCallback(url) {
   try {
     // Tokens come in the URL hash: #access_token=...&refresh_token=...

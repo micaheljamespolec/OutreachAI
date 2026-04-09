@@ -32,13 +32,14 @@
 
   /* ── Form elements ── */
   label { display: block; font-size: 11px; color: #6b7280; margin-bottom: 4px; font-weight: 500; }
-  input[type="text"], textarea {
+  input[type="text"], input[type="email"], input[type="password"], textarea, select {
     width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
     font-size: 13px; color: #111827; background: white; outline: none;
     transition: border-color 0.15s; font-family: inherit;
   }
-  input[type="text"]:focus, textarea:focus { border-color: #0a66c2; }
+  input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus, textarea:focus, select:focus { border-color: #0a66c2; }
   textarea { resize: vertical; min-height: 60px; line-height: 1.5; }
+  select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px; cursor: pointer; }
   .form-group { margin-bottom: 10px; }
   .form-group:last-child { margin-bottom: 0; }
   .helper-text { font-size: 11px; color: #9ca3af; margin-top: 4px; }
@@ -165,16 +166,42 @@
 
   /* ── Login ── */
   #loginScreen { padding: 28px 20px; display: none; }
-  .login-logo { text-align: center; margin-bottom: 22px; }
+  .login-logo { text-align: center; margin-bottom: 20px; }
   .login-logo .logo-icon { font-size: 38px; }
   .login-logo h2 { font-size: 21px; font-weight: 700; color: #0a66c2; margin-top: 8px; }
   .login-logo p { font-size: 12px; color: #9ca3af; margin-top: 4px; }
   .login-hint { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 10px; }
-  .login-divider { display: flex; align-items: center; gap: 10px; margin: 14px 0; }
+  .login-divider { display: flex; align-items: center; gap: 10px; margin: 12px 0; }
   .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: #e5e7eb; }
   .login-divider span { font-size: 11px; color: #9ca3af; }
   .btn-google { display: flex; align-items: center; justify-content: center; background: white; color: #374151; border: 1.5px solid #d1d5db; font-weight: 500; gap: 8px; }
   .btn-google:hover { background: #f9fafb; }
+  .btn-microsoft { display: flex; align-items: center; justify-content: center; background: white; color: #374151; border: 1.5px solid #d1d5db; font-weight: 500; gap: 8px; }
+  .btn-microsoft:hover { background: #f9fafb; }
+
+  /* ── Email/password sub-form ── */
+  #emailPasswordForm { display: none; margin-top: 10px; }
+  #emailPasswordForm .form-group { margin-bottom: 8px; }
+  .auth-toggle-link { font-size: 11px; color: #0a66c2; text-align: center; cursor: pointer; margin-top: 6px; display: block; text-decoration: underline; }
+  .auth-toggle-link:hover { color: #0855a5; }
+  .back-to-options { font-size: 11px; color: #6b7280; cursor: pointer; display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+  .back-to-options:hover { color: #374151; }
+
+  /* ── Onboarding ── */
+  #onboardingScreen { padding: 24px 20px; display: none; }
+  .onboarding-header { text-align: center; margin-bottom: 20px; }
+  .onboarding-header .logo-icon { font-size: 32px; }
+  .onboarding-header h2 { font-size: 18px; font-weight: 700; color: #0a66c2; margin-top: 6px; }
+  .onboarding-header p { font-size: 12px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
+  .onboarding-step { display: none; }
+  .onboarding-step.active { display: block; }
+  .onboarding-step-indicator { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 18px; }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: #e5e7eb; }
+  .step-dot.active { background: #0a66c2; }
+  .step-dot.done { background: #16a34a; }
+  #onboardingStatus { padding: 8px 10px; border-radius: 7px; font-size: 12px; display: none; margin-bottom: 10px; }
+  #onboardingStatus.error { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; display: block; }
+  #onboardingStatus.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; display: block; }
 
   /* ════════════ DARK MODE ════════════ */
   body.dark { background: #0f1117; color: #e5e7eb; }
@@ -185,8 +212,8 @@
   body.dark .tab.active { color: #93b4ef; border-color: #93b4ef; }
   body.dark .card { background: #1a1d2e; border-color: #2d3148; }
   body.dark .card-label { color: #4b5563; }
-  body.dark input[type="text"], body.dark textarea { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
-  body.dark input:focus, body.dark textarea:focus { border-color: #93b4ef; }
+  body.dark input[type="text"], body.dark input[type="email"], body.dark input[type="password"], body.dark textarea, body.dark select { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
+  body.dark input:focus, body.dark textarea:focus, body.dark select:focus { border-color: #93b4ef; }
   body.dark label { color: #6b7280; }
   body.dark .helper-text { color: #4b5563; }
   body.dark .btn-secondary, body.dark .btn-gmail { background: #252836; color: #d1d5db; border-color: #3a3d52; }
@@ -213,14 +240,22 @@
   body.dark .theme-btn.active { background: #3a3d52; color: #e5e7eb; }
   body.dark .plan-badge { background: #1e3a5f; color: #93b4ef; }
   body.dark .plan-badge.free { background: #252836; color: #6b7280; }
-  body.dark .login-logo h2 { color: #93b4ef; }
-  body.dark .login-logo p, body.dark .login-hint { color: #4b5563; }
+  body.dark .login-logo h2, body.dark .onboarding-header h2 { color: #93b4ef; }
+  body.dark .login-logo p, body.dark .login-hint, body.dark .onboarding-header p { color: #4b5563; }
   body.dark .login-divider::before, body.dark .login-divider::after { background: #2d3148; }
-  body.dark .btn-google { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
+  body.dark .btn-google, body.dark .btn-microsoft { background: #1a1d2e; color: #e5e7eb; border-color: #3a3d52; }
   body.dark .draft-subject { color: #6b7280; }
   body.dark .draft-subject strong { color: #d1d5db; }
   body.dark .result-value.email-found { background: #0d2a1a; color: #4ade80; }
   body.dark .result-label { color: #6b7280; }
+  body.dark .step-dot { background: #2d3148; }
+  body.dark .step-dot.active { background: #93b4ef; }
+  body.dark .step-dot.done { background: #4ade80; }
+  body.dark #onboardingStatus.error { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
+  body.dark #onboardingStatus.info { background: #1e3a5f; color: #93b4ef; border-color: #2a4d7a; }
+  body.dark .back-to-options { color: #4b5563; }
+  body.dark .back-to-options:hover { color: #9ca3af; }
+  body.dark .auth-toggle-link { color: #93b4ef; }
 
   /* ── Profile tab ── */
   .saved-profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 6px; cursor: pointer; transition: background 0.12s; }
@@ -291,18 +326,120 @@
     <h2>OutreachAI</h2>
     <p>Draft outreach in seconds</p>
   </div>
-  <div class="form-group">
-    <label for="loginEmail">Work email</label>
-    <input type="text" id="loginEmail" placeholder="you@company.com" />
+
+  <!-- Auth options -->
+  <div id="authOptions">
+    <button class="btn btn-google" id="btnGoogleSignin">
+      <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.9 23.9 0 000 24c0 3.77.9 7.34 2.56 10.52l7.97-5.93z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
+      Continue with Google
+    </button>
+    <button class="btn btn-microsoft" id="btnMicrosoftSignin" style="margin-top:7px;">
+      <svg width="16" height="16" viewBox="0 0 21 21"><path fill="#f25022" d="M0 0h10v10H0z"/><path fill="#00a4ef" d="M11 0h10v10H11z"/><path fill="#7fba00" d="M0 11h10v10H0z"/><path fill="#ffb900" d="M11 11h10v10H11z"/></svg>
+      Continue with Microsoft
+    </button>
+    <div class="login-divider"><span>or</span></div>
+    <button class="btn btn-secondary" id="btnShowEmailPassword" style="font-size:12px;">✉️ Email + Password</button>
+    <button class="btn btn-ghost" id="btnShowMagicLink" style="margin-top:7px;font-size:12px;">🔗 Email me a sign-in link</button>
+    <p class="login-hint">Free — 10 lookups/month included.</p>
   </div>
-  <button class="btn btn-primary" id="btnSendMagicLink">✉️ Send Magic Link</button>
-  <div class="login-divider"><span>or</span></div>
-  <button class="btn btn-google" id="btnGoogleSignin">
-    <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.9 23.9 0 000 24c0 3.77.9 7.34 2.56 10.52l7.97-5.93z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
-    Sign in with Google
-  </button>
-  <p class="login-hint">Free — 10 lookups/month included.</p>
-  <div id="loginStatus" style="margin-top:10px;"></div>
+
+  <!-- Email + Password form -->
+  <div id="emailPasswordForm">
+    <div class="back-to-options" id="backFromEmailPassword">← Back</div>
+    <div class="form-group">
+      <label for="epEmail">Email</label>
+      <input type="email" id="epEmail" placeholder="you@company.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label for="epPassword">Password</label>
+      <input type="password" id="epPassword" placeholder="Your password" autocomplete="current-password" />
+    </div>
+    <button class="btn btn-primary" id="btnEmailPasswordSignin">Sign in</button>
+    <span class="auth-toggle-link" id="toggleSignUp">No account? Create one</span>
+    <div id="epStatus" style="margin-top:8px;font-size:12px;"></div>
+  </div>
+
+  <!-- Magic link form -->
+  <div id="magicLinkForm" style="display:none;">
+    <div class="back-to-options" id="backFromMagicLink">← Back</div>
+    <div class="form-group">
+      <label for="loginEmail">Work email</label>
+      <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email" />
+    </div>
+    <button class="btn btn-primary" id="btnSendMagicLink">✉️ Send Magic Link</button>
+    <div id="loginStatus" style="margin-top:10px;font-size:12px;"></div>
+  </div>
+
+  <!-- Top-level auth error — always visible regardless of which sub-panel is showing -->
+  <div id="authError" style="display:none;margin-top:10px;font-size:12px;color:#dc2626;text-align:center;"></div>
+</div>
+
+<!-- ── Onboarding Screen ── -->
+<div id="onboardingScreen">
+  <div class="onboarding-header">
+    <div class="logo-icon">👋</div>
+    <h2>Set up your profile</h2>
+    <p>This helps personalize every draft with your identity.</p>
+  </div>
+
+  <div class="onboarding-step-indicator">
+    <div class="step-dot active" id="stepDot1"></div>
+    <div class="step-dot" id="stepDot2"></div>
+  </div>
+
+  <div id="onboardingStatus"></div>
+
+  <!-- Step 1: Required fields -->
+  <div class="onboarding-step active" id="onboardingStep1">
+    <div class="form-group">
+      <label for="obFullName">Your full name <span style="color:#dc2626;">*</span></label>
+      <input type="text" id="obFullName" placeholder="e.g. Sarah Johnson" autocomplete="name" />
+    </div>
+    <div class="form-group">
+      <label for="obCompanyName">Your company <span style="color:#dc2626;">*</span></label>
+      <input type="text" id="obCompanyName" placeholder="e.g. Acme Recruiting" autocomplete="organization" />
+    </div>
+    <button class="btn btn-primary" id="btnOnboardingNext">Continue →</button>
+  </div>
+
+  <!-- Step 2: Optional fields -->
+  <div class="onboarding-step" id="onboardingStep2">
+    <div class="form-group">
+      <label for="obJobTitle">Your job title <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+      <input type="text" id="obJobTitle" placeholder="e.g. Senior Technical Recruiter" />
+    </div>
+    <div class="form-group">
+      <label for="obHiringFocus">Hiring focus <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+      <select id="obHiringFocus">
+        <option value="">— Select focus area</option>
+        <option value="engineering">Engineering</option>
+        <option value="product">Product</option>
+        <option value="design">Design</option>
+        <option value="data">Data</option>
+        <option value="sales">Sales</option>
+        <option value="marketing">Marketing</option>
+        <option value="finance">Finance</option>
+        <option value="legal">Legal</option>
+        <option value="hr">HR</option>
+        <option value="operations">Operations</option>
+        <option value="executive">Executive</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="obTone">Preferred tone <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+      <select id="obTone">
+        <option value="">— Select tone</option>
+        <option value="professional">Professional</option>
+        <option value="friendly">Friendly</option>
+        <option value="direct">Direct</option>
+        <option value="warm">Warm</option>
+        <option value="formal">Formal</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="btnOnboardingFinish">Finish setup</button>
+    <button class="btn btn-ghost" id="btnOnboardingSkip" style="margin-top:7px;font-size:12px;">Skip for now</button>
+  </div>
 </div>
 
 <!-- ── Main App ── -->
@@ -512,12 +649,42 @@
       </div>
     </div>
     <div class="settings-group">
-      <div class="settings-group-label">Recruiter identity <span style="font-size:10px;font-weight:400;text-transform:none;color:#9ca3af;">(used in drafts)</span></div>
+      <div class="settings-group-label">Recruiter profile <span style="font-size:10px;font-weight:400;text-transform:none;color:#9ca3af;">(used in drafts)</span></div>
       <div class="card">
-        <div class="form-group"><label for="prefName">Your name</label><input type="text" id="prefName" placeholder="e.g. Sarah Johnson" /></div>
-        <div class="form-group"><label for="prefTitle">Your title</label><input type="text" id="prefTitle" placeholder="e.g. Technical Recruiter at Acme" /></div>
-        <button class="btn btn-secondary" id="btnSavePrefs">Save</button>
-        <div id="prefsStatus" style="margin-top:8px;"></div>
+        <div class="form-group"><label for="prefFullName">Your full name</label><input type="text" id="prefFullName" placeholder="e.g. Sarah Johnson" /></div>
+        <div class="form-group"><label for="prefCompanyName">Your company</label><input type="text" id="prefCompanyName" placeholder="e.g. Acme Recruiting" /></div>
+        <div class="form-group"><label for="prefJobTitle">Your job title <span style="color:#9ca3af;font-weight:400;">(optional)</span></label><input type="text" id="prefJobTitle" placeholder="e.g. Technical Recruiter" /></div>
+        <div class="form-group">
+          <label for="prefHiringFocus">Hiring focus <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+          <select id="prefHiringFocus">
+            <option value="">— Select focus area</option>
+            <option value="engineering">Engineering</option>
+            <option value="product">Product</option>
+            <option value="design">Design</option>
+            <option value="data">Data</option>
+            <option value="sales">Sales</option>
+            <option value="marketing">Marketing</option>
+            <option value="finance">Finance</option>
+            <option value="legal">Legal</option>
+            <option value="hr">HR</option>
+            <option value="operations">Operations</option>
+            <option value="executive">Executive</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="prefTone">Preferred tone <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
+          <select id="prefTone">
+            <option value="">— Select tone</option>
+            <option value="professional">Professional</option>
+            <option value="friendly">Friendly</option>
+            <option value="direct">Direct</option>
+            <option value="warm">Warm</option>
+            <option value="formal">Formal</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" id="btnSaveProfile">Save profile</button>
+        <div id="profileSaveStatus" style="margin-top:8px;font-size:12px;"></div>
       </div>
     </div>
   </div>

@@ -144,11 +144,21 @@ Return ONLY JSON: {"title": "job title or null", "confidence": 0.0}`)
   }
 }
 
+// ── Recruiter profile type ────────────────────────────────────────────────────
+interface RecruiterProfile {
+  full_name:    string
+  company_name: string
+  job_title:    string | null
+  hiring_focus: string | null
+  tone:         string | null
+}
+
 // ── Draft generation ──────────────────────────────────────────────────────────
 async function generateDraft(
   fullName: string, company: string | null, title: string | null,
   titleVerified: boolean, email: string | null, userContext: string | null,
-  draftConf: number, anthropicKey: string
+  draftConf: number, anthropicKey: string,
+  recruiter: RecruiterProfile | null
 ): Promise<{ subject: string; body: string } | null> {
   if (!anthropicKey) return null
 
@@ -158,6 +168,34 @@ async function generateDraft(
         : `Candidate's likely role: ${title} (inferred — reference it cautiously without claiming certainty).`)
     : `Candidate's role is unknown — do NOT claim any specific title. Write using name and company only.`
 
+  // Build recruiter identity block
+  const recruiterName    = recruiter?.full_name    || null
+  const recruiterCompany = recruiter?.company_name || null
+  const recruiterTitle   = recruiter?.job_title    || null
+  const hiringFocus      = recruiter?.hiring_focus || null
+  const tone             = recruiter?.tone         || null
+
+  // Build sign-off per spec:
+  // "Best,\nfull_name\njob_title at company_name" — job_title line omitted if null
+  let signOff = 'Best,'
+  if (recruiterName) {
+    signOff = `Best,\n${recruiterName}`
+    if (recruiterTitle && recruiterCompany) signOff += `\n${recruiterTitle} at ${recruiterCompany}`
+    // If job_title is null, omit the title/company line entirely
+  }
+
+  const toneInstruction = tone
+    ? `Tone: ${tone}, professional, peer-to-peer.`
+    : 'Tone: professional, modern, peer-to-peer.'
+
+  const hiringFocusInstruction = hiringFocus
+    ? `Recruiter specializes in: ${hiringFocus} hiring.`
+    : 'Recruiter specializes in general talent acquisition.'
+
+  const recruiterBlock = recruiterName
+    ? `Recruiter sending this email: ${recruiterName}${recruiterTitle ? `, ${recruiterTitle}` : ''}${recruiterCompany ? ` at ${recruiterCompany}` : ''}`
+    : ''
+
   const prompt = `Write a concise recruiter outreach email (60–120 words). Use ONLY the supplied information. Do not invent facts.
 
 Candidate: ${fullName}
@@ -165,21 +203,39 @@ ${company ? `Company: ${company}` : ''}
 ${titleInstruction}
 ${email ? `Email: ${email}` : 'No email — generate body only.'}
 ${userContext ? `Recruiter context: ${userContext}` : ''}
+${recruiterBlock}
+${hiringFocusInstruction}
 Confidence level: ${draftConf >= 0.65 ? 'normal — personalize where evidence exists' : 'low — be warm but generic, no specific claims'}
 
 Rules:
 - No mention of "I saw your profile", "I noticed you", or LinkedIn.
 - No exclamation marks.
 - No invented achievements.
-- Tone: professional, modern, peer-to-peer.
+- ${toneInstruction}
 - One soft CTA.
+- End the email body with exactly this sign-off (include it verbatim in the body field):
+${signOff}
 
 Return ONLY JSON: {"subject": "...", "body": "..."}`
 
   const raw = await callAnthropic(anthropicKey, 'claude-sonnet-4-5', 500, prompt)
   const p = parseJson(raw)
   if (!p.body) return null
-  return { subject: p.subject || `Reaching out — ${fullName}`, body: p.body }
+
+  // Deterministic sign-off enforcement:
+  // Strip any trailing lines that look like a sign-off (starting with "Best"),
+  // then always append our canonical sign-off to guarantee exact format.
+  const bodyLines = p.body.trimEnd().split('\n')
+  let trimIdx = bodyLines.length
+  for (let i = bodyLines.length - 1; i >= 0; i--) {
+    const line = bodyLines[i].trim()
+    if (line === '' || line.startsWith('Best')) { trimIdx = i; continue }
+    break
+  }
+  const bodyWithoutSignOff = bodyLines.slice(0, trimIdx).join('\n').trimEnd()
+  const finalBody = bodyWithoutSignOff ? `${bodyWithoutSignOff}\n\n${signOff}` : signOff
+
+  return { subject: p.subject || `Reaching out — ${fullName}`, body: finalBody }
 }
 
 // ── Weighted confidence formula ────────────────────────────────────────────────
@@ -389,6 +445,16 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
 
     if (!linkedinUrl) return json({ error: { code: 'NO_LINKEDIN_URL', message: 'Open a LinkedIn profile to generate a draft.' } }, 400)
 
+    // ── Fetch recruiter profile for draft personalization ─────────────────────
+    let recruiterProfile: RecruiterProfile | null = null
+    try {
+      const { data: rp } = await db.from('recruiter_profiles')
+        .select('full_name, company_name, job_title, hiring_focus, tone')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (rp) recruiterProfile = rp as RecruiterProfile
+    } catch (e) { console.warn('recruiter_profiles fetch failed (non-fatal):', e) }
+
     // ── Cache lookup: check saved_profiles before hitting FullEnrich ──────────
     const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const { data: cached } = await db.from('saved_profiles')
@@ -429,7 +495,8 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
           draft = await generateDraft(
             fullName, company, title, titleVerified,
             selectedEmail, userContext,
-            draftConfidence, anthropicKey
+            draftConfidence, anthropicKey,
+            recruiterProfile
           )
         } catch (e) { console.error('Draft generation (cache) failed:', e) }
       }
@@ -615,7 +682,8 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         draft = await generateDraft(
           fullName, company, title, titleVerified,
           selectedEmail, userContext,
-          draftConfidence, anthropicKey
+          draftConfidence, anthropicKey,
+          recruiterProfile
         )
       } catch (e) { console.error('Draft generation failed:', e) }
     }

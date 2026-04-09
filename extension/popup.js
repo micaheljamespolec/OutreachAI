@@ -1,6 +1,6 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
-import { isLoggedIn, sendMagicLink, signInWithGoogle, getUser, signOut } from './core/auth.js'
+import { isLoggedIn, sendMagicLink, signInWithGoogle, signInWithMicrosoft, signInWithEmailPassword, signUpWithEmailPassword, getUser, signOut, getAccessToken } from './core/auth.js'
 import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, checkSavedProfile, saveJob, getSavedJobs, deleteJob, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
@@ -591,23 +591,299 @@ async function loadCreditsUI() {
   }
 }
 
-// ── Login screen ──────────────────────────────────────────────────────────────
+// ── Recruiter profile API helpers ─────────────────────────────────────────────
+async function fetchRecruiterProfile() {
+  const token = await getAccessToken()
+  if (!token) return null
+  try {
+    const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/recruiter_profiles?select=*&limit=1`, {
+      headers: {
+        'apikey':        CONFIG.supabaseKey,
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+    if (!res.ok) return null
+    const rows = await res.json()
+    return rows?.[0] ?? null
+  } catch { return null }
+}
+
+async function saveRecruiterProfile({ fullName, companyName, jobTitle, hiringFocus, tone }) {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Not authenticated')
+  const user = await getUser()
+  if (!user?.id) throw new Error('No user')
+
+  const payload = {
+    user_id:      user.id,
+    full_name:    fullName,
+    company_name: companyName,
+    job_title:    jobTitle || null,
+    hiring_focus: hiringFocus || null,
+    tone:         tone || null,
+    updated_at:   new Date().toISOString(),
+  }
+
+  const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/recruiter_profiles?on_conflict=user_id`, {
+    method: 'POST',
+    headers: {
+      'apikey':        CONFIG.supabaseKey,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type':  'application/json',
+      'Prefer':        'resolution=merge-duplicates,return=representation',
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.message || err.hint || 'Failed to save profile')
+  }
+  const rows = await res.json()
+  return rows?.[0] ?? null
+}
+
+// ── Onboarding ────────────────────────────────────────────────────────────────
+let _onboardingStep = 1
+let _onboardingData = {}
+
+function setOnboardingStep(step) {
+  _onboardingStep = step
+  document.querySelectorAll('.onboarding-step').forEach(el => el.classList.remove('active'))
+  $(`onboardingStep${step}`)?.classList.add('active')
+
+  // Update step dots
+  const dot1 = $('stepDot1'), dot2 = $('stepDot2')
+  if (step === 1) {
+    if (dot1) { dot1.className = 'step-dot active' }
+    if (dot2) { dot2.className = 'step-dot' }
+  } else {
+    if (dot1) { dot1.className = 'step-dot done' }
+    if (dot2) { dot2.className = 'step-dot active' }
+  }
+
+  const statusEl = $('onboardingStatus')
+  if (statusEl) { statusEl.textContent = ''; statusEl.className = '' }
+}
+
+function showOnboardingScreen() {
+  $('loginScreen').style.display = 'none'
+  $('mainApp').style.display = 'none'
+  $('onboardingScreen').style.display = 'block'
+  setOnboardingStep(1)
+}
+
+// _onboardingComplete stores the most-recent completion callback so the
+// bound (single) handlers can call it even after being set up once.
+let _onboardingComplete = null
+
+function setupOnboarding(onComplete) {
+  _onboardingComplete = onComplete
+
+  if (_onboardingListenersBound) return
+  _onboardingListenersBound = true
+
+  $('btnOnboardingNext')?.addEventListener('click', () => {
+    const fullName    = $('obFullName').value.trim()
+    const companyName = $('obCompanyName').value.trim()
+    const statusEl    = $('onboardingStatus')
+
+    if (!fullName || !companyName) {
+      statusEl.textContent = 'Full name and company are required.'
+      statusEl.className = 'error'
+      return
+    }
+
+    _onboardingData = { fullName, companyName }
+    setOnboardingStep(2)
+  })
+
+  async function finishOnboarding(skip = false) {
+    const statusEl = $('onboardingStatus')
+    statusEl.textContent = 'Saving…'
+    statusEl.className = 'info'
+
+    try {
+      await saveRecruiterProfile({
+        fullName:    _onboardingData.fullName,
+        companyName: _onboardingData.companyName,
+        jobTitle:    skip ? null : ($('obJobTitle').value.trim() || null),
+        hiringFocus: skip ? null : ($('obHiringFocus').value || null),
+        tone:        skip ? null : ($('obTone').value || null),
+      })
+      $('onboardingScreen').style.display = 'none'
+      if (_onboardingComplete) _onboardingComplete()
+    } catch (e) {
+      statusEl.textContent = e.message || 'Could not save profile — try again.'
+      statusEl.className = 'error'
+    }
+  }
+
+  $('btnOnboardingFinish')?.addEventListener('click', () => finishOnboarding(false))
+  $('btnOnboardingSkip')?.addEventListener('click',   () => finishOnboarding(true))
+}
+
+// ── Login / Onboarding screen listener guards ─────────────────────────────────
+// Guards ensure event listeners are bound only once per popup session,
+// preventing duplicate submissions if the screen is shown more than once.
+let _loginListenersBound = false
+let _onboardingListenersBound = false
+
 function showLoginScreen() {
   getStorage(['pref_theme']).then(d => applyTheme(d.pref_theme || 'system'))
   $('loginScreen').style.display = 'block'
+  $('onboardingScreen').style.display = 'none'
   $('mainApp').style.display = 'none'
 
-  const statusEl = $('loginStatus')
+  // Reset to options view whenever login screen is shown
+  $('authOptions').style.display = 'block'
+  $('emailPasswordForm').style.display = 'none'
+  $('magicLinkForm').style.display = 'none'
+  const authErrEl = $('authError')
+  if (authErrEl) { authErrEl.style.display = 'none'; authErrEl.textContent = '' }
+
+  if (_loginListenersBound) return
+  _loginListenersBound = true
+
+  // Google
+  $('btnGoogleSignin').addEventListener('click', () => signInWithGoogle())
+
+  // Microsoft
+  $('btnMicrosoftSignin').addEventListener('click', () => signInWithMicrosoft())
+
+  // Email + Password
+  $('btnShowEmailPassword').addEventListener('click', () => {
+    $('authOptions').style.display = 'none'
+    $('emailPasswordForm').style.display = 'block'
+  })
+
+  $('backFromEmailPassword').addEventListener('click', () => {
+    $('emailPasswordForm').style.display = 'none'
+    $('authOptions').style.display = 'block'
+    $('epStatus').textContent = ''
+    $('epStatus').className = ''
+  })
+
+  let isSignUp = false
+  $('toggleSignUp').addEventListener('click', () => {
+    isSignUp = !isSignUp
+    $('btnEmailPasswordSignin').textContent = isSignUp ? 'Create account' : 'Sign in'
+    $('toggleSignUp').textContent = isSignUp ? 'Already have an account? Sign in' : 'No account? Create one'
+    $('epStatus').textContent = ''
+  })
+
+  $('btnEmailPasswordSignin').addEventListener('click', async () => {
+    const email    = $('epEmail').value.trim()
+    const password = $('epPassword').value
+    const statusEl = $('epStatus')
+
+    if (!email || !password) {
+      statusEl.textContent = 'Enter your email and password.'
+      statusEl.style.color = '#dc2626'
+      return
+    }
+
+    $('btnEmailPasswordSignin').disabled = true
+    statusEl.textContent = isSignUp ? 'Creating account…' : 'Signing in…'
+    statusEl.style.color = '#6b7280'
+
+    const fn = isSignUp ? signUpWithEmailPassword : signInWithEmailPassword
+    const { session, error, confirmEmail } = await fn(email, password)
+
+    $('btnEmailPasswordSignin').disabled = false
+
+    if (error) {
+      statusEl.textContent = error.message
+      statusEl.style.color = '#dc2626'
+      return
+    }
+
+    if (confirmEmail) {
+      statusEl.textContent = 'Check your email to confirm your account.'
+      statusEl.style.color = '#0a66c2'
+      return
+    }
+
+    if (session) {
+      await handlePostLogin()
+    }
+  })
+
+  // Magic link
+  const mlStatus = $('loginStatus')
+  $('btnShowMagicLink').addEventListener('click', () => {
+    $('authOptions').style.display = 'none'
+    $('magicLinkForm').style.display = 'block'
+  })
+
+  $('backFromMagicLink').addEventListener('click', () => {
+    $('magicLinkForm').style.display = 'none'
+    $('authOptions').style.display = 'block'
+    if (mlStatus) { mlStatus.textContent = ''; mlStatus.className = '' }
+  })
+
   $('btnSendMagicLink').addEventListener('click', async () => {
     const email = $('loginEmail').value.trim()
-    if (!email) { statusEl.textContent = 'Enter your email first.'; statusEl.className = 'error'; return }
-    statusEl.textContent = 'Sending magic link…'
-    statusEl.className = 'info'
+    if (!email) { mlStatus.textContent = 'Enter your email first.'; mlStatus.style.color = '#dc2626'; return }
+    mlStatus.textContent = 'Sending magic link…'
+    mlStatus.style.color = '#6b7280'
     const { error } = await sendMagicLink(email)
-    if (error) { statusEl.textContent = `Error: ${error.message}`; statusEl.className = 'error' }
-    else       { statusEl.textContent = 'Check your email — link sent!'; statusEl.className = 'success' }
+    if (error) { mlStatus.textContent = `Error: ${error.message}`; mlStatus.style.color = '#dc2626' }
+    else       { mlStatus.textContent = 'Check your email — link sent!'; mlStatus.style.color = '#16a34a' }
   })
-  $('btnGoogleSignin').addEventListener('click', () => signInWithGoogle())
+}
+
+// ── Post-login: check onboarding status via DB function ──────────────────────
+// Calls is_first_time_user() which uses auth.uid() internally — no arg needed.
+async function isFirstTimeUser() {
+  const token = await getAccessToken()
+  if (!token) throw new Error('Not authenticated')
+  const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/is_first_time_user`, {
+    method: 'POST',
+    headers: {
+      'apikey':        CONFIG.supabaseKey,
+      'Authorization': `Bearer ${token}`,
+      'Content-Type':  'application/json',
+    },
+    body: JSON.stringify({}),
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Onboarding check failed (${res.status}): ${body}`)
+  }
+  const result = await res.json()
+  return result === true
+}
+
+async function handlePostLogin() {
+  const prefs = await getStorage(['pref_theme'])
+  applyTheme(prefs.pref_theme || 'system')
+
+  const user = await getUser()
+
+  // Onboarding gate: DB-level is_first_time_user() is the authoritative check.
+  // Returns true only when the authenticated user has no recruiter_profiles row.
+  // Throws on RPC failure so errors are surfaced rather than silently bypassing onboarding.
+  let needsOnboarding = false
+  try {
+    needsOnboarding = await isFirstTimeUser()
+  } catch (e) {
+    console.error('Onboarding check error:', e.message)
+    // Show error on the top-level auth error element (always visible on login screen)
+    showLoginScreen()
+    const errEl = $('authError')
+    if (errEl) {
+      errEl.textContent = 'Could not verify your account status — please try signing in again.'
+      errEl.style.display = 'block'
+    }
+    return
+  }
+
+  if (needsOnboarding) {
+    showOnboardingScreen()
+    setupOnboarding(() => showMainApp(user))
+  } else {
+    await showMainApp(user)
+  }
 }
 
 // ── Main app ──────────────────────────────────────────────────────────────────
@@ -615,6 +891,7 @@ async function showMainApp(user) {
   const prefs = await getStorage(['pref_theme'])
   applyTheme(prefs.pref_theme || 'system')
   $('loginScreen').style.display = 'none'
+  $('onboardingScreen').style.display = 'none'
   $('mainApp').style.display = 'block'
 
   setupTabs()
@@ -990,19 +1267,56 @@ async function setupSettingsTab(user) {
   $('btnUpgrade').addEventListener('click', () => openUpgradePage())
   $('btnSignOut').addEventListener('click', async () => { await signOut(); showLoginScreen() })
 
-  const prefs = await getStorage(['pref_theme','pref_name','pref_title'])
+  const prefs = await getStorage(['pref_theme'])
   applyTheme(prefs.pref_theme || 'system')
-  if (prefs.pref_name)  $('prefName').value  = prefs.pref_name
-  if (prefs.pref_title) $('prefTitle').value = prefs.pref_title
 
   document.querySelectorAll('.theme-btn').forEach(btn => {
     btn.addEventListener('click', async () => { await setStorage({ pref_theme: btn.dataset.theme }); applyTheme(btn.dataset.theme) })
   })
 
-  $('btnSavePrefs').addEventListener('click', async () => {
-    await setStorage({ pref_name: $('prefName').value.trim(), pref_title: $('prefTitle').value.trim() })
-    $('prefsStatus').textContent = 'Saved!'
-    setTimeout(() => { $('prefsStatus').textContent = '' }, 2000)
+  // Load recruiter profile into settings fields
+  const profile = await fetchRecruiterProfile()
+  if (profile) {
+    if ($('prefFullName'))    $('prefFullName').value    = profile.full_name    || ''
+    if ($('prefCompanyName')) $('prefCompanyName').value = profile.company_name || ''
+    if ($('prefJobTitle'))    $('prefJobTitle').value    = profile.job_title    || ''
+    if ($('prefHiringFocus')) $('prefHiringFocus').value = profile.hiring_focus || ''
+    if ($('prefTone'))        $('prefTone').value        = profile.tone         || ''
+  }
+
+  $('btnSaveProfile').addEventListener('click', async () => {
+    const fullName    = $('prefFullName').value.trim()
+    const companyName = $('prefCompanyName').value.trim()
+    const statusEl    = $('profileSaveStatus')
+
+    if (!fullName || !companyName) {
+      statusEl.textContent = 'Full name and company name are required.'
+      statusEl.style.color = '#dc2626'
+      return
+    }
+
+    const btn = $('btnSaveProfile')
+    btn.disabled = true
+    statusEl.textContent = 'Saving…'
+    statusEl.style.color = '#6b7280'
+
+    try {
+      await saveRecruiterProfile({
+        fullName,
+        companyName,
+        jobTitle:    $('prefJobTitle').value.trim()    || null,
+        hiringFocus: $('prefHiringFocus').value        || null,
+        tone:        $('prefTone').value               || null,
+      })
+      statusEl.textContent = 'Profile saved!'
+      statusEl.style.color = '#16a34a'
+      setTimeout(() => { statusEl.textContent = ''; statusEl.style.color = '' }, 2500)
+    } catch (e) {
+      statusEl.textContent = e.message || 'Could not save — try again.'
+      statusEl.style.color = '#dc2626'
+    } finally {
+      btn.disabled = false
+    }
   })
 }
 
@@ -1010,6 +1324,6 @@ async function setupSettingsTab(user) {
 async function init() {
   const loggedIn = await isLoggedIn()
   if (!loggedIn) { showLoginScreen(); return }
-  await showMainApp(await getUser())
+  await handlePostLogin()
 }
 init()
