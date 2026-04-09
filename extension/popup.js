@@ -9,6 +9,7 @@ let _state = 'IDLE'
 let _lastResult = null
 let _linkedinUrl = null
 let _isBookmarked = false
+let _isGenerating = false  // double-submission guard
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id)
@@ -368,12 +369,17 @@ function setupProfileTab() {
 
 // ── Core flow ─────────────────────────────────────────────────────────────────
 async function generateDraftFlow() {
+  // Double-submission guard
+  if (_isGenerating) return
+  _isGenerating = true
+
   const companyHint    = $('companyHintInput').value.trim() || null
   const userContext    = $('userContextInput').value.trim() || null
   const fullNameHint   = $('fullNameInput').value.trim() || null
 
   if (!_linkedinUrl) {
     setStatus('Open a LinkedIn profile page first, then click Generate draft.', 'error')
+    _isGenerating = false
     return
   }
 
@@ -419,6 +425,7 @@ async function generateDraftFlow() {
     // Populate name and company fields from FullEnrich result for recruiter reference
     if (result.person?.fullName) {
       $('fullNameInput').value = result.person.fullName
+      updateProfilePill(result.person.fullName)
     }
     if (result.person?.company && !$('companyHintInput').value.trim()) {
       $('companyHintInput').value = result.person.company
@@ -455,7 +462,34 @@ async function generateDraftFlow() {
       }
       showErrorBox(MESSAGES[err.code] || err.message || 'Something went wrong.')
     }
+  } finally {
+    _isGenerating = false
   }
+}
+
+// ── Profile pill helper ───────────────────────────────────────────────────────
+function updateProfilePill(label) {
+  const pill = $('profilePill')
+  const text = $('profilePillText')
+  if (!pill || !text) return
+  if (label) {
+    text.textContent = label
+    pill.style.display = 'flex'
+  } else {
+    pill.style.display = 'none'
+  }
+}
+
+// ── Customize toggle helper ───────────────────────────────────────────────────
+function setupCustomizeToggle() {
+  const toggle = $('customizeToggle')
+  const fields = $('customizeFields')
+  if (!toggle || !fields) return
+  toggle.addEventListener('click', () => {
+    const open = fields.style.display !== 'none'
+    fields.style.display = open ? 'none' : 'block'
+    toggle.textContent = open ? '▸ Customize draft' : '▾ Customize draft'
+  })
 }
 
 // ── Page prefill strategy ─────────────────────────────────────────────────────
@@ -471,15 +505,27 @@ async function prefillFromPage() {
         _linkedinUrl = data.linkedin_url
         _state = 'PREFILLED'
 
+        // Show a basic pill immediately so the user knows which profile is queued
+        updateProfilePill('LinkedIn profile detected')
+
         // Check saved-profile cache immediately — no credit needed
         try {
           const check = await checkSavedProfile({ linkedinUrl: _linkedinUrl })
           if (check.found) {
             const p = check.profile
-            setStatus('Saved profile detected — draft is free.', 'success')
             // Pre-fill Draft tab inputs
             if (p.fullName) $('fullNameInput').value = p.fullName
             if (p.company && !$('companyHintInput').value.trim()) $('companyHintInput').value = p.company
+            // Update pill to show the cached name
+            if (p.fullName) updateProfilePill(p.fullName)
+            // Auto-open customize section when we have pre-filled data
+            const fields = $('customizeFields')
+            const toggle = $('customizeToggle')
+            if (fields && toggle && (p.fullName || p.company)) {
+              fields.style.display = 'block'
+              toggle.textContent = '▾ Customize draft'
+            }
+            setStatus('Saved profile detected — draft is free.', 'success')
             // Auto-populate Profile tab card
             populateProfileTab({
               person: {
@@ -564,6 +610,7 @@ async function showMainApp(user) {
   $('mainApp').style.display = 'block'
 
   setupTabs()
+  setupCustomizeToggle()
   await loadCreditsUI()
   $('creditPill').addEventListener('click', () => openUpgradePage())
 
@@ -750,6 +797,10 @@ function setupJobTab() {
     const btn = $('btnExtractJob')
     btn.disabled = true
     statusEl.textContent = 'Fetching job details…'
+    statusEl.style.color = '#6b7280'
+    // Hide any previous expired warning
+    const expiredWarn = $('jobExpiredWarning')
+    if (expiredWarn) expiredWarn.style.display = 'none'
 
     const DIRECTS = { 'google.com': 'Google', 'amazon.jobs': 'Amazon', 'microsoft.com': 'Microsoft', 'apple.com': 'Apple', 'meta.com': 'Meta', 'netflix.com': 'Netflix', 'stripe.com': 'Stripe', 'openai.com': 'OpenAI' }
     const BOARDS  = ['greenhouse.io','lever.co','workday.com','myworkdayjobs.com','jobvite.com','smartrecruiters.com','ashbyhq.com','linkedin.com']
@@ -769,7 +820,7 @@ function setupJobTab() {
     // ── Step 2: Fetch HTML directly — no tabs opened ──────────────────────────
     try {
       const controller = new AbortController()
-      const fetchTimer = setTimeout(() => controller.abort(), 10000)
+      const fetchTimer = setTimeout(() => controller.abort(), 20000)
       const resp = await fetch(url, {
         signal: controller.signal,
         headers: { 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' }
@@ -806,6 +857,30 @@ function setupJobTab() {
       const bodyText  = bodyLines.join(' ')
       const anchor    = bodyText.search(/minimum qualifications|about the job|about this role|responsibilities|what you.ll do|job summary/i)
       const bodyDesc  = (anchor > -1 ? bodyText.slice(anchor) : bodyText).slice(0, 600)
+
+      // ── Detect expired / unavailable job postings ──────────────────────────
+      // Check page title + body for common "job gone" signals
+      const EXPIRED_TITLE = /^(jobs? search|job not found|page not found|404|no longer available|position filled|job closed|expired|error)$/i
+      const EXPIRED_BODY  = /this (job|position|role|posting|listing) (is |has been )?(no longer available|closed|filled|expired|removed|taken down)|job (not found|has expired)|this page (could not|can.t) be found|no longer accepting applications/i
+      const titleToCheck  = ldTitle || ogTitle || pageTitle
+      const isExpired = EXPIRED_TITLE.test(titleToCheck.trim()) || EXPIRED_BODY.test(bodyText.slice(0, 1000))
+
+      if (isExpired) {
+        $('jobTitle').value = ''
+        $('jobCompany').value = preCompany || ''
+        $('jobDescription').value = ''
+        statusEl.textContent = ''
+        statusEl.style.color = ''
+        // Show a warning banner instead
+        const warn = $('jobExpiredWarning')
+        if (warn) warn.style.display = 'block'
+        btn.disabled = false
+        return
+      }
+
+      // Hide expired warning if previously shown
+      const warn = $('jobExpiredWarning')
+      if (warn) warn.style.display = 'none'
 
       // Strip trailing " | Site" or " — Site" but NOT hyphens within the title (e.g. "Fixed-Term")
       const stripSuffix = s => s.replace(/\s+[|–—]\s+[^|–—]+$/, '').replace(/\s+-\s+\S.*$/, '').trim()
@@ -849,7 +924,10 @@ function setupJobTab() {
 
       return  // btn already re-enabled above
     } catch (e) {
-      statusEl.textContent = preTitle ? 'Details extracted from URL — review and save.' : `Failed: ${e.message}`
+      // Friendly message for fetch timeout (AbortController fired)
+      const isTimeout = e?.name === 'AbortError' || e?.message?.includes('aborted') || e?.message?.includes('signal')
+      const timeoutMsg = 'Request timed out — the page took too long to load. Try a direct job board link.'
+      statusEl.textContent = isTimeout ? timeoutMsg : (preTitle ? 'Details extracted from URL — review and save.' : `Could not load the page. Try a different URL.`)
     }
     btn.disabled = false
   })
