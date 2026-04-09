@@ -450,6 +450,8 @@ async function generateDraftFlow() {
         NO_EMAIL_FOUND:          'No work email was found. A draft can still be generated.',
         NOT_ENOUGH_DATA:         "There isn't enough reliable public information to generate a strong draft.",
         DRAFT_GENERATION_FAILED: 'Contact details were found, but the draft could not be generated.',
+        CREDIT_LIMIT_REACHED:    'You have reached your lookup limit. Upgrade your plan for more enrichments.',
+        CREDIT_ERROR:            'Could not verify your credit balance. Please try again.',
       }
       showErrorBox(MESSAGES[err.code] || err.message || 'Something went wrong.')
     }

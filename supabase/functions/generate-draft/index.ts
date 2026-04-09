@@ -1,4 +1,8 @@
-const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? ''
+import { createClient } from "jsr:@supabase/supabase-js@2"
+
+const GEMINI_KEY    = Deno.env.get('GEMINI_API_KEY') ?? ''
+const SUPABASE_URL  = Deno.env.get('SUPABASE_URL')!
+const SERVICE_KEY   = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
 // Models to try in order — if one is rate-limited, fall back to the next
 const MODELS = [
@@ -9,6 +13,15 @@ const MODELS = [
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors() })
+
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const authHeader = req.headers.get('Authorization') || ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return error('Session expired — please sign in again.', 401)
+  const db = createClient(SUPABASE_URL, SERVICE_KEY)
+  const { data: { user }, error: authErr } = await db.auth.getUser(token)
+  if (authErr || !user) return error('Session expired — please sign in again.', 401)
+
   try {
     const { profile, job, recruiter } = await req.json()
     const prompt = buildPrompt(profile, job, recruiter)

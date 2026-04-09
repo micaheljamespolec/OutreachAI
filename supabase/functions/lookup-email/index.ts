@@ -1,5 +1,7 @@
-const FULLENRICH_KEY = Deno.env.get('FULLENRICH_API_KEY') ?? ''
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+import { createClient } from "jsr:@supabase/supabase-js@2"
+
+const FULLENRICH_KEY    = Deno.env.get('FULLENRICH_API_KEY') ?? ''
+const SUPABASE_URL      = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 
 Deno.serve(async (req) => {
@@ -7,28 +9,21 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: cors() })
   }
 
-  try {
-    // Extract user from JWT if present (for credit deduction)
-    let userId: string | null = null
-    const authHeader = req.headers.get('authorization') ?? ''
-    if (authHeader.startsWith('Bearer ')) {
-      try {
-        const token = authHeader.replace('Bearer ', '')
-        const res = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'apikey': SUPABASE_SERVICE_KEY },
-        })
-        if (res.ok) {
-          const user = await res.json()
-          userId = user?.id ?? null
-        }
-      } catch { /* continue without user */ }
-    }
+  // ── Auth guard ────────────────────────────────────────────────────────────
+  const authHeader = req.headers.get('Authorization') ?? ''
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) return error('Session expired — please sign in again.', 401)
+  const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+  const { data: { user }, error: authErr } = await db.auth.getUser(token)
+  if (authErr || !user) return error('Session expired — please sign in again.', 401)
+  const userId = user.id
 
+  try {
     const { firstName, lastName, linkedinUrl, company } = await req.json()
     if (!firstName && !lastName && !linkedinUrl) return error('Missing name or LinkedIn URL', 400)
     console.log('Received:', { firstName, lastName, company, linkedinUrl, userId })
 
-    // ── Check cache first ─────────────────────────────────────────────────────
+    // ── Check cache first ─────────────────────────────────────────────────
     if (linkedinUrl) {
       const cacheRes = await fetch(
         `${SUPABASE_URL}/rest/v1/candidates?linkedin_url=eq.${encodeURIComponent(linkedinUrl)}&email_found=eq.true&order=looked_up_at.desc&limit=1`,
@@ -46,24 +41,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ── Deduct credit server-side before calling FullEnrich ───────────────────
-    if (userId) {
-      const deductRes = await fetch(
-        `${SUPABASE_URL}/rest/v1/rpc/deduct_credit`,
-        {
-          method: 'POST',
-          headers: serviceHeaders(),
-          body: JSON.stringify({ p_user_id: userId }),
-        }
-      )
-      if (deductRes.ok) {
-        const allowed = await deductRes.json()
-        if (allowed === false) {
-          return error('Credit limit reached. Upgrade your plan for more lookups.', 402)
-        }
+    // ── Deduct credit server-side before calling FullEnrich ───────────────
+    const deductRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/rpc/deduct_credit`,
+      {
+        method: 'POST',
+        headers: serviceHeaders(),
+        body: JSON.stringify({ p_user_id: userId }),
       }
-      console.log('Credit deducted for user:', userId)
+    )
+    if (deductRes.ok) {
+      const allowed = await deductRes.json()
+      if (allowed === false) {
+        return error('Credit limit reached. Upgrade your plan for more lookups.', 402)
+      }
     }
+    console.log('Credit deducted for user:', userId)
 
     // ── Call FullEnrich ──────────────────────────────────────────────────────────
     const contactData: Record<string, any> = { enrich_fields: ['contact.emails'] }
@@ -97,7 +90,7 @@ Deno.serve(async (req) => {
 
     if (!enrichmentId) return error('No enrichment ID returned', 502)
 
-    // ── Poll for result ───────────────────────────────────────────────────────
+    // ── Poll for result ───────────────────────────────────────────────────
     let email = ''
     for (let i = 0; i < 12; i++) {
       await new Promise(r => setTimeout(r, 5000))
@@ -126,7 +119,7 @@ Deno.serve(async (req) => {
     const found = !!email
     console.log('Email found:', email)
 
-    // ── Save to candidates cache ──────────────────────────────────────────────
+    // ── Save to candidates cache ──────────────────────────────────────────
     const candidateRow = {
       user_id: userId,
       first_name: firstName || null,

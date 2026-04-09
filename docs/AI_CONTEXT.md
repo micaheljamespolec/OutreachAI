@@ -1,7 +1,7 @@
 # AI Context — OutreachAI
 
 > NOT user-facing. For AI assistants and code reviewers only.
-> Last validated against commit: `663ad38` (2026-04-09).
+> Last validated against commit: `task6-harden` (2026-04-09).
 > Self-update rule: after any critical change (schema, RLS, auth, main flow, cache/bookmark logic, provider, pricing, new risk), update the relevant section, update the "last validated" commit above, and prepend an entry under "Latest critical updates". Ignore UI tweaks, styling, and minor refactors.
 
 ---
@@ -12,10 +12,11 @@ Chrome extension (MV3) for recruiters. When viewing a LinkedIn profile it captur
 ---
 
 ## Trust boundary
-- **Extension → Supabase edge function**: user JWT in `Authorization` header. Edge function validates via `db.auth.getUser(token)` before any action.
+- **Extension → Supabase edge function**: user JWT in `Authorization` header. All three edge functions (`enrich-and-draft`, `generate-draft`, `lookup-email`) now validate via `db.auth.getUser(token)` before any action. 401 returned on missing or invalid token.
 - **Edge function → external APIs**: service-role key (bypasses RLS). Never exposed to client.
 - **Extension storage**: session (access + refresh token) in `chrome.storage.local` under key `outreachai_session`. Auth module auto-refreshes within 5 min of expiry.
 - **Scraping**: content script reads `window.location.href` only — no DOM selectors anywhere.
+- **Credit gate**: `deduct_credit` RPC is called server-side after cache-miss check, before any FullEnrich call. Returns HTTP 402 with `CREDIT_LIMIT_REACHED` if allowance is exhausted. Cache hits are always free.
 
 ---
 
@@ -60,14 +61,16 @@ Action router also handles: `summarize-job` (Haiku), `bookmark-profile`, `check-
 
 ## Open risks
 - **`pref_name` / `pref_title` not sent to draft** — recruiter identity fields exist in config/settings but are not passed to `generateDraft`. Draft has no personalized sender context.
-- **`pricingUrl` placeholder** — `config.js` has a placeholder value. Upgrade button opens a broken URL.
+- **`pricingUrl` is a checkout URL, not a Stripe payment link** — `config.js` now points to `create-checkout` edge function. Replace with a real hosted payment-link URL if a standalone Stripe payment link is created.
 - **Personal email coverage** — FullEnrich is a B2B work-email product; personal email is rarely returned. No secondary provider (Hunter, Apollo) is integrated.
 - **Migration history mismatch** — `supabase db push` fails. All schema changes must use `supabase db query --linked "SQL..."`. Never edit original DDL migration files; always create additive migrations.
 - **Claude model names** — `claude-haiku-4-5` (fast/cheap), `claude-sonnet-4-5` (draft). Verify these remain valid model IDs if Anthropic updates naming.
 - **`is_bookmarked` not in upsert payload** — intentional design: prevents overwriting bookmark on re-enrichment. If this changes, audit all upsert call sites.
+- **`generate-draft` uses Gemini, not Claude** — the secondary `generate-draft` function (fallback path only) uses Gemini 2.0 Flash, not Claude. The primary enrichment+draft flow in `enrich-and-draft` uses Claude Sonnet.
 
 ---
 
 ## Latest critical updates
+- 2026-04-09: **Task #6 — Hardened credits, auth, and RLS.** (1) Credit gate (`deduct_credit` RPC) added to `enrich-and-draft` between cache-miss check and FullEnrich call — returns HTTP 402 `CREDIT_LIMIT_REACHED` if exhausted. (2) JWT auth guard added to `generate-draft` and `lookup-email` (were previously open or optional). (3) RLS enabled on `company_domains`, `candidate_title_sources`, `workflow_jobs`; DELETE policy added to `candidates`. (4) `config.js`: version→`1.1.0`, `pricingUrl`→`create-checkout` endpoint, Stripe sourcer IDs corrected (removed `Monthly:`/`Yearly:` prefixes). (5) `popup.js` MESSAGES map updated with `CREDIT_LIMIT_REACHED` and `CREDIT_ERROR` user-friendly strings.
 - 2026-04-09: Created this file (`docs/AI_CONTEXT.md`) as permanent AI/code-review context reference.
 - 2026-04-08: Switched to LinkedIn URL-first FullEnrich v2 bulk-poll flow; added 30-day cache-first `saved_profiles` logic, saved jobs (`saved_jobs` table), bookmark system, raw_data persistence, and dark mode CSS class fixes.

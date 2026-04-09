@@ -463,6 +463,17 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       })
     }
 
+    // ── Credit gate: deduct before calling FullEnrich ────────────────────────
+    // Cache hits are free — only fresh enrichments cost a credit.
+    const { data: creditAllowed, error: creditErr } = await db.rpc('deduct_credit', { p_user_id: user.id })
+    if (creditErr) {
+      console.error('deduct_credit RPC error:', creditErr)
+      return json({ error: { code: 'CREDIT_ERROR', message: 'Could not verify your credit balance. Please try again.' } }, 500)
+    }
+    if (creditAllowed === false) {
+      return json({ error: { code: 'CREDIT_LIMIT_REACHED', message: 'You have reached your lookup limit. Upgrade your plan for more enrichments.' } }, 402)
+    }
+
     // ── Fresh enrichment ──────────────────────────────────────────────────────
     const sources: any[] = []
     let personConfidence = 0.5

@@ -6,13 +6,13 @@ export const CONFIG = {
   fullenrichUrl: 'https://app.fullenrich.com/api/v1',
 
   appName:    'OutreachAI',
-  version:    '1.0.0',
-  pricingUrl: 'https://placeholder.com/pricing', // TODO: replace with real Stripe checkout URL
+  version:    '1.1.0',
+  pricingUrl: 'https://szxjcitbjcpkhxtjztay.supabase.co/functions/v1/create-checkout', // TODO: replace with real Stripe payment link URL
 
   stripe: {
     sourcer: {
-      monthly: 'Monthly: price_1T3k99HBH8to4gGBHlNU3ewA',
-      yearly:  'Yearly: price_1T3kAOHBH8to4gGBQvWk4fiF',
+      monthly: 'price_1T3k99HBH8to4gGBHlNU3ewA',
+      yearly:  'price_1T3kAOHBH8to4gGBQvWk4fiF',
     },
     pro: {
       monthly: 'price_1T3kIDHBH8to4gGBnW3QoNBz',
