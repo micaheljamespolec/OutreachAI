@@ -692,6 +692,11 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ error: { code: 'DRAFT_GENERATION_FAILED', message: 'Contact details were found, but the draft could not be generated.' } }, 500)
     }
 
+    // ── Stage 6a: Increment AI run counter ────────────────────────────────────
+    try {
+      await db.rpc('increment_ai_run', { p_user_id: user.id })
+    } catch (e) { console.error('increment_ai_run RPC failed (non-fatal):', e) }
+
     // ── Stage 6: Persist outreach_runs ─────────────────────────────────────────
     let runId: string | null = null
     try {
