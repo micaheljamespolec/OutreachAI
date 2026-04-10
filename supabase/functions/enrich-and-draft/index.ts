@@ -3,7 +3,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2"
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
 }
 
 function json(data: unknown, status = 200) {
@@ -36,7 +37,6 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
 }> {
   const empty = { full_name: null, work_email: null, personal_email: null, title: null, company: null, company_domain: null, raw: null }
 
-  // Step 1: start bulk enrichment
   const startRes = await fetch('https://app.fullenrich.com/api/v2/contact/enrich/bulk', {
     method: 'POST',
     headers: {
@@ -55,7 +55,6 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
   const enrichmentId = startData.enrichment_id
   if (!enrichmentId) throw new Error('FullEnrich did not return enrichment_id')
 
-  // Step 2: poll until FINISHED — initial 3s wait, then 5s intervals, max 22 attempts ≈ 110s
   await new Promise(r => setTimeout(r, 3000))
   for (let i = 0; i < 22; i++) {
     if (i > 0) await new Promise(r => setTimeout(r, 5000))
@@ -66,12 +65,10 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
     const pollData = await pollRes.json()
 
     if (pollData.status === 'FINISHED') {
-      // FullEnrich returns either pollData.data or pollData.datas
       const results = pollData.datas ?? pollData.data ?? []
       const row = results[0]
       if (!row) return { ...empty, raw: pollData }
 
-      // The contact wrapper may sit at row.contact or row itself
       const contactInfo = row.contact_info ?? row.contact?.contact_info ?? null
       const profile     = row.profile ?? row.contact?.profile ?? {}
       const current     = profile.employment?.current
@@ -96,13 +93,12 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
     }
 
     if (pollData.status === 'FAILED') throw new Error('FullEnrich enrichment failed')
-    // PENDING or IN_PROGRESS — keep polling
   }
 
   throw new Error('FullEnrich timeout — enrichment did not complete within 55s')
 }
 
-// ── Employer resolution from email domain (fallback if FullEnrich has no company) ──
+// ── Employer resolution from email domain ──
 async function resolveEmployer(domain: string, db: any, anthropicKey: string): Promise<{ company: string; confidence: number }> {
   const { data: cached } = await db.from('company_domains').select('canonical_company_name,confidence').eq('domain', domain).single()
   if (cached) return { company: cached.canonical_company_name, confidence: cached.confidence }
@@ -130,7 +126,7 @@ async function resolveEmployer(domain: string, db: any, anthropicKey: string): P
   return { company, confidence }
 }
 
-// ── Title fallback: Claude infers from training data when FullEnrich has no title ──
+// ── Title fallback ──
 async function inferTitleFallback(fullName: string, company: string, anthropicKey: string): Promise<{
   title: string | null
   confidence: number
@@ -179,20 +175,16 @@ async function generateDraft(
         : `Candidate's likely role: ${title} (inferred — reference it cautiously without claiming certainty).`)
     : `Candidate's role is unknown — do NOT claim any specific title. Write using name and company only.`
 
-  // Build recruiter identity block
   const recruiterName    = recruiter?.full_name    || null
   const recruiterCompany = recruiter?.company_name || null
   const recruiterTitle   = recruiter?.job_title    || null
   const hiringFocus      = recruiter?.hiring_focus || null
   const tone             = recruiter?.tone         || null
 
-  // Build sign-off per spec:
-  // "Best,\nfull_name\njob_title at company_name" — job_title line omitted if null
   let signOff = 'Best,'
   if (recruiterName) {
     signOff = `Best,\n${recruiterName}`
     if (recruiterTitle && recruiterCompany) signOff += `\n${recruiterTitle} at ${recruiterCompany}`
-    // If job_title is null, omit the title/company line entirely
   }
 
   const toneInstruction = tone
@@ -233,9 +225,6 @@ Return ONLY JSON: {"subject": "...", "body": "..."}`
   const p = parseJson(raw)
   if (!p.body) return null
 
-  // Deterministic sign-off enforcement:
-  // Strip any trailing lines that look like a sign-off (starting with "Best"),
-  // then always append our canonical sign-off to guarantee exact format.
   const bodyLines = p.body.trimEnd().split('\n')
   let trimIdx = bodyLines.length
   for (let i = bodyLines.length - 1; i >= 0; i--) {
@@ -275,7 +264,6 @@ Deno.serve(async (req: Request) => {
   const fullenrichKey = Deno.env.get('FULLENRICH_API_KEY') || ''
   const db = createClient(supabaseUrl, serviceKey)
 
-  // Auth — validate user JWT
   const authHeader = req.headers.get('Authorization') || ''
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
   if (!token) return json({ error: { code: 'AUTH_EXPIRED', message: 'Session expired — please sign in again.' } }, 401)
@@ -319,10 +307,9 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     // ── Bookmark-profile action ────────────────────────────────────────────────
     if (action === 'bookmark-profile') {
       const linkedinUrl = (body.linkedinUrl || '').trim()
-      const save        = body.save !== false  // default true
+      const save        = body.save !== false
       if (!linkedinUrl) return json({ error: { code: 'MISSING_INPUT', message: 'linkedinUrl is required.' } }, 400)
 
-      // Prefer explicit UPDATE to avoid nulling non-specified columns
       const { error: updateErr, count } = await db.from('saved_profiles')
         .update({ is_bookmarked: save, updated_at: new Date().toISOString() }, { count: 'exact' })
         .eq('user_id', user.id)
@@ -332,7 +319,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         console.error('bookmark-profile update failed:', updateErr)
         return json({ error: { code: 'DB_ERROR', message: 'Could not update bookmark.' } }, 500)
       }
-      // If no existing row (first-time bookmark before any enrichment), insert a stub
       if (count === 0) {
         const { error: insertErr } = await db.from('saved_profiles')
           .insert({ user_id: user.id, linkedin_url: linkedinUrl, is_bookmarked: save })
@@ -344,7 +330,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ bookmarked: save })
     }
 
-    // ── Check-saved-profile action (lightweight — no FullEnrich/Claude) ───────
+    // ── Check-saved-profile action ─────────────────────────────────────────────
     if (action === 'check-saved-profile') {
       const linkedinUrl = (body.linkedinUrl || '').trim()
       if (!linkedinUrl) return json({ found: false })
@@ -448,7 +434,394 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ profiles: profiles || [] })
     }
 
-    // ── Enrich-and-draft action ────────────────────────────────────────────────
+    // ── Import-campaign action ─────────────────────────────────────────────────
+    if (action === 'import-campaign') {
+      const campaignName = (body.campaignName || '').trim()
+      const jobId        = (body.jobId || '').trim() || null
+      const candidates   = Array.isArray(body.candidates) ? body.candidates : []
+
+      if (!campaignName) return json({ error: { code: 'MISSING_INPUT', message: 'Campaign name is required.' } }, 400)
+      if (candidates.length === 0) return json({ error: { code: 'MISSING_INPUT', message: 'No candidates provided.' } }, 400)
+
+      // Credit pre-flight: count how many need fresh enrichment
+      // Check which LinkedIn URLs are already cached
+      const linkedinUrls = candidates.map((c: any) => c.linkedin_url).filter(Boolean)
+      const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      let cachedCount = 0
+      if (linkedinUrls.length > 0) {
+        const { data: cachedProfiles } = await db.from('saved_profiles')
+          .select('linkedin_url')
+          .eq('user_id', user.id)
+          .in('linkedin_url', linkedinUrls)
+          .gte('enriched_at', cacheWindow)
+        cachedCount = cachedProfiles?.length || 0
+      }
+      const freshNeeded = candidates.length - cachedCount
+
+      // Fetch current credits
+      const { data: credits } = await db.from('credits')
+        .select('tier, lookups_used, period_end')
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      let creditsRemaining = 10 // free tier default
+      if (credits) {
+        const tierLimits: Record<string, number> = { free: 10, sourcer: 50, pro: 200 }
+        const max = tierLimits[credits.tier] || 10
+        creditsRemaining = Math.max(0, max - (credits.lookups_used || 0))
+      }
+
+      const creditWarning = freshNeeded > creditsRemaining ? {
+        needed: freshNeeded,
+        available: creditsRemaining,
+        message: `You have ${creditsRemaining} lookup${creditsRemaining !== 1 ? 's' : ''} remaining. Only ${creditsRemaining} of ${freshNeeded} candidates needing enrichment can be processed. Upgrade to enrich the full pipeline.`,
+      } : null
+
+      // Create campaign
+      const campaignStatus = jobId ? 'ready' : 'needs_job'
+      const { data: campaign, error: campaignErr } = await db.from('campaigns')
+        .insert({
+          user_id: user.id,
+          name: campaignName,
+          job_id: jobId,
+          status: campaignStatus,
+          total_count: candidates.length,
+        })
+        .select('id, name, job_id, status, total_count')
+        .single()
+
+      if (campaignErr || !campaign) {
+        console.error('import-campaign insert failed:', campaignErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not create campaign.' } }, 500)
+      }
+
+      // Insert all candidates
+      const candidateRows = candidates.map((c: any) => ({
+        campaign_id:     campaign.id,
+        user_id:         user.id,
+        first_name:      c.first_name || null,
+        last_name:       c.last_name  || null,
+        headline:        c.headline   || null,
+        location:        c.location   || null,
+        current_title:   c.current_title   || null,
+        current_company: c.current_company || null,
+        csv_email:       c.email      || null,
+        phone:           c.phone      || null,
+        linkedin_url:    c.linkedin_url || null,
+        notes:           c.notes      || null,
+        feedback:        c.feedback   || null,
+        status:          'imported',
+      }))
+
+      const { error: candidatesErr } = await db.from('campaign_candidates').insert(candidateRows)
+      if (candidatesErr) {
+        console.error('import-campaign candidates insert failed:', candidatesErr)
+        // Cleanup the campaign row
+        await db.from('campaigns').delete().eq('id', campaign.id)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not import candidates.' } }, 500)
+      }
+
+      return json({ campaign, totalCount: candidates.length, creditWarning })
+    }
+
+    // ── Get-campaigns action ───────────────────────────────────────────────────
+    if (action === 'get-campaigns') {
+      const { data: campaigns, error: fetchErr } = await db.from('campaigns')
+        .select('id, name, job_id, status, total_count, enriched_count, drafted_count, approved_count, created_at, saved_jobs(label, company, job_url)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (fetchErr) {
+        console.error('get-campaigns failed:', fetchErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not load campaigns.' } }, 500)
+      }
+      return json({ campaigns: campaigns || [] })
+    }
+
+    // ── Get-campaign-candidates action ─────────────────────────────────────────
+    if (action === 'get-campaign-candidates') {
+      const campaignId = (body.campaignId || '').trim()
+      const statusFilter = body.status || null
+      if (!campaignId) return json({ error: { code: 'MISSING_INPUT', message: 'campaignId is required.' } }, 400)
+
+      let query = db.from('campaign_candidates')
+        .select('*')
+        .eq('campaign_id', campaignId)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true })
+        .limit(200)
+
+      if (statusFilter) query = query.eq('status', statusFilter)
+
+      const { data: candidates, error: fetchErr } = await query
+      if (fetchErr) {
+        console.error('get-campaign-candidates failed:', fetchErr)
+        return json({ error: { code: 'DB_ERROR', message: 'Could not load candidates.' } }, 500)
+      }
+      return json({ candidates: candidates || [] })
+    }
+
+    // ── Enrich-campaign-candidate action ──────────────────────────────────────
+    if (action === 'enrich-campaign-candidate') {
+      const candidateId = (body.candidateId || '').trim()
+      if (!candidateId) return json({ error: { code: 'MISSING_INPUT', message: 'candidateId is required.' } }, 400)
+
+      // Fetch the candidate
+      const { data: candidate, error: fetchErr } = await db.from('campaign_candidates')
+        .select('*')
+        .eq('id', candidateId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (fetchErr || !candidate) return json({ error: { code: 'NOT_FOUND', message: 'Candidate not found.' } }, 404)
+      if (!candidate.linkedin_url) {
+        await db.from('campaign_candidates').update({ status: 'no_email', updated_at: new Date().toISOString() }).eq('id', candidateId)
+        return json({ status: 'no_email', reason: 'No LinkedIn URL available for enrichment.' })
+      }
+
+      // Mark as enriching
+      await db.from('campaign_candidates').update({ status: 'enriching', updated_at: new Date().toISOString() }).eq('id', candidateId)
+
+      // Check saved_profiles cache first
+      const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const { data: cached } = await db.from('saved_profiles')
+        .select('id, full_name, work_email, personal_email, title, company, title_verified, email_status, enriched_at')
+        .eq('user_id', user.id)
+        .eq('linkedin_url', candidate.linkedin_url)
+        .gte('enriched_at', cacheWindow)
+        .maybeSingle()
+
+      if (cached && cached.full_name) {
+        const email = cached.work_email || cached.personal_email || null
+        const newStatus = email ? 'enriched' : 'no_email'
+        await db.from('campaign_candidates').update({
+          status:           newStatus,
+          work_email:       cached.work_email || null,
+          personal_email:   cached.personal_email || null,
+          email_status:     cached.email_status || 'not_found',
+          enriched_title:   cached.title || null,
+          enriched_company: cached.company || null,
+          saved_profile_id: cached.id,
+          enriched_at:      new Date().toISOString(),
+          updated_at:       new Date().toISOString(),
+        }).eq('id', candidateId)
+
+        // Update campaign counts
+        await _incrementCampaignCount(db, candidate.campaign_id, 'enriched_count')
+
+        return json({ status: newStatus, fromCache: true, email })
+      }
+
+      // Deduct credit for fresh enrichment
+      const { data: creditAllowed, error: creditErr } = await db.rpc('deduct_credit', { p_user_id: user.id })
+      if (creditErr) {
+        await db.from('campaign_candidates').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', candidateId)
+        return json({ error: { code: 'CREDIT_ERROR', message: 'Could not verify credit balance.' } }, 500)
+      }
+      if (creditAllowed === false) {
+        await db.from('campaign_candidates').update({ status: 'imported', updated_at: new Date().toISOString() }).eq('id', candidateId)
+        return json({ error: { code: 'CREDIT_LIMIT_REACHED', message: 'Credit limit reached. Upgrade to continue enriching.' } }, 402)
+      }
+
+      // Run FullEnrich
+      try {
+        const enrichResult = await enrichWithLinkedInV2(candidate.linkedin_url, fullenrichKey)
+        const email = enrichResult.work_email || enrichResult.personal_email || null
+        const emailStatus = enrichResult.work_email ? 'found' : enrichResult.personal_email ? 'uncertain' : 'not_found'
+        const newStatus = email ? 'enriched' : 'no_email'
+
+        // Upsert into saved_profiles
+        const { data: savedProfile } = await db.from('saved_profiles').upsert({
+          user_id:        user.id,
+          linkedin_url:   candidate.linkedin_url,
+          full_name:      enrichResult.full_name || `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim() || null,
+          work_email:     enrichResult.work_email || null,
+          personal_email: enrichResult.personal_email || null,
+          title:          enrichResult.title || null,
+          company:        enrichResult.company || null,
+          title_verified: !!enrichResult.title,
+          email_status:   emailStatus,
+          raw_data:       enrichResult.raw,
+          enriched_at:    new Date().toISOString(),
+          updated_at:     new Date().toISOString(),
+        }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
+          .select('id')
+          .maybeSingle()
+
+        await db.from('campaign_candidates').update({
+          status:           newStatus,
+          work_email:       enrichResult.work_email || null,
+          personal_email:   enrichResult.personal_email || null,
+          email_status:     emailStatus,
+          enriched_title:   enrichResult.title || candidate.current_title || null,
+          enriched_company: enrichResult.company || candidate.current_company || null,
+          saved_profile_id: savedProfile?.id || null,
+          enriched_at:      new Date().toISOString(),
+          updated_at:       new Date().toISOString(),
+        }).eq('id', candidateId)
+
+        await _incrementCampaignCount(db, candidate.campaign_id, 'enriched_count')
+
+        return json({ status: newStatus, fromCache: false, email })
+      } catch (e: any) {
+        console.error('enrich-campaign-candidate FullEnrich failed:', e)
+        await db.from('campaign_candidates').update({ status: 'failed', updated_at: new Date().toISOString() }).eq('id', candidateId)
+        return json({ error: { code: 'ENRICHMENT_FAILED', message: e.message || 'Enrichment failed.' } }, 500)
+      }
+    }
+
+    // ── Draft-campaign-candidate action ───────────────────────────────────────
+    if (action === 'draft-campaign-candidate') {
+      const candidateId = (body.candidateId || '').trim()
+      if (!candidateId) return json({ error: { code: 'MISSING_INPUT', message: 'candidateId is required.' } }, 400)
+
+      const { data: candidate, error: fetchErr } = await db.from('campaign_candidates')
+        .select('*')
+        .eq('id', candidateId)
+        .eq('user_id', user.id)
+        .maybeSingle()
+
+      if (fetchErr || !candidate) return json({ error: { code: 'NOT_FOUND', message: 'Candidate not found.' } }, 404)
+
+      // Fetch campaign to get job_id
+      const { data: campaign } = await db.from('campaigns')
+        .select('job_id')
+        .eq('id', candidate.campaign_id)
+        .maybeSingle()
+
+      // Fetch job highlights for context
+      let jobContext: string | null = null
+      if (campaign?.job_id) {
+        const { data: job } = await db.from('saved_jobs')
+          .select('role_title, company, highlights')
+          .eq('id', campaign.job_id)
+          .maybeSingle()
+        if (job) {
+          const parts = []
+          if (job.role_title) parts.push(`Recruiting for: ${job.role_title}${job.company ? ' at ' + job.company : ''}`)
+          if (job.highlights) parts.push(job.highlights)
+          jobContext = parts.join('. ') || null
+        }
+      }
+
+      // Fetch recruiter profile
+      let recruiterProfile: RecruiterProfile | null = null
+      try {
+        const { data: rp } = await db.from('recruiter_profiles')
+          .select('full_name, company_name, job_title, hiring_focus, tone')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (rp) recruiterProfile = rp as RecruiterProfile
+      } catch {}
+
+      const email = candidate.work_email || candidate.personal_email || candidate.csv_email || null
+      const fullName = `${candidate.first_name || ''} ${candidate.last_name || ''}`.trim() || 'this candidate'
+      const company = candidate.enriched_company || candidate.current_company || null
+      const title = candidate.enriched_title || candidate.current_title || null
+
+      // Mark as drafting
+      await db.from('campaign_candidates').update({ status: 'drafting', updated_at: new Date().toISOString() }).eq('id', candidateId)
+
+      const personConf  = 0.8
+      const companyConf = company ? 0.85 : 0.3
+      const titleConf   = title ? 0.7 : 0
+      const emailStatus = email ? (candidate.work_email ? 'found' : 'uncertain') : 'not_found'
+      const draftConf = computeDraftConfidence(personConf, companyConf, titleConf, emailStatus, (jobContext || '').length)
+
+      try {
+        const draft = await generateDraft(
+          fullName, company, title, !!candidate.enriched_title,
+          email, jobContext,
+          draftConf, anthropicKey,
+          recruiterProfile
+        )
+
+        if (!draft) {
+          await db.from('campaign_candidates').update({ status: 'enriched', updated_at: new Date().toISOString() }).eq('id', candidateId)
+          return json({ error: { code: 'DRAFT_FAILED', message: 'Could not generate draft.' } }, 500)
+        }
+
+        await db.from('campaign_candidates').update({
+          status:           'drafted',
+          draft_subject:    draft.subject,
+          draft_body:       draft.body,
+          draft_confidence: draftConf,
+          drafted_at:       new Date().toISOString(),
+          updated_at:       new Date().toISOString(),
+        }).eq('id', candidateId)
+
+        await _incrementCampaignCount(db, candidate.campaign_id, 'drafted_count')
+
+        try { await db.rpc('increment_ai_run', { p_user_id: user.id }) } catch {}
+
+        return json({ status: 'drafted', draft, draftConfidence: draftConf })
+      } catch (e: any) {
+        console.error('draft-campaign-candidate failed:', e)
+        await db.from('campaign_candidates').update({ status: 'enriched', updated_at: new Date().toISOString() }).eq('id', candidateId)
+        return json({ error: { code: 'DRAFT_FAILED', message: e.message || 'Draft generation failed.' } }, 500)
+      }
+    }
+
+    // ── Update-candidate-status action ─────────────────────────────────────────
+    if (action === 'update-candidate-status') {
+      const candidateId = (body.candidateId || '').trim()
+      const newStatus   = (body.status || '').trim()
+      const allowed     = ['approved', 'skipped', 'imported', 'enriched', 'drafted']
+      if (!candidateId) return json({ error: { code: 'MISSING_INPUT', message: 'candidateId is required.' } }, 400)
+      if (!allowed.includes(newStatus)) return json({ error: { code: 'INVALID_STATUS', message: 'Invalid status value.' } }, 400)
+
+      const updateData: any = { status: newStatus, updated_at: new Date().toISOString() }
+      if (newStatus === 'approved') updateData.approved_at = new Date().toISOString()
+
+      const { data: updated, error: updateErr } = await db.from('campaign_candidates')
+        .update(updateData)
+        .eq('id', candidateId)
+        .eq('user_id', user.id)
+        .select('id, campaign_id, status')
+        .maybeSingle()
+
+      if (updateErr) return json({ error: { code: 'DB_ERROR', message: 'Could not update status.' } }, 500)
+
+      // Update approved_count on campaign
+      if (newStatus === 'approved' && updated?.campaign_id) {
+        await _incrementCampaignCount(db, updated.campaign_id, 'approved_count')
+      }
+
+      return json({ updated: true, status: newStatus })
+    }
+
+    // ── Link-campaign-job action ───────────────────────────────────────────────
+    if (action === 'link-campaign-job') {
+      const campaignId = (body.campaignId || '').trim()
+      const jobId      = (body.jobId || '').trim()
+      if (!campaignId || !jobId) return json({ error: { code: 'MISSING_INPUT', message: 'campaignId and jobId are required.' } }, 400)
+
+      const { error: updateErr } = await db.from('campaigns')
+        .update({ job_id: jobId, status: 'ready', updated_at: new Date().toISOString() })
+        .eq('id', campaignId)
+        .eq('user_id', user.id)
+
+      if (updateErr) return json({ error: { code: 'DB_ERROR', message: 'Could not link job.' } }, 500)
+      return json({ linked: true })
+    }
+
+    // ── Delete-campaign action ─────────────────────────────────────────────────
+    if (action === 'delete-campaign') {
+      const campaignId = (body.campaignId || '').trim()
+      if (!campaignId) return json({ error: { code: 'MISSING_INPUT', message: 'campaignId is required.' } }, 400)
+
+      // Candidates cascade-delete via FK
+      const { error: deleteErr } = await db.from('campaigns')
+        .delete()
+        .eq('id', campaignId)
+        .eq('user_id', user.id)
+
+      if (deleteErr) return json({ error: { code: 'DB_ERROR', message: 'Could not delete campaign.' } }, 500)
+      return json({ deleted: true })
+    }
+
+    // ── Enrich-and-draft action (default single-profile flow) ─────────────────
     const linkedinUrl = body.linkedinUrl?.trim() || null
     const companyHint = body.companyHint?.trim() || null
     const userContext = body.userContext?.trim() || null
@@ -456,7 +829,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
 
     if (!linkedinUrl) return json({ error: { code: 'NO_LINKEDIN_URL', message: 'Open a LinkedIn profile to generate a draft.' } }, 400)
 
-    // ── Fetch recruiter profile for draft personalization ─────────────────────
     let recruiterProfile: RecruiterProfile | null = null
     try {
       const { data: rp } = await db.from('recruiter_profiles')
@@ -466,7 +838,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       if (rp) recruiterProfile = rp as RecruiterProfile
     } catch (e) { console.warn('recruiter_profiles fetch failed (non-fatal):', e) }
 
-    // ── Cache lookup: check saved_profiles before hitting FullEnrich ──────────
     const cacheWindow = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
     const { data: cached } = await db.from('saved_profiles')
       .select('full_name, work_email, personal_email, title, company, title_verified, email_status, is_bookmarked, enriched_at')
@@ -477,7 +848,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       .maybeSingle()
 
     if (cached && cached.full_name) {
-      // Serve from cache — skip FullEnrich entirely
       const fullName     = cached.full_name
       const work_email   = cached.work_email || null
       const personal_email = cached.personal_email || null
@@ -521,28 +891,16 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         fromCache: true,
         isBookmarked: cached.is_bookmarked ?? false,
         person: {
-          fullName,
-          company,
-          title,
-          titleVerified,
-          email:         selectedEmail,
-          workEmail:     work_email,
-          personalEmail: personal_email,
-          emailStatus,
+          fullName, company, title, titleVerified,
+          email: selectedEmail, workEmail: work_email,
+          personalEmail: personal_email, emailStatus,
         },
-        confidence: {
-          personConfidence,
-          companyConfidence,
-          titleConfidence,
-          draftConfidence,
-        },
+        confidence: { personConfidence, companyConfidence, titleConfidence, draftConfidence },
         sources: [{ type: 'saved_profile', label: 'From saved profile (cached)', confidence: 0.95 }],
         draft: draft || null,
       })
     }
 
-    // ── Credit gate: deduct before calling FullEnrich ────────────────────────
-    // Cache hits are free — only fresh enrichments cost a credit.
     const { data: creditAllowed, error: creditErr } = await db.rpc('deduct_credit', { p_user_id: user.id })
     if (creditErr) {
       console.error('deduct_credit RPC error:', creditErr)
@@ -552,7 +910,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ error: { code: 'CREDIT_LIMIT_REACHED', message: 'You have reached your lookup limit. Upgrade your plan for more enrichments.' } }, 402)
     }
 
-    // ── Fresh enrichment ──────────────────────────────────────────────────────
     const sources: any[] = []
     let personConfidence = 0.5
 
@@ -578,10 +935,7 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
         rawDataPayload  = enrichResult.raw
         enrichStatus = 200
 
-        if (enrichResult.full_name) {
-          fullName = enrichResult.full_name
-          personConfidence = 0.95
-        }
+        if (enrichResult.full_name) { fullName = enrichResult.full_name; personConfidence = 0.95 }
 
         work_email     = enrichResult.work_email
         personal_email = enrichResult.personal_email
@@ -598,30 +952,22 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
           companyDomain = enrichResult.company_domain
         }
 
-        if (enrichResult.title) {
-          providerTitle = enrichResult.title
-          titleVerified = true
-        }
+        if (enrichResult.title) { providerTitle = enrichResult.title; titleVerified = true }
 
-        // ── Persist all resolved fields immediately after FullEnrich succeeds ───
-        // Writing the full profile here means any "Try again" retry will hit the
-        // cache and cost zero credits, even if draft generation later fails.
         try {
-          const earlyEmailStatus = enrichResult.work_email ? 'found'
-            : enrichResult.personal_email ? 'uncertain' : 'not_found'
+          const earlyEmailStatus = enrichResult.work_email ? 'found' : enrichResult.personal_email ? 'uncertain' : 'not_found'
           await db.from('saved_profiles').upsert({
-            user_id:        user.id,
-            linkedin_url:   linkedinUrl,
-            full_name:      enrichResult.full_name || fullName || null,
-            work_email:     enrichResult.work_email || null,
+            user_id: user.id, linkedin_url: linkedinUrl,
+            full_name: enrichResult.full_name || fullName || null,
+            work_email: enrichResult.work_email || null,
             personal_email: enrichResult.personal_email || null,
-            title:          enrichResult.title || null,
-            company:        enrichResult.company || companyHint || null,
+            title: enrichResult.title || null,
+            company: enrichResult.company || companyHint || null,
             title_verified: !!enrichResult.title,
-            email_status:   earlyEmailStatus,
-            raw_data:       enrichResult.raw,
-            enriched_at:    new Date().toISOString(),
-            updated_at:     new Date().toISOString(),
+            email_status: earlyEmailStatus,
+            raw_data: enrichResult.raw,
+            enriched_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
         } catch (e) { console.error('early upsert failed (non-fatal):', e) }
 
@@ -647,12 +993,10 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
 
     if (!fullName) return json({ error: { code: 'NOT_ENOUGH_DATA', message: 'Could not identify this person. Try again or check the LinkedIn profile URL.' } }, 422)
 
-    // ── Stage 2: Company resolution ────────────────────────────────────────────
     if (emailDomain && !company) {
       try {
         const emp = await resolveEmployer(emailDomain, db, anthropicKey)
-        company = emp.company
-        companyConfidence = emp.confidence
+        company = emp.company; companyConfidence = emp.confidence
         sources.push({ type: 'domain_lookup', label: 'Company from email domain', confidence: emp.confidence })
       } catch (e) { console.error('Employer resolution failed:', e) }
     }
@@ -660,13 +1004,11 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     if (companyDomain && !company) {
       try {
         const emp = await resolveEmployer(companyDomain, db, anthropicKey)
-        company = emp.company
-        companyConfidence = emp.confidence
+        company = emp.company; companyConfidence = emp.confidence
         sources.push({ type: 'domain_lookup', label: 'Company from profile domain', confidence: emp.confidence })
       } catch (e) { console.error('Company domain resolution failed:', e) }
     }
 
-    // ── Stage 3: Title ─────────────────────────────────────────────────────────
     let title: string | null = providerTitle
     let titleConfidence = providerTitle ? 0.90 : 0
 
@@ -674,15 +1016,12 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       try {
         const fallback = await inferTitleFallback(fullName, company, anthropicKey)
         if (fallback.title && fallback.confidence >= 0.25) {
-          title = fallback.title
-          titleConfidence = fallback.confidence
-          titleVerified = false
+          title = fallback.title; titleConfidence = fallback.confidence; titleVerified = false
           sources.push({ type: 'claude_inference', label: 'Title inferred (unverified)', confidence: fallback.confidence })
         }
       } catch (e) { console.error('Title fallback failed:', e) }
     }
 
-    // ── Stage 4: Confidence ────────────────────────────────────────────────────
     const draftConfidence = computeDraftConfidence(
       personConfidence, companyConfidence, titleConfidence,
       emailStatus, (userContext || '').length
@@ -692,7 +1031,6 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     if (!selectedEmail && !company) status = 'not_enough_data'
     else if (!selectedEmail || titleConfidence < 0.3) status = 'partial'
 
-    // ── Stage 5: Draft ─────────────────────────────────────────────────────────
     let draft: { subject: string; body: string } | null = null
     if (status !== 'not_enough_data' && anthropicKey) {
       try {
@@ -709,55 +1047,32 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ error: { code: 'DRAFT_GENERATION_FAILED', message: 'Contact details were found, but the draft could not be generated.' } }, 500)
     }
 
-    // ── Stage 6a: Increment AI run counter ────────────────────────────────────
-    try {
-      await db.rpc('increment_ai_run', { p_user_id: user.id })
-    } catch (e) { console.error('increment_ai_run RPC failed (non-fatal):', e) }
+    try { await db.rpc('increment_ai_run', { p_user_id: user.id }) } catch (e) { console.error('increment_ai_run RPC failed (non-fatal):', e) }
 
-    // ── Stage 6: Persist outreach_runs ─────────────────────────────────────────
     let runId: string | null = null
     try {
       const { data: run } = await db.from('outreach_runs').insert({
-        user_id:            user.id,
-        full_name:          fullName,
-        company:            company || null,
-        title:              title || null,
-        email:              work_email || null,
-        email_status:       emailStatus,
-        person_confidence:  personConfidence,
-        company_confidence: companyConfidence,
-        title_confidence:   titleConfidence,
-        draft_confidence:   draftConfidence,
-        user_context:       userContext,
-        company_hint:       companyHint,
-        draft_subject:      draft?.subject || null,
-        draft_body:         draft?.body || null,
-        status,
-        sources,
+        user_id: user.id, full_name: fullName, company: company || null,
+        title: title || null, email: work_email || null, email_status: emailStatus,
+        person_confidence: personConfidence, company_confidence: companyConfidence,
+        title_confidence: titleConfidence, draft_confidence: draftConfidence,
+        user_context: userContext, company_hint: companyHint,
+        draft_subject: draft?.subject || null, draft_body: draft?.body || null,
+        status, sources,
       }).select('id').single()
       runId = run?.id ?? null
     } catch (e) { console.error('outreach_runs insert failed (non-fatal):', e) }
 
-    // ── Stage 7: Upsert into saved_profiles cache, read back bookmark state ────
     let isBookmarked = false
     try {
       await db.from('saved_profiles').upsert({
-        user_id:        user.id,
-        linkedin_url:   linkedinUrl,
-        full_name:      fullName,
-        work_email:     work_email || null,
-        personal_email: personal_email || null,
-        title:          title || null,
-        company:        company || null,
-        title_verified: titleVerified,
-        email_status:   emailStatus,
-        enriched_at:    new Date().toISOString(),
-        updated_at:     new Date().toISOString(),
-        raw_data:       rawDataPayload || null,
-        // Do NOT include is_bookmarked — preserve existing bookmark state on conflict
+        user_id: user.id, linkedin_url: linkedinUrl, full_name: fullName,
+        work_email: work_email || null, personal_email: personal_email || null,
+        title: title || null, company: company || null, title_verified: titleVerified,
+        email_status: emailStatus, enriched_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(), raw_data: rawDataPayload || null,
       }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
 
-      // Read back the actual is_bookmarked value so the UI is authoritative
       const { data: savedRow } = await db.from('saved_profiles')
         .select('is_bookmarked')
         .eq('user_id', user.id)
@@ -766,28 +1081,14 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       isBookmarked = savedRow?.is_bookmarked ?? false
     } catch (e) { console.error('saved_profiles upsert failed (non-fatal):', e) }
 
-    // ── Response ───────────────────────────────────────────────────────────────
     return json({
-      status,
-      fromCache: false,
-      isBookmarked,
-      runId,
+      status, fromCache: false, isBookmarked, runId,
       person: {
-        fullName,
-        company:       company || null,
-        title:         title || null,
-        titleVerified,
-        email:         selectedEmail || null,
-        workEmail:     work_email || null,
-        personalEmail: personal_email || null,
-        emailStatus,
+        fullName, company: company || null, title: title || null, titleVerified,
+        email: selectedEmail || null, workEmail: work_email || null,
+        personalEmail: personal_email || null, emailStatus,
       },
-      confidence: {
-        personConfidence,
-        companyConfidence,
-        titleConfidence,
-        draftConfidence,
-      },
+      confidence: { personConfidence, companyConfidence, titleConfidence, draftConfidence },
       sources,
       draft: draft || null,
     })
@@ -797,3 +1098,16 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
     return json({ error: { code: 'UNKNOWN_ERROR', message: 'Something went wrong. Please try again.' } }, 500)
   }
 })
+
+// ── Helper: increment a campaign aggregate count ──────────────────────────────
+async function _incrementCampaignCount(db: any, campaignId: string, field: string) {
+  try {
+    const { data: camp } = await db.from('campaigns').select(field).eq('id', campaignId).maybeSingle()
+    if (camp) {
+      await db.from('campaigns').update({
+        [field]: (camp[field] || 0) + 1,
+        updated_at: new Date().toISOString(),
+      }).eq('id', campaignId)
+    }
+  } catch (e) { console.error(`_incrementCampaignCount(${field}) failed:`, e) }
+}

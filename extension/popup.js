@@ -953,6 +953,19 @@ async function showMainApp(user) {
   await setupSettingsTab(user)
   setupJobTab()
   setupProfileTab()
+
+  // Batch drawer entry point — lazy-init on first click, reuse on subsequent clicks
+  const openBatchBtn = $('openBatchDrawerBtn')
+  if (openBatchBtn) {
+    let _batchModule = null
+    openBatchBtn.addEventListener('click', async () => {
+      if (!_batchModule) {
+        _batchModule = await import('./batch.js')
+        _batchModule.initBatch()
+      }
+      _batchModule.openBatchDrawer()
+    })
+  }
 }
 
 // ── Job tab: saved jobs list ───────────────────────────────────────────────────

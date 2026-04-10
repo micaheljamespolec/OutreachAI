@@ -155,6 +155,63 @@ export function openUpgradePage() {
   chrome.tabs.create({ url: CONFIG.pricingUrl })
 }
 
+// ── Campaign automation ───────────────────────────────────────────────────────
+export async function importCampaign({ campaignName, jobId, candidates }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'import-campaign', campaignName, jobId, candidates }),
+  })
+}
+
+export async function getCampaigns() {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'get-campaigns' }),
+  })
+}
+
+export async function getCampaignCandidates({ campaignId, status }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'get-campaign-candidates', campaignId, status }),
+  })
+}
+
+export async function enrichCampaignCandidate({ candidateId }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'enrich-campaign-candidate', candidateId }),
+  })
+}
+
+export async function draftCampaignCandidate({ candidateId }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'draft-campaign-candidate', candidateId }),
+  })
+}
+
+export async function updateCandidateStatus({ candidateId, status }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'update-candidate-status', candidateId, status }),
+  })
+}
+
+export async function linkCampaignJob({ campaignId, jobId }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'link-campaign-job', campaignId, jobId }),
+  })
+}
+
+export async function deleteCampaign({ campaignId }) {
+  return apiRequest(`${CONFIG.supabaseUrl}/functions/v1/enrich-and-draft`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'delete-campaign', campaignId }),
+  })
+}
+
 // ── Legacy exports (kept for backward compatibility with Job tab) ──────────────
 export const createCheckout = openUpgradePage
 export const lookupEmail = () => { throw new Error('Use enrichAndDraft instead') }
