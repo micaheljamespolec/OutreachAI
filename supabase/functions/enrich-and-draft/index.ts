@@ -55,9 +55,10 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
   const enrichmentId = startData.enrichment_id
   if (!enrichmentId) throw new Error('FullEnrich did not return enrichment_id')
 
-  // Step 2: poll GET endpoint until FINISHED (2s intervals, max 15 attempts = 30s)
-  for (let i = 0; i < 15; i++) {
-    await new Promise(r => setTimeout(r, 2000))
+  // Step 2: poll until FINISHED — initial 3s wait, then 5s intervals, max 22 attempts ≈ 110s
+  await new Promise(r => setTimeout(r, 3000))
+  for (let i = 0; i < 22; i++) {
+    if (i > 0) await new Promise(r => setTimeout(r, 5000))
 
     const pollRes = await fetch(`https://app.fullenrich.com/api/v2/contact/enrich/bulk/${enrichmentId}`, {
       headers: { 'Authorization': `Bearer ${key}` },
@@ -65,13 +66,23 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
     const pollData = await pollRes.json()
 
     if (pollData.status === 'FINISHED') {
-      const contact = pollData.data?.[0]
-      if (!contact) return { ...empty, raw: pollData }
+      // FullEnrich returns either pollData.data or pollData.datas
+      const results = pollData.datas ?? pollData.data ?? []
+      const row = results[0]
+      if (!row) return { ...empty, raw: pollData }
 
-      const workEmail     = contact.contact_info?.most_probable_work_email?.email || null
-      const personalEmail = contact.contact_info?.most_probable_personal_email?.email || null
-      const profile       = contact.profile || {}
-      const current       = profile.employment?.current
+      // The contact wrapper may sit at row.contact or row itself
+      const contactInfo = row.contact_info ?? row.contact?.contact_info ?? null
+      const profile     = row.profile ?? row.contact?.profile ?? {}
+      const current     = profile.employment?.current
+
+      const workEmail = contactInfo?.most_probable_work_email?.email
+        ?? contactInfo?.work_emails?.[0]?.email
+        ?? row.contact?.most_probable_email
+        ?? null
+      const personalEmail = contactInfo?.most_probable_personal_email?.email
+        ?? contactInfo?.personal_emails?.[0]?.email
+        ?? null
 
       return {
         full_name:      profile.full_name || null,
@@ -88,7 +99,7 @@ async function enrichWithLinkedInV2(linkedinUrl: string, key: string): Promise<{
     // PENDING or IN_PROGRESS — keep polling
   }
 
-  throw new Error('FullEnrich timeout — enrichment did not complete within 26s')
+  throw new Error('FullEnrich timeout — enrichment did not complete within 55s')
 }
 
 // ── Employer resolution from email domain (fallback if FullEnrich has no company) ──
