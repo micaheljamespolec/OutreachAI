@@ -954,11 +954,11 @@ async function showMainApp(user) {
   setupJobTab()
   setupProfileTab()
 
-  // Batch drawer entry point — lazy-init on first click, reuse on subsequent clicks
-  const openBatchBtn = $('openBatchDrawerBtn')
-  if (openBatchBtn) {
+  // Campaigns tab — lazy-init batch module on first click
+  const campaignsTab = $('campaignsTab')
+  if (campaignsTab) {
     let _batchModule = null
-    openBatchBtn.addEventListener('click', async () => {
+    campaignsTab.addEventListener('click', async () => {
       if (!_batchModule) {
         _batchModule = await import('./batch.js')
         _batchModule.initBatch()
