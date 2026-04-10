@@ -603,21 +603,27 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
           titleVerified = true
         }
 
-        // ── Persist raw_data immediately after successful FullEnrich ────────────
-        // This ensures raw_data is stored even if draft generation later fails.
-        // Stage 7 will upsert again with fully-processed fields (company/title).
+        // ── Persist all resolved fields immediately after FullEnrich succeeds ───
+        // Writing the full profile here means any "Try again" retry will hit the
+        // cache and cost zero credits, even if draft generation later fails.
         try {
+          const earlyEmailStatus = enrichResult.work_email ? 'found'
+            : enrichResult.personal_email ? 'uncertain' : 'not_found'
           await db.from('saved_profiles').upsert({
             user_id:        user.id,
             linkedin_url:   linkedinUrl,
             full_name:      enrichResult.full_name || fullName || null,
             work_email:     enrichResult.work_email || null,
             personal_email: enrichResult.personal_email || null,
+            title:          enrichResult.title || null,
+            company:        enrichResult.company || companyHint || null,
+            title_verified: !!enrichResult.title,
+            email_status:   earlyEmailStatus,
             raw_data:       enrichResult.raw,
             enriched_at:    new Date().toISOString(),
             updated_at:     new Date().toISOString(),
           }, { onConflict: 'user_id,linkedin_url', ignoreDuplicates: false })
-        } catch (e) { console.error('raw_data early upsert failed (non-fatal):', e) }
+        } catch (e) { console.error('early upsert failed (non-fatal):', e) }
 
         sources.push({ type: 'fullenrich_v2', label: 'LinkedIn URL enrichment', confidence: 0.95 })
       } catch (e: any) {
