@@ -6,3 +6,4 @@ attached_assets/
 
 # Supabase local dev
 .supabase/
+.env
