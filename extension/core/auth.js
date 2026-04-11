@@ -174,3 +174,17 @@ export async function signOut() {
   }
   await clearSession()
 }
+
+export async function resetPassword(email) {
+  try {
+    const res = await fetch(`${BASE}/recover`, {
+      method: 'POST', headers: HEADERS,
+      body: JSON.stringify({ email }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      return { error: { message: err.msg ?? err.message ?? 'Failed to send reset email' } }
+    }
+    return { error: null }
+  } catch (e) { return { error: { message: e.message } } }
+}

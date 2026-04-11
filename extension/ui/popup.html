@@ -614,8 +614,25 @@
       <input type="password" id="epPassword" placeholder="Your password" autocomplete="current-password" />
     </div>
     <button class="btn btn-primary" id="btnEmailPasswordSignin">Sign in</button>
-    <span class="auth-toggle-link" id="toggleSignUp">No account? Create one</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+      <span class="auth-toggle-link" id="toggleSignUp">No account? Create one</span>
+      <span class="auth-toggle-link" id="btnForgotPassword" style="font-size:11px;color:#6b7280;">Forgot password?</span>
+    </div>
     <div id="epStatus" style="margin-top:8px;font-size:12px;"></div>
+  </div>
+
+  <div id="forgotPasswordForm" style="display:none;">
+    <div class="back-to-options" id="backFromForgotPassword">&#x2190; Back</div>
+    <div class="login-logo" style="margin-bottom:12px;">
+      <h2 style="font-size:16px;margin:0;">Reset your password</h2>
+      <p style="font-size:12px;color:#6b7280;margin:4px 0 0;">We'll send you a link to reset it.</p>
+    </div>
+    <div class="form-group">
+      <label for="fpEmail">Email</label>
+      <input type="email" id="fpEmail" placeholder="you@company.com" autocomplete="email" />
+    </div>
+    <button class="btn btn-primary" id="btnSendReset">Send reset link</button>
+    <div id="fpStatus" style="margin-top:8px;font-size:12px;"></div>
   </div>
 
   <div id="magicLinkForm" style="display:none;">

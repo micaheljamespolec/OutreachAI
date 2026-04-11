@@ -1,6 +1,6 @@
 // ─── popup.js ─────────────────────────────────────────────────────────────────
 import { CONFIG } from './config.js'
-import { isLoggedIn, sendMagicLink, signInWithGoogle, signInWithMicrosoft, signInWithEmailPassword, signUpWithEmailPassword, getUser, signOut, getAccessToken } from './core/auth.js'
+import { isLoggedIn, sendMagicLink, signInWithGoogle, signInWithMicrosoft, signInWithEmailPassword, signUpWithEmailPassword, getUser, signOut, getAccessToken, resetPassword } from './core/auth.js'
 import { getCreditsData, enrichAndDraft, summarizeJob, bookmarkProfile, getSavedProfiles, checkSavedProfile, saveJob, getSavedJobs, deleteJob, openUpgradePage, parseErrorMessage, isAuthError } from './core/api.js'
 
 // ── State machine ─────────────────────────────────────────────────────────────
@@ -718,6 +718,7 @@ function showLoginScreen() {
   // Reset to options view whenever login screen is shown
   $('authOptions').style.display = 'block'
   $('emailPasswordForm').style.display = 'none'
+  $('forgotPasswordForm').style.display = 'none'
   $('magicLinkForm').style.display = 'none'
   const authErrEl = $('authError')
   if (authErrEl) { authErrEl.style.display = 'none'; authErrEl.textContent = '' }
@@ -742,6 +743,44 @@ function showLoginScreen() {
     $('authOptions').style.display = 'block'
     $('epStatus').textContent = ''
     $('epStatus').className = ''
+    const ae = $('authError')
+    if (ae) { ae.style.display = 'none'; ae.textContent = '' }
+  })
+
+  $('btnForgotPassword').addEventListener('click', () => {
+    $('emailPasswordForm').style.display = 'none'
+    $('forgotPasswordForm').style.display = 'block'
+    const fpEmail = $('fpEmail')
+    if (fpEmail) fpEmail.value = $('epEmail').value
+    $('fpStatus').textContent = ''
+  })
+
+  $('backFromForgotPassword').addEventListener('click', () => {
+    $('forgotPasswordForm').style.display = 'none'
+    $('emailPasswordForm').style.display = 'block'
+    $('fpStatus').textContent = ''
+  })
+
+  $('btnSendReset').addEventListener('click', async () => {
+    const email = $('fpEmail').value.trim()
+    const fpStatus = $('fpStatus')
+    if (!email) {
+      fpStatus.textContent = 'Enter your email address.'
+      fpStatus.style.color = '#dc2626'
+      return
+    }
+    $('btnSendReset').disabled = true
+    fpStatus.textContent = 'Sending reset link…'
+    fpStatus.style.color = '#6b7280'
+    const { error } = await resetPassword(email)
+    $('btnSendReset').disabled = false
+    if (error) {
+      fpStatus.textContent = error.message
+      fpStatus.style.color = '#dc2626'
+    } else {
+      fpStatus.textContent = 'Check your email — reset link sent!'
+      fpStatus.style.color = '#16a34a'
+    }
   })
 
   let isSignUp = false
@@ -749,6 +788,8 @@ function showLoginScreen() {
     isSignUp = !isSignUp
     $('btnEmailPasswordSignin').textContent = isSignUp ? 'Create account' : 'Sign in'
     $('toggleSignUp').textContent = isSignUp ? 'Already have an account? Sign in' : 'No account? Create one'
+    const fpBtn = $('btnForgotPassword')
+    if (fpBtn) fpBtn.style.display = isSignUp ? 'none' : ''
     $('epStatus').textContent = ''
   })
 
@@ -828,6 +869,9 @@ async function isFirstTimeUser() {
     body: JSON.stringify({}),
   })
   if (!res.ok) {
+    if (res.status === 401) {
+      await signOut()
+    }
     const body = await res.text()
     throw new Error(`Onboarding check failed (${res.status}): ${body}`)
   }
