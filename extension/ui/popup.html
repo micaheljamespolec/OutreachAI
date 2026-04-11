@@ -104,6 +104,20 @@
   .confidence-badge.mid  { background: #fef3c7; color: #92400e; }
   .confidence-badge.low  { background: #fee2e2; color: #991b1b; }
 
+  /* ── Candidate summary card (top of Outreach tab) ── */
+  .candidate-summary { display: none; }
+  .candidate-summary.visible { display: block; }
+  .cs-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .cs-name { font-size: 13px; font-weight: 700; color: #111827; }
+  .cs-actions { display: flex; align-items: center; gap: 6px; }
+  .cs-meta { font-size: 11px; color: #6b7280; margin-bottom: 4px; line-height: 1.4; }
+  .cs-row { display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+  .cs-link { font-size: 11px; color: #0a66c2; text-decoration: none; word-break: break-all; }
+  .cs-link:hover { text-decoration: underline; }
+  body.dark .cs-name { color: #e5e7eb; }
+  body.dark .cs-meta { color: #6b7280; }
+  body.dark .cs-link { color: #93b4ef; }
+
   /* ── Profile detected pill ── */
   .profile-detected-pill {
     display: flex; align-items: center; gap: 6px;
@@ -255,7 +269,7 @@
   body.dark .back-to-options:hover { color: #9ca3af; }
   body.dark .auth-toggle-link { color: #93b4ef; }
 
-  /* ── Profile tab ── */
+  /* ── Saved profiles ── */
   .saved-profile-row { display: flex; align-items: center; gap: 8px; padding: 8px 11px; background: white; border: 1px solid #e5e7eb; border-radius: 7px; margin-bottom: 6px; cursor: pointer; transition: background 0.12s; }
   .saved-profile-row:hover { background: #f0f7ff; border-color: #bfdbfe; }
   .saved-profile-row:last-child { margin-bottom: 0; }
@@ -283,54 +297,31 @@
   body.dark .saved-job-delete { color: #4b5563; }
   body.dark .saved-job-delete:hover { color: #f87171; }
 
-  /* ── Profile tab: dark-mode-safe classes (replaces inline styles) ── */
+  /* ── Profile-related utility classes ── */
   .profile-cache-badge { font-size:10px; background:#eff6ff; color:#1d4ed8; padding:2px 7px; border-radius:10px; font-weight:600; }
   body.dark .profile-cache-badge { background:#1e3a5f; color:#93b4ef; }
-
   .btn-bookmark-saved { background:#f0fdf4; color:#16a34a; border-color:#bbf7d0; }
   body.dark .btn-bookmark-saved { background:#0d2a1a; color:#4ade80; border-color:#166534; }
-
-  .prof-url-text { font-size:11px; color:#9ca3af; word-break:break-all; }
-  body.dark .prof-url-text { color:#6b7280; }
-
-  .linkedin-label { color:#c4b5fd; }
-  body.dark .linkedin-label { color:#a78bfa; }
-
   .email-type-badge { font-size:10px; margin-left:5px; padding:1px 5px; border-radius:10px; font-weight:600; }
   .email-type-badge.work     { background:#dcfce7; color:#166534; }
   .email-type-badge.personal { background:#fef3c7; color:#92400e; }
   body.dark .email-type-badge.work     { background:#0d2a1a; color:#4ade80; }
   body.dark .email-type-badge.personal { background:#2a1f0a; color:#fbbf24; }
-
   .title-badge { font-size:10px; padding:1px 5px; border-radius:10px; font-weight:600; margin-left:5px; }
   .title-badge.verified   { background:#dcfce7; color:#166534; }
   .title-badge.unverified { background:#fef3c7; color:#92400e; }
   body.dark .title-badge.verified   { background:#0d2a1a; color:#4ade80; }
   body.dark .title-badge.unverified { background:#2a1f0a; color:#fbbf24; }
-
-  .profile-empty-text { font-size:13px; color:#6b7280; line-height:1.5; }
-  body.dark .profile-empty-text { color:#9ca3af; }
-
   .section-heading { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.6px; color:#9ca3af; margin:10px 0 6px; padding:0 2px; }
   body.dark .section-heading { color:#4b5563; }
+  .saved-profiles-toggle { font-size:11px; color:#0a66c2; cursor:pointer; text-decoration:underline; display:inline-block; margin-top:4px; }
+  .saved-profiles-toggle:hover { color:#0855a5; }
+  body.dark .saved-profiles-toggle { color:#93b4ef; }
 
   /* ══════════════════════════════════════════════
      BATCH DRAWER
   ══════════════════════════════════════════════ */
 
-  /* Entry point button in Job tab */
-  .batch-entry-btn {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    width: 100%; padding: 9px 12px; margin-top: 10px;
-    background: transparent; border: 1.5px dashed #d1d5db; border-radius: 7px;
-    font-size: 12px; font-weight: 600; color: #6b7280; cursor: pointer;
-    transition: all 0.15s;
-  }
-  .batch-entry-btn:hover { border-color: #0a66c2; color: #0a66c2; background: #f0f7ff; }
-  body.dark .batch-entry-btn { border-color: #2d3148; color: #6b7280; }
-  body.dark .batch-entry-btn:hover { border-color: #93b4ef; color: #93b4ef; background: #1e2a40; }
-
-  /* Drawer overlay */
   #batchDrawer {
     position: fixed; inset: 0; z-index: 200;
     background: #f0f2f5;
@@ -342,7 +333,6 @@
   #batchDrawer.open { transform: translateX(0); }
   body.dark #batchDrawer { background: #0f1117; }
 
-  /* Drawer header */
   .batch-header {
     background: #0a66c2; color: white;
     padding: 10px 14px;
@@ -356,31 +346,8 @@
   }
   .batch-back-btn:hover { opacity: 1; }
   .batch-header-title { font-size: 14px; font-weight: 700; flex: 1; }
-  .batch-header-action {
-    background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.3);
-    color: white; border-radius: 6px; padding: 5px 10px; font-size: 11px;
-    font-weight: 600; cursor: pointer; transition: background 0.12s;
-  }
-  .batch-header-action:hover { background: rgba(255,255,255,0.28); }
   body.dark .batch-header { background: #1e3a5f; }
 
-  /* Drawer sub-navigation */
-  .batch-nav {
-    display: flex; background: white; border-bottom: 1px solid #e5e7eb;
-    flex-shrink: 0;
-  }
-  .batch-nav-tab {
-    flex: 1; text-align: center; padding: 9px 4px; font-size: 11px;
-    cursor: pointer; color: #6b7280; transition: all 0.12s; user-select: none;
-  }
-  .batch-nav-tab:hover { color: #0a66c2; background: #f8fafc; }
-  .batch-nav-tab.active { color: #0a66c2; border-bottom: 2px solid #0a66c2; font-weight: 600; }
-  body.dark .batch-nav { background: #1a1d2e; border-color: #2d3148; }
-  body.dark .batch-nav-tab { color: #6b7280; }
-  body.dark .batch-nav-tab:hover { background: #1f2235; color: #93b4ef; }
-  body.dark .batch-nav-tab.active { color: #93b4ef; border-color: #93b4ef; }
-
-  /* Status bar */
   .batch-status-bar {
     padding: 6px 12px; font-size: 11.5px; display: none; flex-shrink: 0;
   }
@@ -393,7 +360,6 @@
   body.dark .batch-status-bar.warn    { background: #2a1f0a; color: #fbbf24; border-color: #78350f; }
   body.dark .batch-status-bar.error   { background: #2a0f0f; color: #f87171; border-color: #5a1a1a; }
 
-  /* Credit warning banner */
   .batch-credit-warning {
     display: none; margin: 8px 12px; padding: 10px 12px;
     background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px;
@@ -402,16 +368,42 @@
   .batch-credit-warning .batch-credit-msg { margin-bottom: 8px; line-height: 1.5; }
   body.dark .batch-credit-warning { background: #2a1f0a; border-color: #78350f; color: #fbbf24; }
 
-  /* Panel scroll areas */
-  .batch-panel { display: none; flex: 1; overflow-y: auto; padding: 12px; }
-  .batch-panel.active { display: block; }
+  .batch-body { flex: 1; overflow-y: auto; padding: 12px; }
 
-  /* Shared list utilities */
+  /* Batch step sections */
+  .batch-step { margin-bottom: 12px; }
+  .batch-step-title {
+    font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px;
+    color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+  }
+  .batch-step-num {
+    width: 18px; height: 18px; border-radius: 50%; background: #e5e7eb; color: #6b7280;
+    font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  }
+  .batch-step-num.done { background: #dcfce7; color: #166534; }
+  body.dark .batch-step-title { color: #4b5563; }
+  body.dark .batch-step-num { background: #2d3148; color: #6b7280; }
+  body.dark .batch-step-num.done { background: #0d2a1a; color: #4ade80; }
+
+  /* Dropzone */
+  .batch-dropzone {
+    border: 2px dashed #d1d5db; border-radius: 8px; padding: 24px 16px;
+    text-align: center; cursor: pointer; transition: all 0.15s;
+    color: #6b7280; font-size: 12px; line-height: 1.5;
+  }
+  .batch-dropzone:hover, .batch-dropzone.dragover { border-color: #0a66c2; background: #f0f7ff; color: #0a66c2; }
+  .batch-dropzone-icon { font-size: 24px; margin-bottom: 6px; }
+  .batch-dropzone-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+  .batch-dropzone.compact { padding: 10px 12px; }
+  body.dark .batch-dropzone { border-color: #3a3d52; color: #6b7280; }
+  body.dark .batch-dropzone:hover, body.dark .batch-dropzone.dragover { border-color: #93b4ef; background: #1e2a40; color: #93b4ef; }
+  body.dark .batch-dropzone-hint { color: #4b5563; }
+
+  /* Batch shared utilities */
   .batch-loading { font-size: 12px; color: #9ca3af; padding: 16px 0; text-align: center; }
   .batch-empty   { font-size: 12px; color: #9ca3af; padding: 16px 0; text-align: center; }
   body.dark .batch-loading, body.dark .batch-empty { color: #4b5563; }
 
-  /* Batch buttons */
   .batch-btn {
     padding: 7px 12px; border-radius: 6px; font-size: 12px; font-weight: 600;
     cursor: pointer; border: none; transition: all 0.12s; display: inline-block;
@@ -427,10 +419,6 @@
   .batch-btn-xs:hover { background: #dbeafe; }
   .batch-btn-danger { background: #fff1f2; color: #be123c; border: 1.5px solid #fecdd3; }
   .batch-btn-danger:hover { background: #ffe4e6; }
-  .batch-btn-approve { background: #f0fdf4; color: #166534; border: 1.5px solid #bbf7d0; padding: 5px 10px; font-size: 11.5px; }
-  .batch-btn-approve:hover { background: #dcfce7; }
-  .batch-btn-skip { background: #f3f4f6; color: #6b7280; border: 1.5px solid #e5e7eb; padding: 5px 10px; font-size: 11.5px; }
-  .batch-btn-skip:hover { background: #e5e7eb; }
   .batch-btn-gmail { background: white; color: #374151; border: 1.5px solid #d1d5db; padding: 4px 9px; font-size: 11px; }
   .batch-btn-gmail:hover { background: #f9fafb; }
   .batch-btn-outlook { background: #0078d4; color: white; padding: 4px 9px; font-size: 11px; }
@@ -440,25 +428,56 @@
   body.dark .batch-btn-secondary { background: #252836; color: #d1d5db; border-color: #3a3d52; }
   body.dark .batch-btn-gmail { background: #1a1d2e; color: #d1d5db; border-color: #3a3d52; }
 
-  /* Campaign list */
-  .batch-campaign-row {
-    display: flex; align-items: center; gap: 8px;
-    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
-    padding: 10px 12px; margin-bottom: 7px;
+  .batch-section-card {
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 11px 13px; margin-bottom: 10px;
   }
-  body.dark .batch-campaign-row { background: #1a1d2e; border-color: #2d3148; }
-  .batch-campaign-info { flex: 1; min-width: 0; }
-  .batch-campaign-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .batch-campaign-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
-  .batch-campaign-job { font-size: 11px; color: #6b7280; }
-  .batch-campaign-job.warn-text { color: #d97706; }
-  .batch-campaign-counts { font-size: 11px; color: #9ca3af; margin-top: 3px; }
-  .batch-campaign-actions { display: flex; gap: 5px; flex-shrink: 0; }
-  body.dark .batch-campaign-name { color: #e5e7eb; }
-  body.dark .batch-campaign-job { color: #6b7280; }
-  body.dark .batch-campaign-counts { color: #4b5563; }
+  body.dark .batch-section-card { background: #1a1d2e; border-color: #2d3148; }
+  .batch-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 10px; }
+  body.dark .batch-section-title { color: #4b5563; }
 
-  /* Status badges */
+  .batch-form-group { margin-bottom: 10px; }
+  .batch-form-group:last-child { margin-bottom: 0; }
+  .batch-label { display: block; font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
+  .batch-input {
+    width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; color: #111827; background: white; outline: none;
+    transition: border-color 0.15s; font-family: inherit;
+  }
+  .batch-input:focus { border-color: #0a66c2; }
+  .batch-select {
+    width: 100%; padding: 8px 28px 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; color: #111827; background: white; outline: none;
+    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; cursor: pointer;
+    transition: border-color 0.15s; font-family: inherit;
+  }
+  .batch-select:focus { border-color: #0a66c2; }
+  body.dark .batch-input, body.dark .batch-select { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
+  body.dark .batch-input:focus, body.dark .batch-select:focus { border-color: #93b4ef; }
+  body.dark .batch-label { color: #6b7280; }
+
+  .batch-preview-text { font-size: 11.5px; color: #16a34a; font-weight: 600; margin-top: 5px; }
+  body.dark .batch-preview-text { color: #4ade80; }
+
+  /* Batch candidate rows */
+  .batch-candidate-row {
+    display: flex; align-items: flex-start; gap: 8px;
+    background: white; border: 1px solid #e5e7eb; border-radius: 7px;
+    padding: 8px 10px; margin-bottom: 5px; transition: background 0.1s;
+  }
+  body.dark .batch-candidate-row { background: #1a1d2e; border-color: #2d3148; }
+  .batch-candidate-row.batch-row-processing { opacity: 0.5; }
+  .batch-candidate-info { flex: 1; min-width: 0; }
+  .batch-candidate-name { font-size: 12.5px; font-weight: 600; color: #111827; }
+  .batch-candidate-meta { font-size: 11px; color: #9ca3af; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .batch-candidate-email { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .batch-candidate-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: flex-start; }
+  .batch-link-btn { font-size: 12px; color: #9ca3af; text-decoration: none; padding: 2px 4px; transition: color 0.12s; }
+  .batch-link-btn:hover { color: #0a66c2; }
+  body.dark .batch-candidate-name { color: #e5e7eb; }
+  body.dark .batch-candidate-meta { color: #6b7280; }
+
+  /* Batch status badges */
   .batch-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 10px; }
   .batch-badge.ok     { background: #dcfce7; color: #166534; }
   .batch-badge.warn   { background: #fef3c7; color: #92400e; }
@@ -481,84 +500,6 @@
   body.dark .batch-badge.green-sm{ background: #0d2a1a; color: #4ade80; }
   body.dark .batch-badge.err-sm  { background: #2a0f0f; color: #f87171; }
 
-  /* Import panel */
-  .batch-form-group { margin-bottom: 10px; }
-  .batch-form-group:last-child { margin-bottom: 0; }
-  .batch-label { display: block; font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
-  .batch-input {
-    width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
-    font-size: 13px; color: #111827; background: white; outline: none;
-    transition: border-color 0.15s; font-family: inherit;
-  }
-  .batch-input:focus { border-color: #0a66c2; }
-  .batch-select {
-    width: 100%; padding: 8px 28px 8px 10px; border: 1.5px solid #d1d5db; border-radius: 7px;
-    font-size: 13px; color: #111827; background: white; outline: none;
-    appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center; cursor: pointer;
-    transition: border-color 0.15s; font-family: inherit;
-  }
-  .batch-select:focus { border-color: #0a66c2; }
-  body.dark .batch-input, body.dark .batch-select { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
-  body.dark .batch-input:focus, body.dark .batch-select:focus { border-color: #93b4ef; }
-  body.dark .batch-label { color: #6b7280; }
-
-  .batch-section-card {
-    background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 11px 13px; margin-bottom: 10px;
-  }
-  body.dark .batch-section-card { background: #1a1d2e; border-color: #2d3148; }
-  .batch-section-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.6px; color: #9ca3af; margin-bottom: 10px; }
-  body.dark .batch-section-title { color: #4b5563; }
-
-  .batch-preview-text { font-size: 11.5px; color: #16a34a; font-weight: 600; margin-top: 5px; }
-  body.dark .batch-preview-text { color: #4ade80; }
-
-  .batch-url-toggle { font-size: 11px; color: #0a66c2; cursor: pointer; text-decoration: underline; margin-top: 5px; display: inline-block; }
-  body.dark .batch-url-toggle { color: #93b4ef; }
-
-  .batch-url-confirmed { font-size: 11px; color: #16a34a; margin-top: 4px; font-weight: 600; }
-  body.dark .batch-url-confirmed { color: #4ade80; }
-
-  /* Candidate list */
-  .batch-candidate-row {
-    display: flex; align-items: flex-start; gap: 8px;
-    background: white; border: 1px solid #e5e7eb; border-radius: 7px;
-    padding: 8px 10px; margin-bottom: 5px; transition: background 0.1s;
-  }
-  body.dark .batch-candidate-row { background: #1a1d2e; border-color: #2d3148; }
-  .batch-candidate-row.batch-row-processing { opacity: 0.5; }
-  .batch-candidate-info { flex: 1; min-width: 0; cursor: pointer; }
-  .batch-candidate-name { font-size: 12.5px; font-weight: 600; color: #111827; }
-  .batch-candidate-meta { font-size: 11px; color: #9ca3af; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .batch-candidate-email { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-  .batch-candidate-actions { display: flex; gap: 4px; flex-shrink: 0; align-items: flex-start; }
-  .batch-link-btn { font-size: 12px; color: #9ca3af; text-decoration: none; padding: 2px 4px; transition: color 0.12s; }
-  .batch-link-btn:hover { color: #0a66c2; }
-  body.dark .batch-candidate-name { color: #e5e7eb; }
-  body.dark .batch-candidate-meta { color: #6b7280; }
-
-  .batch-candidate-detail {
-    background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 6px;
-    padding: 8px 10px; margin-top: -3px; margin-bottom: 5px; font-size: 12px; color: #374151; line-height: 1.5;
-  }
-  .batch-detail-subject { font-weight: 600; margin-bottom: 4px; font-size: 11.5px; }
-  .batch-detail-body { white-space: pre-wrap; color: #4b5563; }
-  body.dark .batch-candidate-detail { background: #12151f; border-color: #2d3148; color: #d1d5db; }
-  body.dark .batch-detail-body { color: #9ca3af; }
-
-  /* Filter tabs */
-  .batch-filter-row { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
-  .batch-filter-tab {
-    padding: 4px 9px; border-radius: 20px; font-size: 11px; font-weight: 500;
-    cursor: pointer; border: 1px solid #e5e7eb; background: white; color: #6b7280;
-    transition: all 0.12s;
-  }
-  .batch-filter-tab:hover { border-color: #bfdbfe; color: #0a66c2; }
-  .batch-filter-tab.active { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; font-weight: 600; }
-  body.dark .batch-filter-tab { background: #1a1d2e; border-color: #2d3148; color: #6b7280; }
-  body.dark .batch-filter-tab:hover { border-color: #3b5a8a; color: #93b4ef; }
-  body.dark .batch-filter-tab.active { background: #1e3a5f; color: #93b4ef; border-color: #3b5a8a; }
-
   /* Batch action bar */
   .batch-action-bar {
     display: flex; gap: 8px; margin-bottom: 10px; align-items: center;
@@ -566,11 +507,7 @@
   .batch-progress-text { font-size: 11px; color: #6b7280; white-space: nowrap; }
   body.dark .batch-progress-text { color: #4b5563; }
 
-  /* Campaign selector row */
-  .batch-campaign-selector-row { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
-  .batch-campaign-selector-row .batch-select { flex: 1; }
-
-  /* Link job inline */
+  /* Batch link job inline */
   .batch-link-job-row {
     background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px;
     padding: 10px 12px; margin-bottom: 10px;
@@ -581,21 +518,14 @@
   .batch-link-job-controls { display: flex; gap: 6px; }
   .batch-link-job-controls .batch-select { flex: 1; }
 
-  /* Review panel */
-  .batch-review-summary { font-size: 11.5px; color: #6b7280; margin-bottom: 10px; }
-  body.dark .batch-review-summary { color: #4b5563; }
-  .batch-review-open-all { display: flex; gap: 6px; margin-bottom: 10px; }
+  /* Batch review queue (one-at-a-time) */
   .batch-review-card {
     background: white; border: 1px solid #e5e7eb; border-radius: 8px; padding: 11px 12px; margin-bottom: 8px;
   }
   body.dark .batch-review-card { background: #1a1d2e; border-color: #2d3148; }
-  .batch-card-approved { border-color: #bbf7d0; }
-  .batch-card-skipped { opacity: 0.5; }
-  body.dark .batch-card-approved { border-color: #166534; }
   .batch-review-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
   .batch-review-name { font-size: 13px; font-weight: 600; color: #111827; }
   .batch-review-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-  .batch-review-btns { display: flex; gap: 5px; flex-shrink: 0; }
   .batch-review-subject { font-size: 11px; font-weight: 600; color: #374151; margin-bottom: 5px; }
   .batch-review-body {
     width: 100%; min-height: 90px; padding: 7px 9px; border: 1.5px solid #e5e7eb; border-radius: 6px;
@@ -603,13 +533,18 @@
     background: #fafafa; transition: border-color 0.15s;
   }
   .batch-review-body:focus { border-color: #0a66c2; }
+  .batch-review-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .batch-review-actions .batch-btn { flex: 1; text-align: center; }
+  .batch-review-counter { font-size: 11px; color: #9ca3af; text-align: center; margin-bottom: 8px; }
+  .batch-review-done { text-align: center; padding: 20px 12px; font-size: 13px; color: #166534; font-weight: 600; }
   body.dark .batch-review-name { color: #e5e7eb; }
   body.dark .batch-review-meta { color: #6b7280; }
   body.dark .batch-review-subject { color: #d1d5db; }
   body.dark .batch-review-body { background: #252836; border-color: #3a3d52; color: #e5e7eb; }
   body.dark .batch-review-body:focus { border-color: #93b4ef; }
+  body.dark .batch-review-counter { color: #4b5563; }
+  body.dark .batch-review-done { color: #4ade80; }
 
-  /* Confidence badge in review */
   .batch-conf-badge { display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 5px; border-radius: 10px; margin-left: 5px; }
   .batch-conf-badge.high { background: #dcfce7; color: #166534; }
   .batch-conf-badge.mid  { background: #fef3c7; color: #92400e; }
@@ -617,6 +552,28 @@
   body.dark .batch-conf-badge.high { background: #0d2a1a; color: #4ade80; }
   body.dark .batch-conf-badge.mid  { background: #2a1f0a; color: #fbbf24; }
   body.dark .batch-conf-badge.low  { background: #2a0f0f; color: #f87171; }
+
+  /* Previous campaigns toggle */
+  .batch-prev-toggle { font-size: 11px; color: #0a66c2; cursor: pointer; text-decoration: underline; display: inline-block; margin-bottom: 10px; }
+  .batch-prev-toggle:hover { color: #0855a5; }
+  body.dark .batch-prev-toggle { color: #93b4ef; }
+
+  .batch-campaign-row {
+    display: flex; align-items: center; gap: 8px;
+    background: white; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 7px;
+  }
+  body.dark .batch-campaign-row { background: #1a1d2e; border-color: #2d3148; }
+  .batch-campaign-info { flex: 1; min-width: 0; }
+  .batch-campaign-name { font-size: 13px; font-weight: 600; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .batch-campaign-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+  .batch-campaign-job { font-size: 11px; color: #6b7280; }
+  .batch-campaign-job.warn-text { color: #d97706; }
+  .batch-campaign-counts { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+  .batch-campaign-actions { display: flex; gap: 5px; flex-shrink: 0; }
+  body.dark .batch-campaign-name { color: #e5e7eb; }
+  body.dark .batch-campaign-job { color: #6b7280; }
+  body.dark .batch-campaign-counts { color: #4b5563; }
 </style>
 </head>
 <body>
@@ -624,12 +581,11 @@
 <!-- ── Login Screen ── -->
 <div id="loginScreen">
   <div class="login-logo">
-    <div class="logo-icon">💼</div>
+    <div class="logo-icon">&#x1F4BC;</div>
     <h2>OutreachAI</h2>
     <p>Draft outreach in seconds</p>
   </div>
 
-  <!-- Auth options -->
   <div id="authOptions">
     <button class="btn btn-google" id="btnGoogleSignin">
       <svg width="16" height="16" viewBox="0 0 48 48"><path fill="#4285F4" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#34A853" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.9 23.9 0 000 24c0 3.77.9 7.34 2.56 10.52l7.97-5.93z"/><path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.93C6.51 42.62 14.62 48 24 48z"/></svg>
@@ -640,14 +596,13 @@
       Continue with Microsoft
     </button>
     <div class="login-divider"><span>or</span></div>
-    <button class="btn btn-secondary" id="btnShowEmailPassword" style="font-size:12px;">✉️ Email + Password</button>
-    <button class="btn btn-ghost" id="btnShowMagicLink" style="margin-top:7px;font-size:12px;">🔗 Email me a sign-in link</button>
+    <button class="btn btn-secondary" id="btnShowEmailPassword" style="font-size:12px;">&#x2709;&#xFE0F; Email + Password</button>
+    <button class="btn btn-ghost" id="btnShowMagicLink" style="margin-top:7px;font-size:12px;">&#x1F517; Email me a sign-in link</button>
     <p class="login-hint">Free — 10 lookups/month included.</p>
   </div>
 
-  <!-- Email + Password form -->
   <div id="emailPasswordForm">
-    <div class="back-to-options" id="backFromEmailPassword">← Back</div>
+    <div class="back-to-options" id="backFromEmailPassword">&#x2190; Back</div>
     <div class="form-group">
       <label for="epEmail">Email</label>
       <input type="email" id="epEmail" placeholder="you@company.com" autocomplete="email" />
@@ -661,25 +616,23 @@
     <div id="epStatus" style="margin-top:8px;font-size:12px;"></div>
   </div>
 
-  <!-- Magic link form -->
   <div id="magicLinkForm" style="display:none;">
-    <div class="back-to-options" id="backFromMagicLink">← Back</div>
+    <div class="back-to-options" id="backFromMagicLink">&#x2190; Back</div>
     <div class="form-group">
       <label for="loginEmail">Work email</label>
       <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="email" />
     </div>
-    <button class="btn btn-primary" id="btnSendMagicLink">✉️ Send Magic Link</button>
+    <button class="btn btn-primary" id="btnSendMagicLink">&#x2709;&#xFE0F; Send Magic Link</button>
     <div id="loginStatus" style="margin-top:10px;font-size:12px;"></div>
   </div>
 
-  <!-- Top-level auth error — always visible regardless of which sub-panel is showing -->
   <div id="authError" style="display:none;margin-top:10px;font-size:12px;color:#dc2626;text-align:center;"></div>
 </div>
 
 <!-- ── Onboarding Screen ── -->
 <div id="onboardingScreen">
   <div class="onboarding-header">
-    <div class="logo-icon">👋</div>
+    <div class="logo-icon">&#x1F44B;</div>
     <h2>Set up your profile</h2>
     <p>This helps personalize every draft with your identity.</p>
   </div>
@@ -691,7 +644,6 @@
 
   <div id="onboardingStatus"></div>
 
-  <!-- Step 1: Required fields -->
   <div class="onboarding-step active" id="onboardingStep1">
     <div class="form-group">
       <label for="obFullName">Your full name <span style="color:#dc2626;">*</span></label>
@@ -701,10 +653,9 @@
       <label for="obCompanyName">Your company <span style="color:#dc2626;">*</span></label>
       <input type="text" id="obCompanyName" placeholder="e.g. Acme Recruiting" autocomplete="organization" />
     </div>
-    <button class="btn btn-primary" id="btnOnboardingNext">Continue →</button>
+    <button class="btn btn-primary" id="btnOnboardingNext">Continue &#x2192;</button>
   </div>
 
-  <!-- Step 2: Optional fields -->
   <div class="onboarding-step" id="onboardingStep2">
     <div class="form-group">
       <label for="obJobTitle">Your job title <span style="color:#9ca3af;font-weight:400;">(optional)</span></label>
@@ -748,33 +699,48 @@
 <div id="mainApp" style="display:none;">
 
   <div class="header">
-    <span>💼</span>
+    <span>&#x1F4BC;</span>
     <h1>OutreachAI</h1>
-    <button class="campaigns-header-btn" id="campaignsTab">Campaigns</button>
+    <button class="campaigns-header-btn" id="campaignsTab">Batch Outreach</button>
   </div>
 
   <div class="tabs">
-    <div class="tab active" data-tab="outreach">✉️ Draft</div>
-    <div class="tab" data-tab="profile">👤 Profile</div>
-    <div class="tab" data-tab="job">📋 Job</div>
-    <div class="tab" data-tab="settings">⚙️ Settings</div>
+    <div class="tab active" data-tab="outreach">&#x2709;&#xFE0F; Outreach</div>
+    <div class="tab" data-tab="job">&#x1F4CB; Job</div>
+    <div class="tab" data-tab="settings">&#x2699;&#xFE0F; Settings</div>
   </div>
 
   <!-- ════════════ OUTREACH TAB ════════════ -->
   <div class="tab-content active" id="tab-outreach">
 
+    <!-- Candidate summary card (populated after detection/enrichment) -->
+    <div id="candidateSummary" class="card candidate-summary">
+      <div class="cs-header">
+        <div>
+          <div class="cs-name" id="csName">—</div>
+          <div class="cs-meta" id="csMeta"></div>
+        </div>
+        <div class="cs-actions">
+          <span id="csCacheBadge" class="profile-cache-badge" style="display:none;">Saved</span>
+          <button id="btnBookmark" class="btn btn-ghost" style="font-size:11px;padding:4px 9px;width:auto;">&#x1F516; Save</button>
+        </div>
+      </div>
+      <div class="cs-row">
+        <span id="csEmailBadge"></span>
+        <a id="csLinkedinLink" class="cs-link" href="#" target="_blank" style="display:none;"></a>
+      </div>
+      <div id="bookmarkStatus" style="margin-top:6px;font-size:11px;"></div>
+    </div>
+
     <!-- Input section -->
     <div class="card" id="inputSection">
-      <!-- Detected profile pill -->
       <div id="profilePill" class="profile-detected-pill" style="display:none;">
         <span class="profile-pill-dot"></span>
         <span id="profilePillText">LinkedIn profile detected</span>
       </div>
 
-      <!-- Customize toggle -->
-      <button class="btn btn-ghost customize-toggle" id="customizeToggle">▸ Customize draft</button>
+      <button class="btn btn-ghost customize-toggle" id="customizeToggle">&#x25B8; Customize draft</button>
 
-      <!-- Collapsible fields -->
       <div id="customizeFields" style="display:none;">
         <div class="form-group" style="margin-top:8px;">
           <label for="fullNameInput">Full name <span style="color:#9ca3af;font-weight:400;">(auto-filled)</span></label>
@@ -791,13 +757,12 @@
         </div>
       </div>
 
-      <button class="btn btn-primary" id="generateDraftButton" style="margin-top:8px;">✨ Generate draft</button>
+      <button class="btn btn-primary" id="generateDraftButton" style="margin-top:8px;">&#x2728; Generate draft</button>
       <div style="display:flex;gap:6px;margin-top:7px;">
         <button class="btn btn-ghost" id="clearButton" style="font-size:12px;">Clear</button>
       </div>
     </div>
 
-    <!-- Status / progress section -->
     <div id="statusMessage"></div>
 
     <div id="progressSection" style="display:none;" class="card">
@@ -806,7 +771,6 @@
       <div class="progress-step"><div class="progress-dot" id="dotDraft"></div><div class="progress-label" id="lblDraft">Writing draft…</div></div>
     </div>
 
-    <!-- Result summary section -->
     <div id="resultSummary" class="card">
       <div class="card-label" style="margin-bottom:10px;">Contact found</div>
       <div class="result-row"><span class="result-label">Name</span><span class="result-value" id="resName">—</span></div>
@@ -823,62 +787,33 @@
       </div>
     </div>
 
-    <!-- Draft section -->
     <div id="draftOutput" class="card">
       <div class="card-label" style="margin-bottom:6px;">Draft</div>
       <div class="draft-subject" id="draftSubjectLine"></div>
       <textarea id="draftBody" rows="7" spellcheck="true"></textarea>
       <div class="open-email-row">
-        <button class="btn btn-outlook" id="btnOpenOutlook">📧 Outlook</button>
         <button class="btn btn-gmail" id="btnOpenGmail">Gmail</button>
+        <button class="btn btn-outlook" id="btnOpenOutlook">&#x1F4E7; Outlook</button>
       </div>
       <div class="copy-row">
-        <button class="btn btn-ghost" id="btnCopyDraft" style="font-size:12px;">📋 Copy draft</button>
-        <button class="btn btn-ghost" id="retryButton" style="font-size:12px;">↻ Try again</button>
+        <button class="btn btn-ghost" id="btnCopyDraft" style="font-size:12px;">&#x1F4CB; Copy draft</button>
+        <button class="btn btn-ghost" id="retryButton" style="font-size:12px;">&#x21BB; Try again</button>
       </div>
     </div>
 
-    <!-- Error box -->
     <div id="errorBox">
       <p id="errorMessage">Something went wrong.</p>
-      <button class="btn btn-secondary" id="retryButton2" style="margin-bottom:7px;">↻ Try again</button>
+      <button class="btn btn-secondary" id="retryButton2" style="margin-bottom:7px;">&#x21BB; Try again</button>
       <button class="btn btn-danger" id="authRecoveryButton" style="display:none;">Sign out and sign in again</button>
     </div>
 
-  </div>
-
-  <!-- ════════════ PROFILE TAB ════════════ -->
-  <div class="tab-content" id="tab-profile">
-
-    <!-- Empty state: shown before any enrichment -->
-    <div id="profileEmpty" class="card" style="text-align:center;padding:20px 13px;">
-      <div style="font-size:28px;margin-bottom:8px;">👤</div>
-      <div class="profile-empty-text">Open a LinkedIn profile and click <strong>Generate draft</strong> to see candidate details here.</div>
-    </div>
-
-    <!-- Populated profile card: shown after enrichment -->
-    <div id="profileCard" class="card" style="display:none;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div class="card-label" style="margin-bottom:0;">Candidate</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <span id="profileCacheBadge" class="profile-cache-badge" style="display:none;">From saved profile</span>
-          <button id="btnBookmark" class="btn btn-ghost" style="font-size:11px;padding:4px 9px;width:auto;">🔖 Save profile</button>
+    <!-- Saved profiles (collapsible) -->
+    <div id="savedProfilesSection" style="margin-top:4px;">
+      <span class="saved-profiles-toggle" id="savedProfilesToggle">Saved profiles</span>
+      <div id="savedProfilesWrap" style="display:none;margin-top:6px;">
+        <div id="savedProfilesList" style="max-height:180px;overflow-y:auto;">
+          <div style="font-size:12px;color:#9ca3af;text-align:center;padding:12px 0;" id="savedProfilesEmpty">No saved profiles yet.</div>
         </div>
-      </div>
-      <div class="result-row"><span class="result-label">Name</span><span class="result-value" id="profName">—</span></div>
-      <div class="result-row" id="profEmailRow"><span class="result-label">Email</span><span class="result-value" id="profEmail">—</span></div>
-      <div class="result-row" id="profTitleRow" style="display:none;"><span class="result-label">Title</span><span class="result-value" id="profTitle">—</span></div>
-      <div class="result-row" id="profCompanyRow" style="display:none;"><span class="result-label">Company</span><span class="result-value" id="profCompany">—</span></div>
-      <div class="result-row" style="margin-top:6px;"><span class="result-label linkedin-label">LinkedIn</span><span class="prof-url-text" id="profUrl">—</span></div>
-      <div id="bookmarkStatus" style="margin-top:8px;font-size:11px;"></div>
-      <button id="btnGoToDraft" class="btn btn-primary" style="margin-top:10px;font-size:12px;">✨ Generate draft →</button>
-    </div>
-
-    <!-- Saved profiles list -->
-    <div id="savedProfilesSection">
-      <div class="section-heading">Saved profiles</div>
-      <div id="savedProfilesList" style="max-height:180px;overflow-y:auto;">
-        <div style="font-size:12px;color:#9ca3af;text-align:center;padding:12px 0;" id="savedProfilesEmpty">No saved profiles yet.</div>
       </div>
     </div>
 
@@ -887,10 +822,9 @@
   <!-- ════════════ JOB TAB ════════════ -->
   <div class="tab-content" id="tab-job">
 
-    <!-- Saved jobs list -->
     <div class="card" id="savedJobsCard">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="card-label" style="margin-bottom:0;">💼 Saved jobs</div>
+        <div class="card-label" style="margin-bottom:0;">&#x1F4BC; Saved jobs</div>
       </div>
       <div id="savedJobsList" style="max-height:160px;overflow-y:auto;">
         <div id="savedJobsEmpty" style="font-size:12px;color:#9ca3af;text-align:center;padding:8px 0;">No saved jobs yet — save a role below.</div>
@@ -898,7 +832,7 @@
     </div>
 
     <div class="card">
-      <div class="card-label">🔗 Import from URL</div>
+      <div class="card-label">&#x1F517; Import from URL</div>
       <div class="form-group">
         <label for="jobUrl">Job posting URL</label>
         <input type="text" id="jobUrl" placeholder="Paste a job posting link…" />
@@ -906,11 +840,11 @@
       <button class="btn btn-primary" id="btnExtractJob">Extract details</button>
       <div id="extractStatus" style="margin-top:8px;font-size:12px;color:#6b7280;"></div>
       <div id="jobExpiredWarning" class="job-expired-warning" style="display:none;">
-        ⚠️ This job posting appears to be unavailable or expired. The link may have been taken down. Try finding the role on the company's careers page.
+        &#x26A0;&#xFE0F; This job posting appears to be unavailable or expired. The link may have been taken down. Try finding the role on the company's careers page.
       </div>
     </div>
     <div class="card">
-      <div class="card-label">📋 Role details <span style="font-size:10px;font-weight:400;color:#9ca3af;text-transform:none;letter-spacing:0;">&nbsp;— used in draft context</span></div>
+      <div class="card-label">&#x1F4CB; Role details <span style="font-size:10px;font-weight:400;color:#9ca3af;text-transform:none;letter-spacing:0;">&nbsp;— used in draft context</span></div>
       <div class="form-group"><label for="jobTitle">Role title</label><input type="text" id="jobTitle" placeholder="e.g. Senior Software Engineer" /></div>
       <div class="form-group"><label for="jobCompany">Hiring company</label><input type="text" id="jobCompany" placeholder="e.g. Acme Corp" /></div>
       <div class="form-group">
@@ -936,7 +870,7 @@
         <div class="field"><div class="field-label">Email</div><div class="field-value" id="settingsEmail">—</div></div>
         <div class="field"><div class="field-label">Plan</div><div class="field-value"><span class="plan-badge free" id="settingsPlanBadge">Free</span></div></div>
         <div class="field"><div class="field-label">Lookups used</div><div class="field-value" id="settingsLookups">—</div></div>
-        <button class="btn btn-secondary" id="btnUpgrade" style="margin-top:10px;">⬆️ Upgrade plan</button>
+        <button class="btn btn-secondary" id="btnUpgrade" style="margin-top:10px;">&#x2B06;&#xFE0F; Upgrade plan</button>
         <button class="btn btn-danger" id="btnSignOut" style="margin-top:7px;">Sign out</button>
       </div>
     </div>
@@ -945,9 +879,9 @@
       <div class="card">
         <div class="field-label" style="margin-bottom:6px;">Theme</div>
         <div class="theme-control">
-          <button class="theme-btn" data-theme="light">☀️ Light</button>
+          <button class="theme-btn" data-theme="light">&#x2600;&#xFE0F; Light</button>
           <button class="theme-btn active" data-theme="system">System</button>
-          <button class="theme-btn" data-theme="dark">🌙 Dark</button>
+          <button class="theme-btn" data-theme="dark">&#x1F319; Dark</button>
         </div>
       </div>
     </div>
@@ -992,19 +926,12 @@
     </div>
   </div>
 
-  <!-- ════════════ BATCH DRAWER ════════════ -->
+  <!-- ════════════ BATCH OUTREACH DRAWER ════════════ -->
   <div id="batchDrawer">
 
     <div class="batch-header">
-      <button class="batch-back-btn" id="batchDrawerClose">←</button>
-      <span class="batch-header-title">Batch Campaigns</span>
-      <button class="batch-header-action" id="batchNewCampaignBtn">+ Import CSV</button>
-    </div>
-
-    <div class="batch-nav">
-      <div class="batch-nav-tab active" data-panel="campaigns">Campaigns</div>
-      <div class="batch-nav-tab" data-panel="candidates">Candidates</div>
-      <div class="batch-nav-tab" data-panel="review">Review</div>
+      <button class="batch-back-btn" id="batchDrawerClose">&#x2190;</button>
+      <span class="batch-header-title">Batch Outreach</span>
     </div>
 
     <div id="batchStatus" class="batch-status-bar"></div>
@@ -1014,100 +941,82 @@
       <button class="batch-btn batch-btn-sm" id="batchCreditUpgradeBtn">Upgrade plan</button>
     </div>
 
-    <!-- ── Campaigns panel ── -->
-    <div id="batchPanel-campaigns" class="batch-panel active">
-      <div id="batchCampaignList">
-        <div class="batch-loading">Loading campaigns…</div>
+    <div class="batch-body" id="batchBody">
+
+      <!-- Previous campaigns (collapsed) -->
+      <span class="batch-prev-toggle" id="batchPrevToggle">Previous campaigns</span>
+      <div id="batchPrevCampaigns" style="display:none;margin-bottom:12px;">
+        <div id="batchCampaignList">
+          <div class="batch-loading">Loading campaigns…</div>
+        </div>
       </div>
-    </div>
 
-    <!-- ── Import panel ── -->
-    <div id="batchPanel-import" class="batch-panel">
-      <div class="batch-section-card">
-        <div class="batch-section-title">New campaign</div>
-
-        <div class="batch-form-group">
-          <label class="batch-label">CSV file</label>
-          <input type="file" id="batchCsvFile" accept=".csv" style="width:100%;font-size:12px;" />
-          <div id="batchCsvPreview" class="batch-preview-text"></div>
-        </div>
-
-        <div class="batch-form-group">
-          <label class="batch-label">Campaign name</label>
-          <input type="text" id="batchCampaignName" class="batch-input" placeholder="e.g. AI Developer P — Poland Q2" autocomplete="off" />
-        </div>
-
-        <div class="batch-form-group">
-          <label class="batch-label">Link a saved job</label>
-          <select id="batchImportJobSelect" class="batch-select batch-job-select">
-            <option value="">— Select a saved job —</option>
-          </select>
-          <span id="batchJobUrlToggle" class="batch-url-toggle">Or validate a new job URL instead</span>
-        </div>
-
-        <div id="batchJobUrlWrap" style="display:none;" class="batch-form-group">
-          <label class="batch-label">Job URL</label>
-          <div style="display:flex;gap:6px;">
-            <input type="text" id="batchJobUrlInput" class="batch-input" placeholder="https://…" style="flex:1;" />
-            <button class="batch-btn batch-btn-sm" id="batchJobUrlFetch">Validate URL</button>
+      <!-- Step 1: Link the Job -->
+      <div class="batch-step" id="batchStep1">
+        <div class="batch-step-title"><span class="batch-step-num" id="batchStepNum1">1</span> Select a job</div>
+        <div class="batch-section-card">
+          <div class="batch-form-group">
+            <select id="batchJobSelect" class="batch-select batch-job-select">
+              <option value="">— Select a saved job —</option>
+            </select>
           </div>
-          <div id="batchUrlJobConfirm" style="display:none;" class="batch-url-confirmed">
-            ✓ Validated: <span id="batchUrlJobLabel"></span>
+          <div id="batchJobConfirm" class="batch-preview-text" style="display:none;"></div>
+        </div>
+      </div>
+
+      <!-- Step 2: Import candidates -->
+      <div class="batch-step" id="batchStep2">
+        <div class="batch-step-title"><span class="batch-step-num" id="batchStepNum2">2</span> Import candidates</div>
+        <div id="batchDropzone" class="batch-dropzone" tabindex="0">
+          <div class="batch-dropzone-icon">&#x1F4C4;</div>
+          <div>Drag &amp; drop a LinkedIn CSV here</div>
+          <div class="batch-dropzone-hint">or click and paste (Cmd+V / Ctrl+V) rows from your ATS</div>
+        </div>
+        <div id="batchImportForm" style="display:none;margin-top:8px;">
+          <div id="batchImportPreview" class="batch-preview-text" style="margin-bottom:8px;"></div>
+          <div class="batch-form-group">
+            <label class="batch-label">Campaign name</label>
+            <input type="text" id="batchCampaignName" class="batch-input" placeholder="e.g. AI Developer Pool — Q2" autocomplete="off" />
+          </div>
+          <button class="batch-btn batch-btn-primary" id="batchImportBtn" disabled>Import candidates</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Processing List (hidden until import) -->
+      <div class="batch-step" id="batchStep3" style="display:none;">
+        <div class="batch-step-title"><span class="batch-step-num" id="batchStepNum3">3</span> Process candidates</div>
+
+        <div id="batchLinkJobRow" class="batch-link-job-row" style="display:none;">
+          <div class="batch-link-job-label">&#x26A0; No job linked — link a saved job before drafting.</div>
+          <div class="batch-link-job-controls">
+            <select id="batchLinkJobSelect" class="batch-select batch-job-select">
+              <option value="">— Select saved job —</option>
+            </select>
+            <button class="batch-btn batch-btn-sm" id="batchLinkJobBtn">Link</button>
           </div>
         </div>
-      </div>
 
-      <button class="batch-btn batch-btn-primary" id="batchImportBtn" disabled>Import Candidates</button>
-    </div>
+        <div class="batch-action-bar">
+          <button class="batch-btn batch-btn-xs" id="batchEnrichAllBtn" disabled>&#x1F50D; Find missing emails</button>
+          <button class="batch-btn batch-btn-xs" id="batchDraftAllBtn" disabled>&#x2728; Generate drafts</button>
+        </div>
+        <div class="batch-action-bar" style="margin-top:-4px;">
+          <span id="batchEnrichProgress" class="batch-progress-text"></span>
+          <span id="batchDraftProgress" class="batch-progress-text"></span>
+        </div>
 
-    <!-- ── Candidates panel ── -->
-    <div id="batchPanel-candidates" class="batch-panel">
-
-      <div class="batch-campaign-selector-row">
-        <select id="batchCampaignSelect" class="batch-select">
-          <option value="">— Select campaign —</option>
-        </select>
-      </div>
-
-      <div id="batchLinkJobRow" class="batch-link-job-row" style="display:none;">
-        <div class="batch-link-job-label">⚠ No job linked — link a saved job before drafting.</div>
-        <div class="batch-link-job-controls">
-          <select id="batchLinkJobSelect" class="batch-select batch-job-select">
-            <option value="">— Select saved job —</option>
-          </select>
-          <button class="batch-btn batch-btn-sm" id="batchLinkJobBtn">Link</button>
+        <div id="batchCandidateList">
+          <div class="batch-empty">No candidates imported yet.</div>
         </div>
       </div>
 
-      <div class="batch-action-bar">
-        <button class="batch-btn batch-btn-xs" id="batchEnrichAllBtn" disabled>Enrich all</button>
-        <button class="batch-btn batch-btn-xs" id="batchDraftAllBtn" disabled>Draft all</button>
-        <span id="batchEnrichProgress" class="batch-progress-text"></span>
-        <span id="batchDraftProgress" class="batch-progress-text"></span>
+      <!-- Step 4: Review Queue (hidden until drafts exist) -->
+      <div class="batch-step" id="batchStep4" style="display:none;">
+        <div class="batch-step-title"><span class="batch-step-num" id="batchStepNum4">4</span> Review &amp; send</div>
+        <div id="batchReviewCounter" class="batch-review-counter"></div>
+        <div id="batchReviewQueue"></div>
       </div>
 
-      <div class="batch-filter-row">
-        <button class="batch-filter-tab active" data-filter="">All</button>
-        <button class="batch-filter-tab" data-filter="needs_enrichment">Needs enrichment</button>
-        <button class="batch-filter-tab" data-filter="needs_draft">Needs draft</button>
-        <button class="batch-filter-tab" data-filter="ready">Ready to review</button>
-      </div>
-
-      <div id="batchCandidateList">
-        <div class="batch-empty">Select a campaign above to see candidates.</div>
-      </div>
-    </div>
-
-    <!-- ── Review panel ── -->
-    <div id="batchPanel-review" class="batch-panel">
-      <div id="batchReviewSummary" class="batch-review-summary">Select a campaign and draft candidates first.</div>
-      <div class="batch-review-open-all">
-        <button class="batch-btn batch-btn-gmail" id="batchOpenAllGmail" disabled>Open all in Gmail</button>
-        <button class="batch-btn batch-btn-outlook" id="batchOpenAllOutlook" disabled>Open all in Outlook</button>
-      </div>
-      <div id="batchReviewList">
-        <div class="batch-empty">No drafted candidates yet.</div>
-      </div>
     </div>
 
   </div>

@@ -193,25 +193,26 @@ function renderResult(result) {
   })
 }
 
-// ── Profile tab: populate after enrichment ────────────────────────────────────
-function populateProfileTab(result) {
+// ── Candidate summary card (top of Outreach tab) ─────────────────────────────
+function populateCandidateSummary(result) {
   const { person, fromCache, isBookmarked } = result
   _isBookmarked = isBookmarked ?? false
 
-  // Hide empty state, show card
-  showSection('profileEmpty', false)
-  $('profileCard').style.display = 'block'
+  const card = $('candidateSummary')
+  if (card) card.classList.add('visible')
 
-  // Cache badge
-  const cacheBadge = $('profileCacheBadge')
+  const cacheBadge = $('csCacheBadge')
   if (cacheBadge) cacheBadge.style.display = fromCache ? 'inline-block' : 'none'
 
-  // Name
-  $('profName').textContent = person.fullName || '—'
+  $('csName').textContent = person.fullName || '—'
 
-  // Email with work / personal badge (safe DOM — no innerHTML)
-  const emailEl = $('profEmail')
-  emailEl.textContent = ''
+  const metaParts = []
+  if (person.title) metaParts.push(person.title)
+  if (person.company) metaParts.push(person.company)
+  $('csMeta').textContent = metaParts.join(' · ')
+
+  const emailBadge = $('csEmailBadge')
+  emailBadge.textContent = ''
   if (person.email) {
     const isWork = !!person.workEmail
     const emailSpan = document.createElement('span')
@@ -220,48 +221,19 @@ function populateProfileTab(result) {
     const typeBadge = document.createElement('span')
     typeBadge.textContent = isWork ? 'work' : 'personal'
     typeBadge.className = `email-type-badge ${isWork ? 'work' : 'personal'}`
-    emailEl.appendChild(emailSpan)
-    emailEl.appendChild(typeBadge)
-    $('profEmailRow').style.display = 'flex'
+    emailBadge.appendChild(emailSpan)
+    emailBadge.appendChild(typeBadge)
   } else {
-    emailEl.textContent = 'Not found'
-    $('profEmailRow').style.display = 'flex'
+    emailBadge.textContent = person.emailStatus === 'not_found' ? 'No email found' : ''
   }
 
-  // Title with verified/unverified badge
-  if (person.title) {
-    const titleEl = $('profTitle')
-    titleEl.textContent = person.title
-    const badge = document.createElement('span')
-    if (person.titleVerified === false) {
-      badge.textContent = 'unverified'
-      badge.className = 'title-badge unverified'
-    } else {
-      badge.textContent = 'verified'
-      badge.className = 'title-badge verified'
-    }
-    titleEl.appendChild(badge)
-    $('profTitleRow').style.display = 'flex'
-  } else {
-    $('profTitleRow').style.display = 'none'
+  const linkEl = $('csLinkedinLink')
+  if (_linkedinUrl && linkEl) {
+    linkEl.textContent = _linkedinUrl.replace('https://www.linkedin.com/', 'linkedin.com/').replace('https://linkedin.com/', 'linkedin.com/')
+    linkEl.href = _linkedinUrl
+    linkEl.style.display = 'inline'
   }
 
-  // Company
-  if (person.company) {
-    $('profCompany').textContent = person.company
-    $('profCompanyRow').style.display = 'flex'
-  } else {
-    $('profCompanyRow').style.display = 'none'
-  }
-
-  // LinkedIn URL (truncated for display)
-  const urlEl = $('profUrl')
-  if (_linkedinUrl) {
-    urlEl.textContent = _linkedinUrl.replace('https://www.linkedin.com/', 'linkedin.com/').replace('https://linkedin.com/', 'linkedin.com/')
-    urlEl.title = _linkedinUrl
-  }
-
-  // Bookmark button state
   updateBookmarkButton()
 }
 
@@ -314,7 +286,7 @@ async function loadSavedProfiles() {
           if (fields && toggle) { fields.style.display = 'block'; toggle.textContent = '▾ Customize draft' }
         }
         // Populate profile card and STAY on the Profile tab
-        populateProfileTab({
+        populateCandidateSummary({
           person: {
             fullName:      p.full_name      || '',
             email:         p.work_email || p.personal_email || null,
@@ -336,14 +308,8 @@ async function loadSavedProfiles() {
   }
 }
 
-// ── Profile tab setup ─────────────────────────────────────────────────────────
-function setupProfileTab() {
-  // "Generate draft →" button — switches to Draft tab (user then clicks Generate)
-  $('btnGoToDraft')?.addEventListener('click', () => {
-    document.querySelector('.tab[data-tab="outreach"]')?.click()
-  })
-
-  // Bookmark toggle
+// ── Candidate summary + bookmark setup ───────────────────────────────────────
+function setupCandidateSummary() {
   $('btnBookmark')?.addEventListener('click', async () => {
     if (!_linkedinUrl) return
     const newState = !_isBookmarked
@@ -359,7 +325,6 @@ function setupProfileTab() {
         statusEl.style.color = newState ? '#16a34a' : '#9ca3af'
         setTimeout(() => { statusEl.textContent = '' }, 2500)
       }
-      // Refresh saved list
       await loadSavedProfiles()
     } catch (e) {
       const statusEl = $('bookmarkStatus')
@@ -369,7 +334,16 @@ function setupProfileTab() {
     }
   })
 
-  // Load bookmarked profiles on init
+  const toggle = $('savedProfilesToggle')
+  const wrap = $('savedProfilesWrap')
+  if (toggle && wrap) {
+    toggle.addEventListener('click', () => {
+      const open = wrap.style.display !== 'none'
+      wrap.style.display = open ? 'none' : 'block'
+      toggle.textContent = open ? 'Saved profiles' : 'Hide saved profiles'
+    })
+  }
+
   loadSavedProfiles()
 }
 
@@ -438,7 +412,7 @@ async function generateDraftFlow() {
     }
 
     renderResult(result)
-    populateProfileTab(result)
+    populateCandidateSummary(result)
 
     // Cache result by LinkedIn URL
     const cacheKey = `outreach_${_linkedinUrl.replace(/[^a-z0-9]/gi, '_').slice(-60)}`
@@ -532,8 +506,7 @@ async function prefillFromPage() {
               toggle.textContent = '▾ Customize draft'
             }
             setStatus('Saved profile detected — draft is free.', 'success')
-            // Auto-populate Profile tab card
-            populateProfileTab({
+            populateCandidateSummary({
               person: {
                 fullName: p.fullName, email: p.email,
                 workEmail: p.workEmail, personalEmail: p.personalEmail,
@@ -941,9 +914,8 @@ async function showMainApp(user) {
   // Settings
   await setupSettingsTab(user)
   setupJobTab()
-  setupProfileTab()
+  setupCandidateSummary()
 
-  // Campaigns tab — lazy-init batch module on first click
   const campaignsTab = $('campaignsTab')
   if (campaignsTab) {
     let _batchModule = null
