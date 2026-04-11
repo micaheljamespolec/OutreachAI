@@ -1,13 +1,13 @@
 // ─── config.js ────────────────────────────────────────────────────────────────
 export const CONFIG = {
-  supabaseUrl: 'https://szxjcitbjcpkhxtjztay.supabase.co',
-  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6eGpjaXRiamNwa2h4dGp6dGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODc2MDgsImV4cCI6MjA4NzM2MzYwOH0.9sgQhrNY8GGeMWIHPTnNehrM8eGD0tMHM6FCKDf-k08',
+  supabaseUrl: 'https://qqksaooletdklylrlety.supabase.co',
+  supabaseKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxa3Nhb29sZXRka2x5bHJsZXR5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3NzEyMTksImV4cCI6MjA5MTM0NzIxOX0.XSl0s3tuPa0Xl4I7Q24_vWj2MTsxYNfVGZJjZFQBsOk',
 
   fullenrichUrl: 'https://app.fullenrich.com/api/v1',
 
   appName:    'OutreachAI',
   version:    '1.1.0',
-  pricingUrl: 'https://szxjcitbjcpkhxtjztay.supabase.co/functions/v1/create-checkout', // TODO: replace with real Stripe payment link URL
+  pricingUrl: 'https://qqksaooletdklylrlety.supabase.co/functions/v1/create-checkout', // TODO: replace with real Stripe payment link URL
 
   stripe: {
     sourcer: {
