@@ -861,8 +861,10 @@ async function showMainApp(user) {
   setupCustomizeToggle()
   await loadCreditsUI()
 
-  // Prefill name and company from page
-  await prefillFromPage()
+  // Prefill name and company from page — only when Outreach tab is active
+  if (document.querySelector('.tab[data-tab="outreach"]')?.classList.contains('active')) {
+    await prefillFromPage()
+  }
 
   // ── Generate draft button ──────────────────────────────────────────────────
   $('generateDraftButton').addEventListener('click', () => generateDraftFlow())
@@ -883,7 +885,9 @@ async function showMainApp(user) {
     const fields = $('customizeFields'); const toggle = $('customizeToggle')
     if (fields && toggle) { fields.style.display = 'none'; toggle.textContent = '▸ Customize draft' }
     resetToIdle()
-    await prefillFromPage()
+    if (document.querySelector('.tab[data-tab="outreach"]')?.classList.contains('active')) {
+      await prefillFromPage()
+    }
   })
 
   // Retry buttons

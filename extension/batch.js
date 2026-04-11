@@ -234,7 +234,7 @@ function readCsvFile(file) {
   reader.onload = e => {
     const rows = parseCsv(e.target.result)
     _parsedCandidates = csvToObjects(rows)
-    afterParse()
+    afterParse(file.name)
   }
   reader.readAsText(file)
 }
@@ -242,20 +242,25 @@ function readCsvFile(file) {
 function handlePastedText(text) {
   const rows = parseCsv(text)
   _parsedCandidates = csvToObjects(rows)
-  afterParse()
+  afterParse('pasted data')
 }
 
-function afterParse() {
+function afterParse(fileName) {
   if (_parsedCandidates.length === 0) {
     setBatchStatus('No candidates found in the data. Ensure the CSV has "First Name" and "Last Name" columns.', 'warn')
     return
   }
 
+  const count = _parsedCandidates.length
+  const label = `${count} candidate${count !== 1 ? 's' : ''}`
   const dropzone = $('batchDropzone')
-  if (dropzone) dropzone.classList.add('compact')
+  if (dropzone) {
+    dropzone.innerHTML = `<span class="file-pill">📄 ${fileName} — ${label}</span>`
+    dropzone.classList.add('compact')
+  }
 
   const preview = $('batchImportPreview')
-  if (preview) preview.textContent = `${_parsedCandidates.length} candidate${_parsedCandidates.length !== 1 ? 's' : ''} detected`
+  if (preview) preview.textContent = `${label} detected`
 
   const form = $('batchImportForm')
   if (form) form.style.display = 'block'
