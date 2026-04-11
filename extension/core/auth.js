@@ -54,28 +54,34 @@ export async function getAccessToken() {
   return session.access_token
 }
 
-export async function refreshSession(refreshToken) {
-  if (!refreshToken) return null
-  try {
-    const res  = await fetch(`${BASE}/token?grant_type=refresh_token`, {
-      method: 'POST', headers: HEADERS,
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    })
-    const data = await res.json()
-    if (data.access_token) {
-      const session = {
-        access_token:  data.access_token,
-        refresh_token: data.refresh_token ?? refreshToken,
-        expires_at:    Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
-        user:          data.user,
+let _refreshPromise = null
+
+export function refreshSession(refreshToken) {
+  if (!refreshToken) return Promise.resolve(null)
+  if (_refreshPromise) return _refreshPromise
+  _refreshPromise = (async () => {
+    try {
+      const res  = await fetch(`${BASE}/token?grant_type=refresh_token`, {
+        method: 'POST', headers: HEADERS,
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      })
+      const data = await res.json()
+      if (data.access_token) {
+        const session = {
+          access_token:  data.access_token,
+          refresh_token: data.refresh_token ?? refreshToken,
+          expires_at:    Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+          user:          data.user,
+        }
+        await saveSession(session)
+        return session
       }
-      await saveSession(session)
-      return session
-    }
-    // Refresh token itself expired — clear session
-    if (res.status === 400 || res.status === 401) await clearSession()
-    return null
-  } catch { return null }
+      if (res.status === 400 || res.status === 401) await clearSession()
+      return null
+    } catch { return null }
+    finally { _refreshPromise = null }
+  })()
+  return _refreshPromise
 }
 
 export async function sendMagicLink(email) {
@@ -156,37 +162,6 @@ export async function signUpWithEmailPassword(email, password) {
     // Email confirmation required
     return { session: null, error: null, confirmEmail: true }
   } catch (e) { return { error: { message: e.message } } }
-}
-
-export async function handleAuthCallback(url) {
-  try {
-    // Tokens come in the URL hash: #access_token=...&refresh_token=...
-    const hash   = url.includes('#') ? url.split('#')[1] : ''
-    const params = new URLSearchParams(hash)
-    const token  = params.get('access_token')
-    const refresh = params.get('refresh_token')
-    const expiresIn = parseInt(params.get('expires_in') ?? '3600', 10)
-
-    if (!token) return false
-
-    // Verify the token by fetching user info
-    const res  = await fetch(`${BASE}/user`, {
-      headers: { ...HEADERS, 'Authorization': `Bearer ${token}` }
-    })
-    if (!res.ok) return false
-    const user = await res.json()
-
-    await saveSession({
-      access_token:  token,
-      refresh_token: refresh,
-      expires_at:    Math.floor(Date.now() / 1000) + expiresIn,
-      user,
-    })
-    return true
-  } catch (e) {
-    console.error('handleAuthCallback error:', e)
-    return false
-  }
 }
 
 export async function signOut() {

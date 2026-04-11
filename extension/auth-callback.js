@@ -1,6 +1,8 @@
+import { CONFIG } from './config.js'
+
 ;(async () => {
-  const SUPABASE_URL     = 'https://szxjcitbjcpkhxtjztay.supabase.co'
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6eGpjaXRiamNwa2h4dGp6dGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE3ODc2MDgsImV4cCI6MjA4NzM2MzYwOH0.9sgQhrNY8GGeMWIHPTnNehrM8eGD0tMHM6FCKDf-k08'
+  const SUPABASE_URL      = CONFIG.supabaseUrl
+  const SUPABASE_ANON_KEY = CONFIG.supabaseKey
 
   const box = document.getElementById('box')
 
