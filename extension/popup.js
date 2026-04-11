@@ -10,6 +10,7 @@ let _lastResult = null
 let _linkedinUrl = null
 let _isBookmarked = false
 let _isGenerating = false  // double-submission guard
+let _prefillAborted = false  // set to true while batch drawer is open
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id)
@@ -474,59 +475,77 @@ function setupCustomizeToggle() {
 
 // ── Page prefill strategy ─────────────────────────────────────────────────────
 async function prefillFromPage() {
-  if ($('batchDrawer')?.classList.contains('open')) return
+  if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab?.url) return
 
+    const isLinkedInProfile = tab.url.includes('linkedin.com/in/') ||
+      tab.url.includes('linkedin.com/talent/') ||
+      tab.url.includes('linkedin.com/recruiter/')
+
+    let data = null
     try {
-      const data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
-      // Accept any LinkedIn profile URL: standard (/in/), Recruiter (/talent/, /recruiter/), etc.
-      if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/')) {
-        _linkedinUrl = data.linkedin_url
-        _state = 'PREFILLED'
-
-        // Show a basic pill immediately so the user knows which profile is queued
-        updateProfilePill('LinkedIn profile detected')
-
-        // Check saved-profile cache immediately — no credit needed
+      data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+    } catch {
+      if (isLinkedInProfile) {
+        await new Promise(r => setTimeout(r, 800))
+        if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
         try {
-          const check = await checkSavedProfile({ linkedinUrl: _linkedinUrl })
-          if (check.found) {
-            const p = check.profile
-            // Pre-fill Draft tab inputs
-            if (p.fullName) $('fullNameInput').value = p.fullName
-            if (p.company && !$('companyHintInput').value.trim()) $('companyHintInput').value = p.company
-            // Update pill to show the cached name
-            if (p.fullName) updateProfilePill(p.fullName)
-            // Auto-open customize section when we have pre-filled data
-            const fields = $('customizeFields')
-            const toggle = $('customizeToggle')
-            if (fields && toggle && (p.fullName || p.company)) {
-              fields.style.display = 'block'
-              toggle.textContent = '▾ Customize draft'
-            }
-            setStatus('Saved profile detected — draft is free.', 'success')
-            populateCandidateSummary({
-              person: {
-                fullName: p.fullName, email: p.email,
-                workEmail: p.workEmail, personalEmail: p.personalEmail,
-                title: p.title, titleVerified: p.titleVerified,
-                company: p.company, emailStatus: p.emailStatus,
-              },
-              fromCache: true,
-              isBookmarked: p.isBookmarked,
-            })
-          } else {
-            setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+          data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+        } catch {}
+      }
+    }
+
+    if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
+
+    // Accept any LinkedIn profile URL: standard (/in/), Recruiter (/talent/, /recruiter/), etc.
+    if (data?.linkedin_url && data.linkedin_url.includes('linkedin.com/')) {
+      _linkedinUrl = data.linkedin_url
+      _state = 'PREFILLED'
+
+      // Show a basic pill immediately so the user knows which profile is queued
+      updateProfilePill('LinkedIn profile detected')
+
+      // Check saved-profile cache immediately — no credit needed
+      try {
+        if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
+        const check = await checkSavedProfile({ linkedinUrl: _linkedinUrl })
+        if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
+        if (check.found) {
+          const p = check.profile
+          // Pre-fill Draft tab inputs
+          if (p.fullName) $('fullNameInput').value = p.fullName
+          if (p.company && !$('companyHintInput').value.trim()) $('companyHintInput').value = p.company
+          // Update pill to show the cached name
+          if (p.fullName) updateProfilePill(p.fullName)
+          // Auto-open customize section when we have pre-filled data
+          const fields = $('customizeFields')
+          const toggle = $('customizeToggle')
+          if (fields && toggle && (p.fullName || p.company)) {
+            fields.style.display = 'block'
+            toggle.textContent = '▾ Customize draft'
           }
-        } catch {
+          setStatus('Saved profile detected — draft is free.', 'success')
+          populateCandidateSummary({
+            person: {
+              fullName: p.fullName, email: p.email,
+              workEmail: p.workEmail, personalEmail: p.personalEmail,
+              title: p.title, titleVerified: p.titleVerified,
+              company: p.company, emailStatus: p.emailStatus,
+            },
+            fromCache: true,
+            isBookmarked: p.isBookmarked,
+          })
+        } else {
           setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
         }
-      } else {
-        updateProfilePill(null)
+      } catch {
+        if (!_prefillAborted && !$('batchDrawer')?.classList.contains('open')) {
+          setStatus('LinkedIn profile detected — ready to generate draft.', 'info')
+        }
       }
-    } catch {
+    } else {
       updateProfilePill(null)
     }
   } catch {}
@@ -914,10 +933,16 @@ async function showMainApp(user) {
   setupJobTab()
   setupCandidateSummary()
 
+  $('batchDrawerClose')?.addEventListener('click', () => {
+    _prefillAborted = false
+    prefillFromPage()
+  })
+
   const campaignsTab = $('campaignsTab')
   if (campaignsTab) {
     let _batchModule = null
     campaignsTab.addEventListener('click', async () => {
+      _prefillAborted = true
       if (!_batchModule) {
         _batchModule = await import('./batch.js')
         _batchModule.initBatch()
