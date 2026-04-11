@@ -821,6 +821,18 @@ Return ONLY the bullet list — no intro sentence, no JSON, no extra commentary.
       return json({ deleted: true })
     }
 
+    // ── Guard: reject unknown actions before falling through to default flow ──
+    const KNOWN_ACTIONS = [
+      'enrich-and-draft', 'summarize-job', 'bookmark-profile', 'check-saved-profile',
+      'get-saved-profiles', 'save-job', 'get-saved-jobs', 'delete-job',
+      'import-campaign', 'get-campaigns', 'get-campaign-candidates',
+      'enrich-campaign-candidate', 'draft-campaign-candidate',
+      'update-candidate-status', 'link-campaign-job', 'delete-campaign',
+    ]
+    if (!KNOWN_ACTIONS.includes(action)) {
+      return json({ error: { code: 'UNKNOWN_ACTION', message: `Unknown action: ${action}` } }, 400)
+    }
+
     // ── Enrich-and-draft action (default single-profile flow) ─────────────────
     const linkedinUrl = body.linkedinUrl?.trim() || null
     const companyHint = body.companyHint?.trim() || null

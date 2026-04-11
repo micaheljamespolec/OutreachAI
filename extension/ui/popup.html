@@ -9,16 +9,14 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     font-size: 13px; background: #f0f2f5; color: #111827;
-    width: 380px; min-height: 200px;
+    width: 380px; min-height: 520px;
   }
 
   /* ── Header ── */
   .header { background: #0a66c2; color: white; padding: 10px 14px; display: flex; align-items: center; gap: 8px; }
   .header h1 { font-size: 15px; font-weight: 700; flex: 1; }
-  .credit-pill { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-  .credit-pill:hover { background: rgba(255,255,255,0.28); }
-  .credit-pill.low { background: rgba(251,191,36,0.22); border-color: rgba(251,191,36,0.5); color: #fde68a; }
-  .credit-pill.critical { background: rgba(239,68,68,0.22); border-color: rgba(239,68,68,0.5); color: #fca5a5; }
+  .campaigns-header-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .campaigns-header-btn:hover { background: rgba(255,255,255,0.28); }
 
   /* ── Tabs ── */
   .tabs { display: flex; background: white; border-bottom: 1px solid #e5e7eb; }
@@ -752,14 +750,13 @@
   <div class="header">
     <span>💼</span>
     <h1>OutreachAI</h1>
-    <button class="credit-pill" id="creditPill">— lookups</button>
+    <button class="campaigns-header-btn" id="campaignsTab">Campaigns</button>
   </div>
 
   <div class="tabs">
     <div class="tab active" data-tab="outreach">✉️ Draft</div>
     <div class="tab" data-tab="profile">👤 Profile</div>
     <div class="tab" data-tab="job">📋 Job</div>
-    <div class="tab" data-tab="campaigns" id="campaignsTab">⚡ Campaigns</div>
     <div class="tab" data-tab="settings">⚙️ Settings</div>
   </div>
 
@@ -1060,7 +1057,7 @@
         </div>
       </div>
 
-      <button class="batch-btn batch-btn-primary" id="batchImportBtn" disabled>Import campaign</button>
+      <button class="batch-btn batch-btn-primary" id="batchImportBtn" disabled>Import Candidates</button>
     </div>
 
     <!-- ── Candidates panel ── -->

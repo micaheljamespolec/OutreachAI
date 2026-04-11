@@ -562,19 +562,12 @@ async function prefillFromPage() {
 
 // ── Credits UI ────────────────────────────────────────────────────────────────
 async function loadCreditsUI() {
-  const pill = $('creditPill')
   try {
     const credits = await getCreditsData()
     const tier = credits?.tier ?? 'free'
     const used = credits?.lookups_used ?? 0
     const max  = CONFIG.tiers[tier]?.lookups ?? 10
-    const left = max - used
-    if (left <= 0)      { pill.textContent = '0 lookups · Upgrade'; pill.className = 'credit-pill critical' }
-    else if (left <= 2) { pill.textContent = `${left} left · Upgrade`; pill.className = 'credit-pill critical' }
-    else if (left <= 5) { pill.textContent = `${left} lookups left`; pill.className = 'credit-pill low' }
-    else                { pill.textContent = `${left} lookups left`; pill.className = 'credit-pill' }
 
-    // Settings tab
     if ($('settingsEmail') && credits?.user_id) {
       const user = await getUser()
       if (user?.email) $('settingsEmail').textContent = user.email
@@ -585,10 +578,7 @@ async function loadCreditsUI() {
       badge.className = `plan-badge${tier === 'free' ? ' free' : ''}`
     }
     if ($('settingsLookups')) $('settingsLookups').textContent = `${used} / ${max}`
-  } catch {
-    pill.textContent = '— lookups'
-    pill.className = 'credit-pill'
-  }
+  } catch {}
 }
 
 // ── Recruiter profile API helpers ─────────────────────────────────────────────
@@ -897,7 +887,6 @@ async function showMainApp(user) {
   setupTabs()
   setupCustomizeToggle()
   await loadCreditsUI()
-  $('creditPill').addEventListener('click', () => openUpgradePage())
 
   // Prefill name and company from page
   await prefillFromPage()

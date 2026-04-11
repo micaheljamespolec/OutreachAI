@@ -330,7 +330,7 @@ function setupImportPanel() {
       } catch (e) {
         setBatchStatus(e.message || 'Import failed. Try again.', 'error')
         importBtn.disabled = false
-        importBtn.textContent = 'Import campaign'
+        importBtn.textContent = 'Import Candidates'
       }
     })
   }
