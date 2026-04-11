@@ -525,11 +525,9 @@ async function prefillFromPage() {
         }
       } else {
         updateProfilePill(null)
-        setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
       }
     } catch {
       updateProfilePill(null)
-      setStatus('Open a LinkedIn profile page to generate a draft.', 'warn')
     }
   } catch {}
 }
