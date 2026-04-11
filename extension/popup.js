@@ -857,8 +857,13 @@ function showLoginScreen() {
 // ── Post-login: check onboarding status via DB function ──────────────────────
 // Calls is_first_time_user() which uses auth.uid() internally — no arg needed.
 async function isFirstTimeUser() {
-  const token = await getAccessToken()
-  if (!token) throw new Error('Not authenticated')
+  let token = null
+  for (let i = 0; i < 6; i++) {
+    token = await getAccessToken()
+    if (token) break
+    await new Promise(r => setTimeout(r, 500))
+  }
+  if (!token) throw new Error('Not authenticated — token not available after login')
   const res = await fetch(`${CONFIG.supabaseUrl}/rest/v1/rpc/is_first_time_user`, {
     method: 'POST',
     headers: {
@@ -885,22 +890,21 @@ async function handlePostLogin() {
 
   const user = await getUser()
 
-  // Onboarding gate: DB-level is_first_time_user() is the authoritative check.
-  // Returns true only when the authenticated user has no recruiter_profiles row.
-  // Throws on RPC failure so errors are surfaced rather than silently bypassing onboarding.
   let needsOnboarding = false
   try {
     needsOnboarding = await isFirstTimeUser()
   } catch (e) {
     console.error('Onboarding check error:', e.message)
-    // Show error on the top-level auth error element (always visible on login screen)
-    showLoginScreen()
-    const errEl = $('authError')
-    if (errEl) {
-      errEl.textContent = 'Could not verify your account status — please try signing in again.'
-      errEl.style.display = 'block'
+    if (e.message.includes('401') || e.message.includes('Not authenticated')) {
+      showLoginScreen()
+      const errEl = $('authError')
+      if (errEl) {
+        errEl.textContent = 'Could not verify your account status — please try signing in again.'
+        errEl.style.display = 'block'
+      }
+      return
     }
-    return
+    needsOnboarding = false
   }
 
   if (needsOnboarding) {
