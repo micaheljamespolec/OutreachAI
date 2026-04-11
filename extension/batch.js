@@ -21,6 +21,8 @@ const $ = id => document.getElementById(id)
 export function openBatchDrawer() {
   const drawer = $('batchDrawer')
   if (!drawer) return
+  const statusMsg = $('statusMessage')
+  if (statusMsg) { statusMsg.textContent = ''; statusMsg.className = ''; statusMsg.style.display = 'none' }
   drawer.classList.add('open')
   loadCampaignsList()
   loadJobsForSelector()
@@ -315,7 +317,10 @@ async function doImport() {
     const form = $('batchImportForm')
     if (form) form.style.display = 'none'
     const dropzone = $('batchDropzone')
-    if (dropzone) dropzone.classList.remove('compact')
+    if (dropzone) {
+      dropzone.classList.remove('compact')
+      dropzone.innerHTML = '<div class="batch-dropzone-icon">📄</div><div>Drag & drop a LinkedIn CSV here</div><div class="batch-dropzone-hint">or click and paste (Cmd+V / Ctrl+V) rows from your ATS</div>'
+    }
 
     await loadCampaignsList()
     if (result.campaign?.id) {

@@ -474,6 +474,7 @@ function setupCustomizeToggle() {
 
 // ── Page prefill strategy ─────────────────────────────────────────────────────
 async function prefillFromPage() {
+  if ($('batchDrawer')?.classList.contains('open')) return
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
     if (!tab?.url) return
@@ -861,10 +862,7 @@ async function showMainApp(user) {
   setupCustomizeToggle()
   await loadCreditsUI()
 
-  // Prefill name and company from page — only when Outreach tab is active
-  if (document.querySelector('.tab[data-tab="outreach"]')?.classList.contains('active')) {
-    await prefillFromPage()
-  }
+  await prefillFromPage()
 
   // ── Generate draft button ──────────────────────────────────────────────────
   $('generateDraftButton').addEventListener('click', () => generateDraftFlow())
@@ -885,9 +883,7 @@ async function showMainApp(user) {
     const fields = $('customizeFields'); const toggle = $('customizeToggle')
     if (fields && toggle) { fields.style.display = 'none'; toggle.textContent = '▸ Customize draft' }
     resetToIdle()
-    if (document.querySelector('.tab[data-tab="outreach"]')?.classList.contains('active')) {
-      await prefillFromPage()
-    }
+    await prefillFromPage()
   })
 
   // Retry buttons
