@@ -327,7 +327,7 @@ async function doImport() {
       await openCampaign(result.campaign.id, result.campaign)
     }
   } catch (e) {
-    setBatchStatus(e.message || 'Import failed. Try again.', 'error')
+    setBatchStatus(_batchErrorMessage(e, 'Import failed. Try again.'), 'error')
     if (importBtn) { importBtn.disabled = false; importBtn.textContent = 'Import candidates' }
   }
 }
@@ -646,6 +646,12 @@ function _statusBadge(status) {
   }
   const [cls, label] = map[status] || ['gray-sm', status]
   return `<span class="batch-badge ${cls}">${label}</span>`
+}
+
+const _MISLEADING_CODES = ['NO_LINKEDIN_URL', 'UNKNOWN_ACTION']
+function _batchErrorMessage(e, fallback) {
+  if (e && _MISLEADING_CODES.includes(e.code)) return fallback
+  return e?.message || fallback
 }
 
 function setBatchStatus(msg, type) {
