@@ -53,10 +53,14 @@ async function apiRequest(url, options = {}) {
       if (refreshed) {
         res = await makeRequest()
       } else {
-        throw { code: 'AUTH_EXPIRED', message: 'Session expired — please sign out and sign in again.' }
+        const authErr = new Error('Session expired — please sign out and sign in again.')
+        authErr.code = 'AUTH_EXPIRED'
+        throw authErr
       }
     } else {
-      throw { code: 'AUTH_EXPIRED', message: 'Session expired — please sign out and sign in again.' }
+      const authErr = new Error('Session expired — please sign out and sign in again.')
+      authErr.code = 'AUTH_EXPIRED'
+      throw authErr
     }
   }
 

@@ -10,7 +10,7 @@ import {
 let _activeCampaignId = null
 let _allCandidates = []
 let _savedJobs = []
-let _batchAbort = false
+let _batchRunId = 0
 let _parsedCandidates = []
 let _reviewIndex = 0
 
@@ -32,7 +32,7 @@ export function closeBatchDrawer() {
   const drawer = $('batchDrawer')
   if (!drawer) return
   drawer.classList.remove('open')
-  _batchAbort = true
+  _batchRunId++
 }
 
 // ── CSV parser (RFC 4180, handles quoted fields and embedded newlines) ─────────
@@ -455,7 +455,7 @@ async function runEnrichAll() {
   if (!_activeCampaignId) return
   const toEnrich = _allCandidates.filter(c => ['imported','failed'].includes(c.status))
   if (toEnrich.length === 0) return
-  _batchAbort = false
+  const myRunId = ++_batchRunId
 
   const enrichBtn = $('batchEnrichAllBtn')
   const progressEl = $('batchEnrichProgress')
@@ -463,7 +463,7 @@ async function runEnrichAll() {
 
   let done = 0
   for (const candidate of toEnrich) {
-    if (_batchAbort) break
+    if (_batchRunId !== myRunId) break
     if (progressEl) progressEl.textContent = `${done} / ${toEnrich.length} checked…`
     try {
       const result = await enrichCampaignCandidate({ candidateId: candidate.id })
@@ -495,7 +495,7 @@ async function runDraftAll() {
   if (!_activeCampaignId) return
   const toDraft = _allCandidates.filter(c => c.status === 'enriched')
   if (toDraft.length === 0) return
-  _batchAbort = false
+  const myRunId = ++_batchRunId
 
   const draftBtn = $('batchDraftAllBtn')
   const progressEl = $('batchDraftProgress')
@@ -503,7 +503,7 @@ async function runDraftAll() {
 
   let done = 0
   for (const candidate of toDraft) {
-    if (_batchAbort) break
+    if (_batchRunId !== myRunId) break
     if (progressEl) progressEl.textContent = `${done} / ${toDraft.length} drafted…`
     try {
       const result = await draftCampaignCandidate({ candidateId: candidate.id })
@@ -534,12 +534,12 @@ async function runDraftAll() {
 
 // ── Review queue (one-at-a-time, Step 4) ─────────────────────────────────────
 function loadReviewQueue() {
-  const drafted = _allCandidates.filter(c => c.status === 'drafted')
   _reviewIndex = 0
-  renderCurrentReview(drafted)
+  renderCurrentReview()
 }
 
-function renderCurrentReview(drafted) {
+function renderCurrentReview() {
+  const drafted = _allCandidates.filter(c => c.status === 'drafted')
   const queue = $('batchReviewQueue')
   const counter = $('batchReviewCounter')
   if (!queue) return
@@ -590,25 +590,25 @@ function renderCurrentReview(drafted) {
     const body = bodyEl?.value || c.draft_body || ''
     await approveCandidate(c.id)
     chrome.tabs.create({ url: `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` })
-    advanceReview(drafted)
+    advanceReview()
   })
 
   $('batchReviewOutlook')?.addEventListener('click', async () => {
     const body = bodyEl?.value || c.draft_body || ''
     await approveCandidate(c.id)
     chrome.tabs.create({ url: `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(email)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}` })
-    advanceReview(drafted)
+    advanceReview()
   })
 
   $('batchReviewSkip')?.addEventListener('click', async () => {
     await skipCandidate(c.id)
-    advanceReview(drafted)
+    advanceReview()
   })
 }
 
-function advanceReview(drafted) {
+function advanceReview() {
   _reviewIndex++
-  renderCurrentReview(drafted)
+  renderCurrentReview()
 }
 
 async function approveCandidate(candidateId) {

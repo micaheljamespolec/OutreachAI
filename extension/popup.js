@@ -11,6 +11,7 @@ let _linkedinUrl = null
 let _isBookmarked = false
 let _isGenerating = false  // double-submission guard
 let _prefillAborted = false  // set to true while batch drawer is open
+let _mainAppListenersBound = false
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const $  = id => document.getElementById(id)
@@ -474,6 +475,13 @@ function setupCustomizeToggle() {
 }
 
 // ── Page prefill strategy ─────────────────────────────────────────────────────
+function sendMessageWithTimeout(tabId, msg, ms = 3000) {
+  return Promise.race([
+    chrome.tabs.sendMessage(tabId, msg),
+    new Promise(resolve => setTimeout(() => resolve(null), ms))
+  ])
+}
+
 async function prefillFromPage() {
   if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
   try {
@@ -486,13 +494,13 @@ async function prefillFromPage() {
 
     let data = null
     try {
-      data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+      data = await sendMessageWithTimeout(tab.id, { type: 'scrape' })
     } catch {
       if (isLinkedInProfile) {
         await new Promise(r => setTimeout(r, 800))
         if (_prefillAborted || $('batchDrawer')?.classList.contains('open')) return
         try {
-          data = await chrome.tabs.sendMessage(tab.id, { type: 'scrape' })
+          data = await sendMessageWithTimeout(tab.id, { type: 'scrape' })
         } catch {}
       }
     }
@@ -929,74 +937,70 @@ async function showMainApp(user) {
 
   await prefillFromPage()
 
-  // ── Generate draft button ──────────────────────────────────────────────────
-  $('generateDraftButton').addEventListener('click', () => generateDraftFlow())
+  if (!_mainAppListenersBound) {
+    _mainAppListenersBound = true
 
-  // Enter in name field triggers generate
-  $('fullNameInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); generateDraftFlow() }
-  })
+    $('generateDraftButton').addEventListener('click', () => generateDraftFlow())
 
-  // Clear button
-  $('clearButton').addEventListener('click', async () => {
-    $('fullNameInput').value = ''
-    $('companyHintInput').value = ''
-    $('userContextInput').value = ''
-    _linkedinUrl = null
-    // Reset pill and collapse customize section
-    updateProfilePill(null)
-    const fields = $('customizeFields'); const toggle = $('customizeToggle')
-    if (fields && toggle) { fields.style.display = 'none'; toggle.textContent = '▸ Customize draft' }
-    resetToIdle()
-    await prefillFromPage()
-  })
-
-  // Retry buttons
-  $('retryButton')?.addEventListener('click', () => generateDraftFlow())
-  $('retryButton2')?.addEventListener('click', () => {
-    showSection('errorBox', false)
-    $('authRecoveryButton').style.display = 'none'
-    generateDraftFlow()
-  })
-
-  // Auth recovery
-  $('authRecoveryButton')?.addEventListener('click', async () => {
-    await signOut()
-    showLoginScreen()
-  })
-
-  // Copy draft
-  $('btnCopyDraft')?.addEventListener('click', () => {
-    const text = $('draftBody').value
-    if (!text) return
-    navigator.clipboard.writeText(text).then(() => {
-      const btn = $('btnCopyDraft')
-      btn.textContent = '✓ Copied'
-      setTimeout(() => { btn.textContent = '📋 Copy draft' }, 2000)
+    $('fullNameInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); generateDraftFlow() }
     })
-  })
 
-  // Settings
-  await setupSettingsTab(user)
-  setupJobTab()
-  setupCandidateSummary()
-
-  $('batchDrawerClose')?.addEventListener('click', () => {
-    _prefillAborted = false
-    prefillFromPage()
-  })
-
-  const campaignsTab = $('campaignsTab')
-  if (campaignsTab) {
-    let _batchModule = null
-    campaignsTab.addEventListener('click', async () => {
-      _prefillAborted = true
-      if (!_batchModule) {
-        _batchModule = await import('./batch.js')
-        _batchModule.initBatch()
-      }
-      _batchModule.openBatchDrawer()
+    $('clearButton').addEventListener('click', async () => {
+      $('fullNameInput').value = ''
+      $('companyHintInput').value = ''
+      $('userContextInput').value = ''
+      _linkedinUrl = null
+      updateProfilePill(null)
+      const fields = $('customizeFields'); const toggle = $('customizeToggle')
+      if (fields && toggle) { fields.style.display = 'none'; toggle.textContent = '▸ Customize draft' }
+      resetToIdle()
+      await prefillFromPage()
     })
+
+    $('retryButton')?.addEventListener('click', () => generateDraftFlow())
+    $('retryButton2')?.addEventListener('click', () => {
+      showSection('errorBox', false)
+      $('authRecoveryButton').style.display = 'none'
+      generateDraftFlow()
+    })
+
+    $('authRecoveryButton')?.addEventListener('click', async () => {
+      await signOut()
+      showLoginScreen()
+    })
+
+    $('btnCopyDraft')?.addEventListener('click', () => {
+      const text = $('draftBody').value
+      if (!text) return
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = $('btnCopyDraft')
+        btn.textContent = '✓ Copied'
+        setTimeout(() => { btn.textContent = '📋 Copy draft' }, 2000)
+      })
+    })
+
+    await setupSettingsTab(user)
+    setupJobTab()
+    setupCandidateSummary()
+
+    $('batchDrawerClose')?.addEventListener('click', () => {
+      _prefillAborted = false
+      prefillFromPage()
+    })
+
+    const campaignsTab = $('campaignsTab')
+    if (campaignsTab) {
+      let _batchModule = null
+      campaignsTab.addEventListener('click', async () => {
+        _prefillAborted = true
+        if (!_batchModule) {
+          _batchModule = await import('./batch.js')
+          _batchModule.initBatch()
+        }
+        _batchModule.openBatchDrawer()
+      })
+    }
   }
 }
 
@@ -1151,16 +1155,13 @@ function setupJobTab() {
     if (preTitle)   $('jobTitle').value   = preTitle
     if (preCompany) $('jobCompany').value = preCompany
 
-    // ── Step 2: Fetch HTML directly — no tabs opened ──────────────────────────
+    // ── Step 2: Fetch HTML via background service worker (MV3 CSP compliant) ──
     try {
-      const controller = new AbortController()
-      const fetchTimer = setTimeout(() => controller.abort(), 20000)
-      const resp = await fetch(url, {
-        signal: controller.signal,
-        headers: { 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' }
-      })
-      clearTimeout(fetchTimer)
-      const html = await resp.text()
+      const response = await new Promise(resolve =>
+        chrome.runtime.sendMessage({ type: 'FETCH_URL', url }, resolve)
+      )
+      if (!response?.ok) throw new Error(response?.error || 'Fetch failed')
+      const html = response.html
       const doc = new DOMParser().parseFromString(html, 'text/html')
 
       // JSON-LD (best source — Google Careers, Greenhouse, Lever, Ashby all include this)
